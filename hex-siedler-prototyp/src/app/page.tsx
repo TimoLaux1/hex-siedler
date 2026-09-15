@@ -140,6 +140,32 @@ function PipDie({ value }: { value: number }) {
   </span>;
 }
 
+type ResourceKind = keyof Resources;
+
+const resourceCards: { key: ResourceKind; label: string }[] = [
+  { key: "wood", label: "Holz" },
+  { key: "brick", label: "Lehm" },
+  { key: "wool", label: "Wolle" },
+  { key: "grain", label: "Getreide" },
+  { key: "ore", label: "Erz" },
+];
+
+function ResourceIcon({ kind }: { kind: ResourceKind }) {
+  if (kind === "wood") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="M6 9h19v14H6z"/><ellipse className="icon-light" cx="25" cy="16" rx="5" ry="7"/><path className="icon-line" d="M25 12v8m-3-4h6M8 12h13M8 20h13"/></svg>;
+  }
+  if (kind === "brick") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><rect className="icon-fill" x="3" y="7" width="12" height="8" rx="2"/><rect className="icon-light" x="17" y="7" width="12" height="8" rx="2"/><rect className="icon-fill" x="10" y="17" width="12" height="8" rx="2"/><path className="icon-line" d="M5 11h8m6 0h8m-7 10h-8"/></svg>;
+  }
+  if (kind === "wool") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><circle className="icon-light" cx="11" cy="14" r="7"/><circle className="icon-light" cx="18" cy="12" r="8"/><circle className="icon-light" cx="23" cy="17" r="7"/><circle className="icon-fill" cx="26" cy="16" r="5"/><path className="icon-line" d="M10 20v5m12-4v4m6-12 2-2"/></svg>;
+  }
+  if (kind === "grain") {
+    return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-line thick" d="M16 28V5M16 12 9 7m7 11 8-6m-8 13-8-6"/><ellipse className="icon-fill" cx="9" cy="7" rx="4" ry="7" transform="rotate(-42 9 7)"/><ellipse className="icon-light" cx="24" cy="12" rx="4" ry="7" transform="rotate(42 24 12)"/><ellipse className="icon-fill" cx="8" cy="19" rx="4" ry="7" transform="rotate(-42 8 19)"/></svg>;
+  }
+  return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="m4 20 5-13 9-3 10 9-4 13H10Z"/><path className="icon-light" d="m9 7 7 8 2-11m-2 11 12-2M16 15l8 11m-8-11-6 11"/><path className="icon-line" d="m4 20 5-13 9-3 10 9-4 13H10Z"/></svg>;
+}
+
 function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; myIndex?: number; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
   const state = room?.state;
   const settlements = state?.settlements ?? [];
@@ -381,11 +407,15 @@ export default function Home() {
           {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
             <div className="resource-wallet">
               <p className="eyebrow">Deine Rohstoffe</p>
-              <div><span>♣ Holz</span><b>{me.resources?.wood ?? 0}</b></div>
-              <div><span>◆ Lehm</span><b>{me.resources?.brick ?? 0}</b></div>
-              <div><span>⌁ Wolle</span><b>{me.resources?.wool ?? 0}</b></div>
-              <div><span>✦ Getreide</span><b>{me.resources?.grain ?? 0}</b></div>
-              <div><span>▲ Erz</span><b>{me.resources?.ore ?? 0}</b></div>
+              <div className="resource-list">
+                {resourceCards.map(({ key, label }) => (
+                  <div className={`resource-card resource-${key}`} key={key}>
+                    <span className="resource-badge"><ResourceIcon kind={key} /></span>
+                    <span className="resource-label">{label}</span>
+                    <b>{me.resources?.[key] ?? 0}</b>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </aside>
