@@ -275,7 +275,7 @@ export default function Home() {
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
           <p className="lobby-kicker">Online-Prototyp · Version 4</p>
-          <h1>Baue Deine Welt.<br />Spielt sie gemeinsam.</h1>
+          <h1>Katan ohne Klaus.<br />Teubi muss draußen bleiben.</h1>
           <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
           <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
