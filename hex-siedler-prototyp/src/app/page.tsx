@@ -4,6 +4,7 @@ import { useState } from "react";
 
 type Resource = "wood" | "brick" | "wool" | "grain" | "ore";
 type ResourceStock = Record<Resource, number>;
+type BuildMode = "road" | "settlement" | null;
 
 const tiles = [
   { type: "Wald", icon: "♣", value: 5, className: "forest", resource: "wood" },
@@ -21,9 +22,12 @@ const players = [
 ] as const;
 
 const initialResources: ResourceStock[] = [
-  { wood: 2, brick: 1, wool: 2, grain: 0, ore: 1 },
-  { wood: 1, brick: 2, wool: 0, grain: 2, ore: 1 },
+  { wood: 2, brick: 1, wool: 2, grain: 1, ore: 1 },
+  { wood: 2, brick: 2, wool: 1, grain: 2, ore: 1 },
 ];
+
+const roadSlots = ["road-a", "road-b", "road-c", "road-d", "road-e", "road-f"];
+const settlementSlots = ["settlement-a", "settlement-b", "settlement-c", "settlement-d", "settlement-e", "settlement-f"];
 
 export default function Home() {
   const [dice, setDice] = useState<[number, number]>([3, 4]);
@@ -31,6 +35,10 @@ export default function Home() {
   const [activePlayer, setActivePlayer] = useState(0);
   const [hasRolled, setHasRolled] = useState(false);
   const [resources, setResources] = useState(initialResources);
+  const [points, setPoints] = useState([2, 2]);
+  const [buildMode, setBuildMode] = useState<BuildMode>(null);
+  const [roads, setRoads] = useState<Record<string, number>>({ "road-a": 0, "road-d": 1 });
+  const [settlements, setSettlements] = useState<Record<string, number>>({ "settlement-a": 0, "settlement-d": 1 });
   const [message, setMessage] = useState("Würfle, um Rohstoffe zu verteilen.");
   const total = dice[0] + dice[1];
 
@@ -70,7 +78,40 @@ export default function Home() {
     if (nextPlayer === 0) setRound((current) => current + 1);
     setActivePlayer(nextPlayer);
     setHasRolled(false);
+    setBuildMode(null);
     setMessage(`${players[nextPlayer].name} ist jetzt am Zug.`);
+  }
+
+  function canAfford(cost: Partial<ResourceStock>) {
+    return Object.entries(cost).every(([resource, amount]) => resources[activePlayer][resource as Resource] >= amount);
+  }
+
+  function pay(cost: Partial<ResourceStock>) {
+    setResources((current) => current.map((stock, index) => {
+      if (index !== activePlayer) return stock;
+      const next = { ...stock };
+      Object.entries(cost).forEach(([resource, amount]) => {
+        next[resource as Resource] -= amount;
+      });
+      return next;
+    }));
+  }
+
+  function buildRoad(slot: string) {
+    if (roads[slot] !== undefined || !canAfford({ wood: 1, brick: 1 })) return;
+    pay({ wood: 1, brick: 1 });
+    setRoads((current) => ({ ...current, [slot]: activePlayer }));
+    setBuildMode(null);
+    setMessage(`${players[activePlayer].name} hat eine Straße gebaut.`);
+  }
+
+  function buildSettlement(slot: string) {
+    if (settlements[slot] !== undefined || !canAfford({ wood: 1, brick: 1, wool: 1, grain: 1 })) return;
+    pay({ wood: 1, brick: 1, wool: 1, grain: 1 });
+    setSettlements((current) => ({ ...current, [slot]: activePlayer }));
+    setPoints((current) => current.map((value, index) => index === activePlayer ? value + 1 : value));
+    setBuildMode(null);
+    setMessage(`${players[activePlayer].name} hat eine Siedlung gebaut und erhält 1 Siegpunkt.`);
   }
 
   return (
@@ -91,7 +132,7 @@ export default function Home() {
             <div className={`player ${activePlayer === index ? "active-player" : ""}`} key={player.name}>
               <span className={`avatar avatar-${player.color}`}>{player.initial}</span>
               <span><strong>{player.name}</strong><small>{activePlayer === index ? "Ist am Zug" : "Wartet"}</small></span>
-              <b>2 VP</b>
+              <b>{points[index]} VP</b>
             </div>
           ))}
           <div className="objective">
@@ -110,10 +151,22 @@ export default function Home() {
                   <span className="number-token">{tile.value}</span>
                 </button>
               ))}
-              <span className="settlement settlement-one">◆</span>
-              <span className="settlement settlement-two">◆</span>
-              <span className="road road-one" />
-              <span className="road road-two" />
+              {settlementSlots.map((slot) => (
+                <button
+                  key={slot}
+                  className={`build-slot settlement-slot ${slot} ${settlements[slot] !== undefined ? `built player-${settlements[slot]}` : ""} ${buildMode === "settlement" ? "available" : ""}`}
+                  onClick={() => buildSettlement(slot)}
+                  aria-label="Siedlungsplatz"
+                >{settlements[slot] !== undefined ? "◆" : "+"}</button>
+              ))}
+              {roadSlots.map((slot) => (
+                <button
+                  key={slot}
+                  className={`build-slot road-slot ${slot} ${roads[slot] !== undefined ? `built player-${roads[slot]}` : ""} ${buildMode === "road" ? "available" : ""}`}
+                  onClick={() => buildRoad(slot)}
+                  aria-label="Straßenplatz"
+                />
+              ))}
             </div>
           </div>
           <p className="board-hint">Wähle später Ecken und Wege direkt auf dem Spielfeld.</p>
@@ -133,9 +186,17 @@ export default function Home() {
           )}
           <p className="roll-message" aria-live="polite">{message}</p>
           <div className="divider"><span>danach</span></div>
-          <button className="secondary-button" disabled>Straße bauen</button>
-          <button className="secondary-button" disabled>Siedlung bauen</button>
-          <p className="helper">Bauaktionen schalten wir im nächsten Schritt frei.</p>
+          <button
+            className={`secondary-button ${buildMode === "road" ? "selected" : ""}`}
+            disabled={!hasRolled || !canAfford({ wood: 1, brick: 1 })}
+            onClick={() => setBuildMode("road")}
+          >Straße bauen</button>
+          <button
+            className={`secondary-button ${buildMode === "settlement" ? "selected" : ""}`}
+            disabled={!hasRolled || !canAfford({ wood: 1, brick: 1, wool: 1, grain: 1 })}
+            onClick={() => setBuildMode("settlement")}
+          >Siedlung bauen</button>
+          <p className="helper">Straße: Holz + Lehm<br />Siedlung: Holz + Lehm + Wolle + Getreide</p>
         </aside>
       </section>
 
