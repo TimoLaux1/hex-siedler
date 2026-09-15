@@ -3,10 +3,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Player = { user_id: string; player_name: string; player_index: number; color: string };
+type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
+type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number };
 type Settlement = { vertex: number; player: number };
 type Road = { edge: number; a: number; b: number; player: number };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; settlements?: Settlement[]; roads?: Road[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; version?: number };
 
 const terrain = [
@@ -132,6 +133,8 @@ export default function Home() {
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
+  const activePlayer = players.find((player) => player.player_index === room?.state?.active_player);
+  const isMyTurn = me?.player_index === room?.state?.active_player;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
 
   useEffect(() => {
@@ -246,6 +249,22 @@ export default function Home() {
     if (placementError) setError(placementError.message); else setRoom(normalizedRoom(data));
   }
 
+  async function rollDice() {
+    if (!supabase || !room || !isMyTurn) return;
+    setBusy(true); setError("");
+    const { data, error: rollError } = await supabase.rpc("roll_turn_dice", { p_game_id: room.id });
+    if (rollError) setError(rollError.message); else setRoom(normalizedRoom(data));
+    setBusy(false);
+  }
+
+  async function endTurn() {
+    if (!supabase || !room || !isMyTurn) return;
+    setBusy(true); setError("");
+    const { data, error: turnError } = await supabase.rpc("end_player_turn", { p_game_id: room.id });
+    if (turnError) setError(turnError.message); else setRoom(normalizedRoom(data));
+    setBusy(false);
+  }
+
   async function copyInvite() {
     await navigator.clipboard.writeText(shareUrl);
   }
@@ -257,7 +276,6 @@ export default function Home() {
           <div className="lobby-brand"><span>⬡</span> HEXLANDE</div>
           <p className="lobby-kicker">Online-Prototyp · Version 4</p>
           <h1>Baue Deine Welt.<br />Spielt sie gemeinsam.</h1>
-          <p className="lobby-copy">Erstelle einen privaten Spielraum oder tritt mit einem sechsstelligen Code bei.</p>
           <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
           <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
@@ -287,10 +305,20 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{player.player_index + 1}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : `${player.victory_points ?? 2} VP`}</small>
             </div>
           ))}
           {Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
+          {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
+            <div className="resource-wallet">
+              <p className="eyebrow">Deine Rohstoffe</p>
+              <div><span>♣ Holz</span><b>{me.resources?.wood ?? 0}</b></div>
+              <div><span>◆ Lehm</span><b>{me.resources?.brick ?? 0}</b></div>
+              <div><span>⌁ Wolle</span><b>{me.resources?.wool ?? 0}</b></div>
+              <div><span>✦ Getreide</span><b>{me.resources?.grain ?? 0}</b></div>
+              <div><span>▲ Erz</span><b>{me.resources?.ore ?? 0}</b></div>
+            </div>
+          )}
         </aside>
         <section className="online-board-area">
           <FullBoard room={room} myIndex={me?.player_index} onVertex={placeSettlement} onEdge={placeRoad} />
@@ -308,7 +336,19 @@ export default function Home() {
               {error && <span className="setup-error">{error}</span>}
             </div>
           ) : (
-            <div className="waiting-card playing"><strong>Startaufstellung abgeschlossen</strong><span>Der ausgeloste Startspieler beginnt den ersten Zug.</span></div>
+            <div className="turn-card">
+              <div className="turn-heading">
+                <span>Runde {room.state?.round ?? 1}</span>
+                <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
+              </div>
+              {room.state?.dice ? (
+                <div className="online-dice"><i>{room.state.dice[0]}</i><i>{room.state.dice[1]}</i><b>= {room.state.dice[0] + room.state.dice[1]}</b></div>
+              ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
+              {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
+              {room.state?.phase === "build" && <><span className="turn-note">Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen.</span><div className="build-actions"><button disabled>Straße bauen</button><button disabled>Siedlung bauen</button></div><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug beenden</button></>}
+              {room.state?.phase === "robber" && <><span className="turn-note">Eine 7 wurde gewürfelt. Die interaktive Räuberwahl folgt als nächster Schritt.</span><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug fortsetzen</button></>}
+              {error && <span className="setup-error">{error}</span>}
+            </div>
           )}
         </section>
       </section>
