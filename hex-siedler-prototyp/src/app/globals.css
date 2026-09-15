@@ -92,9 +92,19 @@ button, a { font: inherit; }
 .full-board { position: relative; width: 610px; height: 544px; filter: drop-shadow(0 20px 28px rgba(26,72,73,.22)); }
 .board-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .svg-tile polygon:first-of-type { stroke: #f7f2e7; stroke-width: 1.25; stroke-linejoin: round; }
-.svg-tile .tile-inset { fill: none; stroke: rgba(255,255,255,.24); stroke-width: 5; transform: scale(.965); transform-box: fill-box; transform-origin: center; pointer-events: none; }
-.svg-symbol { fill: rgba(255,255,255,.42); font-size: 27px; font-weight: 800; text-anchor: middle; }
-.svg-name { fill: rgba(255,255,255,.82); font-size: 8px; font-weight: 900; letter-spacing: 1px; text-anchor: middle; text-transform: uppercase; text-shadow: 0 1px 2px #0008; }
+.svg-tile .tile-inset { fill: none; stroke: rgba(255,255,255,.28); stroke-width: 5; transform: scale(.965); transform-box: fill-box; transform-origin: center; pointer-events: none; }
+.terrain-art { pointer-events: none; }
+.terrain-art .terrain-back { fill: rgba(24,43,34,.2); }
+.terrain-art .terrain-front { fill: rgba(255,255,255,.13); }
+.terrain-art .terrain-highlight { fill: rgba(255,255,255,.48); }
+.mountain-art .ore-cluster { fill: #d9e5df; stroke: rgba(42,58,55,.55); stroke-width: 1.5; }
+.meadow-art .terrain-back { fill: rgba(231,244,184,.2); }.meadow-art .terrain-front { fill: rgba(42,92,47,.18); }
+.meadow-art .sheep { fill: #f7f1d8; stroke: rgba(45,73,48,.45); stroke-width: 1.4; }.meadow-art .sheep-head { fill: #405e45; }.meadow-art .grass-strokes { fill: none; stroke: rgba(238,246,198,.7); stroke-width: 2; stroke-linecap: round; }
+.forest-art .terrain-back { fill: rgba(13,52,35,.35); }.forest-art .tree { fill: #163f2e; }.forest-art .tree-light { fill: #67906c; }.forest-art .wood-log { fill: #b97745; stroke: rgba(50,37,24,.5); stroke-width: 1.2; }
+.field-art .terrain-back { fill: rgba(121,77,12,.18); }.field-art .wheat { fill: rgba(255,235,145,.78); stroke: rgba(255,238,158,.86); stroke-width: 1.8; stroke-linecap: round; }.field-art .field-lines { fill: none; stroke: rgba(109,72,15,.24); stroke-width: 2.2; }
+.clay-art .terrain-back { fill: rgba(80,35,23,.24); }.clay-art .clay-strata,.clay-art .clay-cracks { fill: none; stroke: rgba(91,41,29,.36); stroke-width: 2; stroke-linecap: round; }.clay-art .bricks { fill: #e39a70; stroke: rgba(83,38,27,.45); stroke-width: 1.2; }
+.desert-art .terrain-back { fill: rgba(141,113,57,.2); }.desert-art .terrain-front { fill: rgba(255,239,176,.18); }.desert-art .desert-sun { fill: rgba(255,239,167,.72); }.desert-art .desert-wind { fill: none; stroke: rgba(255,244,204,.52); stroke-width: 2; stroke-linecap: round; }
+.svg-name { fill: rgba(255,255,255,.94); font-size: 8px; font-weight: 950; letter-spacing: 1px; text-anchor: middle; text-transform: uppercase; paint-order: stroke; stroke: rgba(30,39,34,.28); stroke-width: 2px; }
 .svg-token circle { fill: #fff8e7; stroke: rgba(255,255,255,.85); stroke-width: 2; filter: drop-shadow(0 3px 3px #19241f66); }
 .svg-token text { fill: #413d34; font-size: 14px; font-weight: 900; text-anchor: middle; }
 .svg-token.hot text { fill: #b43b28; }

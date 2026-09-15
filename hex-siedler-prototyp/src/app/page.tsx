@@ -71,6 +71,53 @@ function createBoardTopology() {
 
 const topology = createBoardTopology();
 
+function TerrainArtwork({ type, x, y }: { type: string; x: number; y: number }) {
+  if (type === "mountain") {
+    return <g className="terrain-art mountain-art" transform={`translate(${x} ${y})`}>
+      <path className="terrain-back" d="M-54 25-19-37 8 9 27-25 57 27Z" />
+      <path className="terrain-front" d="M-41 28-4-27 17 4 34-18 57 28Z" />
+      <path className="terrain-highlight" d="m-19-37-9 17 10-5 8 9 9-3Zm46 12-8 13 8-4 7 8 5-3Z" />
+      <g className="ore-cluster" transform="translate(-43 -16)"><path d="m0 10 7-12 10 5 1 13-12 5Z"/><path d="m7-2-1 13 12 5"/></g>
+    </g>;
+  }
+  if (type === "meadow") {
+    return <g className="terrain-art meadow-art" transform={`translate(${x} ${y})`}>
+      <path className="terrain-back" d="M-61 15Q-31-16 2 9Q31-20 62 4V39H-61Z" />
+      <path className="terrain-front" d="M-62 29Q-25 2 8 27Q35 5 62 18V43H-62Z" />
+      <g className="sheep" transform="translate(-39 -24)"><circle cx="7" cy="5" r="7"/><circle cx="15" cy="4" r="8"/><circle cx="23" cy="7" r="7"/><circle cx="28" cy="10" r="5"/><circle className="sheep-head" cx="32" cy="9" r="5"/><path d="M10 11v7m14-6v7"/></g>
+      <path className="grass-strokes" d="m24-25 3-8 2 8 5-7m10 34 3-9 3 8 5-7M-21 24l3-8 3 8 5-7" />
+    </g>;
+  }
+  if (type === "forest") {
+    return <g className="terrain-art forest-art" transform={`translate(${x} ${y})`}>
+      <path className="terrain-back" d="M-62 26Q-25 5 4 23Q36 0 63 21V43H-62Z" />
+      {[-40, -18, 8, 33].map((treeX, index) => <g className={index % 2 ? "tree tree-light" : "tree"} key={treeX} transform={`translate(${treeX} ${index % 2 ? -14 : -5})`}><path d="m0-27-15 21h8l-12 17h15v14h8V11h15L7-6h8Z"/></g>)}
+      <g className="wood-log" transform="translate(-48 -33)"><path d="M0 4h25v10H0z"/><ellipse cx="25" cy="9" rx="5" ry="5"/><path d="M25 6v6m-3-3h6"/></g>
+    </g>;
+  }
+  if (type === "field") {
+    return <g className="terrain-art field-art" transform={`translate(${x} ${y})`}>
+      <path className="terrain-back" d="M-62 7Q-25-5 8 8Q35 17 62 3V43H-62Z" />
+      {[-42, -24, -6, 12, 30, 48].map((stalkX, index) => <g className="wheat" key={stalkX} transform={`translate(${stalkX} ${index % 2 ? 5 : -2})`}><path d="M0 31V-20M0-9l-8-8m8 14 8-9M0 5l-8-8m8 18 8-9"/><ellipse cx="-8" cy="-17" rx="3" ry="7"/><ellipse cx="8" cy="-12" rx="3" ry="7"/></g>)}
+      <path className="field-lines" d="M-59 28Q-20 10 15 28Q40 38 61 22M-57 38Q-21 20 12 37" />
+    </g>;
+  }
+  if (type === "clay") {
+    return <g className="terrain-art clay-art" transform={`translate(${x} ${y})`}>
+      <path className="terrain-back" d="M-62 2Q-28-15 2 3Q32 20 62-2V43H-62Z" />
+      <path className="clay-strata" d="M-60 18Q-28 2 1 17Q32 32 61 12M-59 33Q-24 18 9 34" />
+      <g className="bricks" transform="translate(-47 -33)"><rect width="22" height="11" rx="2"/><rect x="24" width="22" height="11" rx="2"/><rect x="11" y="13" width="22" height="11" rx="2"/></g>
+      <path className="clay-cracks" d="m34-21-8 9 7 8-10 10m-42-17 6 8-8 7" />
+    </g>;
+  }
+  return <g className="terrain-art desert-art" transform={`translate(${x} ${y})`}>
+    <circle className="desert-sun" cx="-38" cy="-27" r="9" />
+    <path className="terrain-back" d="M-63 8Q-30-17 3 7Q35 28 64-1V43H-63Z" />
+    <path className="terrain-front" d="M-63 29Q-25 3 9 28Q37 45 64 20V44H-63Z" />
+    <path className="desert-wind" d="M17-28q16-7 30 0M29-18q12-5 23 1" />
+  </g>;
+}
+
 function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; myIndex?: number; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
   const state = room?.state;
   const settlements = state?.settlements ?? [];
@@ -92,7 +139,7 @@ function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; my
           <linearGradient id="desert-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#dac997"/><stop offset="1" stopColor="#aa945d"/></linearGradient>
         </defs>
         {tileCenters.map(({ x, y }, index) => {
-          const [name, className, icon, number] = terrain[index];
+          const [name, className, , number] = terrain[index];
           const points = Array.from({ length: 6 }, (_, corner) => {
             const angle = (-90 + corner * 60) * Math.PI / 180;
             return `${x + hexRadius * Math.cos(angle)},${y + hexRadius * Math.sin(angle)}`;
@@ -100,7 +147,7 @@ function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; my
           return <g key={`${name}-${index}`} className={`svg-tile ${className}`}>
             <polygon points={points} fill={`url(#${className}-fill)`} />
             <polygon className="tile-inset" points={points} />
-            <text className="svg-symbol" x={x - 27} y={y - 13}>{icon}</text>
+            <TerrainArtwork type={className} x={x} y={y} />
             <text className="svg-name" x={x} y={y + 37}>{name}</text>
             {number > 0 && <g className={`svg-token ${number === 6 || number === 8 ? "hot" : ""}`}><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{number}</text></g>}
           </g>;
