@@ -118,6 +118,28 @@ function TerrainArtwork({ type, x, y }: { type: string; x: number; y: number }) 
   </g>;
 }
 
+const diePips: Record<number, number[]> = {
+  1: [5],
+  2: [1, 9],
+  3: [1, 5, 9],
+  4: [1, 3, 7, 9],
+  5: [1, 3, 5, 7, 9],
+  6: [1, 3, 4, 6, 7, 9],
+};
+
+function PipDie({ value }: { value: number }) {
+  const visiblePips = diePips[value] ?? [];
+  return <span className="pip-die" role="img" aria-label={`Würfel zeigt ${value}`}>
+    {Array.from({ length: 9 }, (_, index) => (
+      <span
+        aria-hidden="true"
+        className={`pip ${visiblePips.includes(index + 1) ? "visible" : ""}`}
+        key={index}
+      />
+    ))}
+  </span>;
+}
+
 function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; myIndex?: number; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
   const state = room?.state;
   const settlements = state?.settlements ?? [];
@@ -389,7 +411,7 @@ export default function Home() {
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
               </div>
               {room.state?.dice ? (
-                <div className="online-dice"><i>{room.state.dice[0]}</i><i>{room.state.dice[1]}</i><b>= {room.state.dice[0] + room.state.dice[1]}</b></div>
+                <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /><b>= {room.state.dice[0] + room.state.dice[1]}</b></div>
               ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
               {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <><span className="turn-note">Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen.</span><div className="build-actions"><button disabled>Straße bauen</button><button disabled>Siedlung bauen</button></div><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug beenden</button></>}
