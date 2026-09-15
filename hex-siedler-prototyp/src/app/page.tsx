@@ -273,7 +273,7 @@ export default function Home() {
     return (
       <main className="lobby-shell">
         <section className="lobby-card">
-          <div className="lobby-brand"><span>⬡</span> HEXLANDE</div>
+          <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
           <p className="lobby-kicker">Online-Prototyp · Version 4</p>
           <h1>Baue Deine Welt.<br />Spielt sie gemeinsam.</h1>
           <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
@@ -294,7 +294,7 @@ export default function Home() {
   return (
     <main className="online-shell">
       <header className="online-topbar">
-        <div className="brand"><span className="brand-mark">⬡</span> HEXLANDE</div>
+        <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className="room-code">Raum <strong>{room.join_code}</strong></div>
         <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
       </header>

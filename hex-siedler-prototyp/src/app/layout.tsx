@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hexlande – Strategiespiel",
+  title: "New Katan – Strategiespiel",
   description: "Ein eigenständiger Prototyp für ein webbasiertes Hex-Strategiespiel.",
 };
 
