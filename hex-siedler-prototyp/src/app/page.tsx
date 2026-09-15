@@ -72,7 +72,11 @@ export default function Home() {
     const client = supabase;
     if (!roomId || !client) return;
     const loadPlayers = async () => {
-      const { data } = await client.from("game_players").select("*").eq("game_id", roomId).order("player_index");
+      const { data, error: playersError } = await client.rpc("get_game_players", { p_game_id: roomId });
+      if (playersError) {
+        setError(playersError.message);
+        return;
+      }
       setPlayers((data as Player[]) ?? []);
     };
     loadPlayers();
