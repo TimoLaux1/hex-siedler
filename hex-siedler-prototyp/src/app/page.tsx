@@ -163,12 +163,24 @@ export default function Home() {
       }
       setPlayers((data as Player[]) ?? []);
     };
+    const loadRoom = async () => {
+      const { data } = await client.rpc("get_game_room", { p_game_id: roomId });
+      const freshRoom = Array.isArray(data) ? data[0] : data;
+      if (freshRoom) setRoom(freshRoom as Room);
+    };
     loadPlayers();
+    const refreshTimer = window.setInterval(() => {
+      void loadPlayers();
+      void loadRoom();
+    }, 2000);
     const channel = client.channel(`room-${roomId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_players", filter: `game_id=eq.${roomId}` }, loadPlayers)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${roomId}` }, (payload) => setRoom(payload.new as Room))
       .subscribe();
-    return () => { client.removeChannel(channel); };
+    return () => {
+      window.clearInterval(refreshTimer);
+      client.removeChannel(channel);
+    };
   }, [roomId]);
 
   async function createRoom(event: FormEvent) {
