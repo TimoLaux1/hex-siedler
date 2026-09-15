@@ -192,10 +192,19 @@ export default function Home() {
     const { data, error: rpcError } = await supabase.rpc("join_game_room", { p_join_code: code.toUpperCase(), p_player_name: name.trim() });
     if (rpcError) setError(rpcError.message);
     else {
-      const result = data[0];
-      const { data: game } = await supabase.from("games").select("*").eq("id", result.game_id).single();
-      setRoom(game as Room);
-      window.history.replaceState({}, "", `?room=${code.toUpperCase()}`);
+      const result = data?.[0];
+      if (!result?.game_id) {
+        setError("Der Beitritt wurde nicht bestätigt. Bitte versuche es erneut.");
+      } else {
+        const { data: gameData, error: gameError } = await supabase.rpc("get_game_room", { p_game_id: result.game_id });
+        const game = Array.isArray(gameData) ? gameData[0] : gameData;
+        if (gameError) setError(gameError.message);
+        else if (!game) setError("Der Spielraum konnte nach dem Beitritt nicht geladen werden.");
+        else {
+          setRoom(game as Room);
+          window.history.replaceState({}, "", `?room=${code.toUpperCase()}`);
+        }
+      }
     }
     setBusy(false);
   }
