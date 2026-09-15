@@ -1,211 +1,180 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-type Resource = "wood" | "brick" | "wool" | "grain" | "ore";
-type ResourceStock = Record<Resource, number>;
-type BuildMode = "road" | "settlement" | null;
+type Player = { user_id: string; player_name: string; player_index: number; color: string };
+type Room = { id: string; join_code: string; status: string; created_by: string };
 
-const tiles = [
-  { type: "Wald", icon: "♣", value: 5, className: "forest", resource: "wood" },
-  { type: "Lehm", icon: "◆", value: 2, className: "clay", resource: "brick" },
-  { type: "Feld", icon: "✦", value: 6, className: "field", resource: "grain" },
-  { type: "Weide", icon: "⌁", value: 3, className: "meadow", resource: "wool" },
-  { type: "Gebirge", icon: "▲", value: 8, className: "mountain", resource: "ore" },
-  { type: "Wald", icon: "♣", value: 10, className: "forest", resource: "wood" },
-  { type: "Feld", icon: "✦", value: 9, className: "field", resource: "grain" },
-];
-
-const players = [
-  { name: "Timo", initial: "T", color: "blue", numbers: [3, 8] as number[] },
-  { name: "Klara", initial: "K", color: "coral", numbers: [6, 10] as number[] },
+const terrain = [
+  ["Gebirge", "mountain", "▲", 10], ["Weide", "meadow", "⌁", 2], ["Wald", "forest", "♣", 9],
+  ["Feld", "field", "✦", 12], ["Lehm", "clay", "◆", 6], ["Weide", "meadow", "⌁", 4], ["Lehm", "clay", "◆", 10],
+  ["Wald", "forest", "♣", 9], ["Gebirge", "mountain", "▲", 11], ["Wüste", "desert", "●", 0], ["Wald", "forest", "♣", 3], ["Feld", "field", "✦", 8],
+  ["Wald", "forest", "♣", 8], ["Feld", "field", "✦", 3], ["Weide", "meadow", "⌁", 4], ["Gebirge", "mountain", "▲", 5],
+  ["Feld", "field", "✦", 5], ["Weide", "meadow", "⌁", 6], ["Lehm", "clay", "◆", 11],
 ] as const;
 
-const initialResources: ResourceStock[] = [
-  { wood: 2, brick: 1, wool: 2, grain: 1, ore: 1 },
-  { wood: 2, brick: 2, wool: 1, grain: 2, ore: 1 },
-];
+const rows = [3, 4, 5, 4, 3];
+const colors = ["#287c91", "#db7558", "#d5a137", "#6f8652"];
 
-const roadSlots = ["road-a", "road-b", "road-c", "road-d", "road-e", "road-f"];
-const settlementSlots = ["settlement-a", "settlement-b", "settlement-c", "settlement-d", "settlement-e", "settlement-f"];
+function FullBoard() {
+  let tileIndex = 0;
+  return (
+    <div className="full-board" aria-label="Spielfeld mit 19 Landschaftsfeldern">
+      {rows.map((count, row) => (
+        <div className="hex-row" key={row}>
+          {Array.from({ length: count }).map(() => {
+            const [name, className, icon, number] = terrain[tileIndex++];
+            return (
+              <button className={`full-hex ${className}`} key={`${name}-${tileIndex}`} title={name}>
+                <span>{icon}</span>
+                {number > 0 && <b className={number === 6 || number === 8 ? "hot-number" : ""}>{number}</b>}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
-  const [dice, setDice] = useState<[number, number]>([3, 4]);
-  const [round, setRound] = useState(1);
-  const [activePlayer, setActivePlayer] = useState(0);
-  const [hasRolled, setHasRolled] = useState(false);
-  const [resources, setResources] = useState(initialResources);
-  const [points, setPoints] = useState([2, 2]);
-  const [buildMode, setBuildMode] = useState<BuildMode>(null);
-  const [roads, setRoads] = useState<Record<string, number>>({ "road-a": 0, "road-d": 1 });
-  const [settlements, setSettlements] = useState<Record<string, number>>({ "settlement-a": 0, "settlement-d": 1 });
-  const [message, setMessage] = useState("Würfle, um Rohstoffe zu verteilen.");
-  const total = dice[0] + dice[1];
+  const [name, setName] = useState("");
+  const [code, setCode] = useState(() => typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase());
+  const [userId, setUserId] = useState("");
+  const [room, setRoom] = useState<Room | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
 
-  function rollDice() {
-    const nextDice: [number, number] = [
-      Math.floor(Math.random() * 6) + 1,
-      Math.floor(Math.random() * 6) + 1,
-    ];
-    const nextTotal = nextDice[0] + nextDice[1];
-    setDice(nextDice);
-    setHasRolled(true);
+  const isHost = room?.created_by === userId;
+  const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
 
-    const matchingTile = tiles.find((tile) => tile.value === nextTotal);
-    if (!matchingTile) {
-      setMessage(`Bei ${nextTotal} erhält niemand einen Rohstoff.`);
+  useEffect(() => {
+    const client = supabase;
+    if (!client) {
       return;
     }
+    client.auth.getSession().then(async ({ data }) => {
+      if (data.session?.user.id) {
+        setUserId(data.session.user.id);
+        return;
+      }
+      const { data: authData, error: authError } = await client.auth.signInAnonymously();
+      if (authError) setError(authError.message);
+      else setUserId(authData.user?.id ?? "");
+    });
+  }, []);
 
-    const winners = players
-      .map((player, index) => ({ player, index }))
-      .filter(({ player }) => player.numbers.includes(nextTotal));
+  const roomId = room?.id;
 
-    if (winners.length === 0) {
-      setMessage(`Die ${nextTotal} wurde gewürfelt, aber dort steht noch keine Siedlung.`);
-      return;
+  useEffect(() => {
+    const client = supabase;
+    if (!roomId || !client) return;
+    const loadPlayers = async () => {
+      const { data } = await client.from("game_players").select("*").eq("game_id", roomId).order("player_index");
+      setPlayers((data as Player[]) ?? []);
+    };
+    loadPlayers();
+    const channel = client.channel(`room-${roomId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "game_players", filter: `game_id=eq.${roomId}` }, loadPlayers)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${roomId}` }, (payload) => setRoom(payload.new as Room))
+      .subscribe();
+    return () => { client.removeChannel(channel); };
+  }, [roomId]);
+
+  async function createRoom(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || !name.trim()) return;
+    setBusy(true); setError("");
+    const { data, error: rpcError } = await supabase.rpc("create_game_room", { p_player_name: name.trim() });
+    if (rpcError) setError(rpcError.message);
+    else {
+      const result = data[0];
+      setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId });
+      window.history.replaceState({}, "", `?room=${result.join_code}`);
     }
-
-    setResources((current) => current.map((stock, index) => {
-      if (!winners.some((winner) => winner.index === index)) return stock;
-      return { ...stock, [matchingTile.resource]: stock[matchingTile.resource as Resource] + 1 };
-    }));
-    setMessage(`${winners.map(({ player }) => player.name).join(" und ")} erhält ${matchingTile.type}.`);
+    setBusy(false);
   }
 
-  function endTurn() {
-    const nextPlayer = activePlayer === 0 ? 1 : 0;
-    if (nextPlayer === 0) setRound((current) => current + 1);
-    setActivePlayer(nextPlayer);
-    setHasRolled(false);
-    setBuildMode(null);
-    setMessage(`${players[nextPlayer].name} ist jetzt am Zug.`);
+  async function joinRoom(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || !name.trim() || code.length !== 6) return;
+    setBusy(true); setError("");
+    const { data, error: rpcError } = await supabase.rpc("join_game_room", { p_join_code: code.toUpperCase(), p_player_name: name.trim() });
+    if (rpcError) setError(rpcError.message);
+    else {
+      const result = data[0];
+      const { data: game } = await supabase.from("games").select("*").eq("id", result.game_id).single();
+      setRoom(game as Room);
+      window.history.replaceState({}, "", `?room=${code.toUpperCase()}`);
+    }
+    setBusy(false);
   }
 
-  function canAfford(cost: Partial<ResourceStock>) {
-    return Object.entries(cost).every(([resource, amount]) => resources[activePlayer][resource as Resource] >= amount);
+  async function startGame() {
+    if (!supabase || !room || players.length < 2) return;
+    await supabase.from("games").update({ status: "playing", version: 2 }).eq("id", room.id);
   }
 
-  function pay(cost: Partial<ResourceStock>) {
-    setResources((current) => current.map((stock, index) => {
-      if (index !== activePlayer) return stock;
-      const next = { ...stock };
-      Object.entries(cost).forEach(([resource, amount]) => {
-        next[resource as Resource] -= amount;
-      });
-      return next;
-    }));
+  async function copyInvite() {
+    await navigator.clipboard.writeText(shareUrl);
   }
 
-  function buildRoad(slot: string) {
-    if (roads[slot] !== undefined || !canAfford({ wood: 1, brick: 1 })) return;
-    pay({ wood: 1, brick: 1 });
-    setRoads((current) => ({ ...current, [slot]: activePlayer }));
-    setBuildMode(null);
-    setMessage(`${players[activePlayer].name} hat eine Straße gebaut.`);
-  }
-
-  function buildSettlement(slot: string) {
-    if (settlements[slot] !== undefined || !canAfford({ wood: 1, brick: 1, wool: 1, grain: 1 })) return;
-    pay({ wood: 1, brick: 1, wool: 1, grain: 1 });
-    setSettlements((current) => ({ ...current, [slot]: activePlayer }));
-    setPoints((current) => current.map((value, index) => index === activePlayer ? value + 1 : value));
-    setBuildMode(null);
-    setMessage(`${players[activePlayer].name} hat eine Siedlung gebaut und erhält 1 Siegpunkt.`);
+  if (!room) {
+    return (
+      <main className="lobby-shell">
+        <section className="lobby-card">
+          <div className="lobby-brand"><span>⬡</span> HEXLANDE</div>
+          <p className="lobby-kicker">Online-Prototyp · Version 4</p>
+          <h1>Baue Deine Welt.<br />Spielt sie gemeinsam.</h1>
+          <p className="lobby-copy">Erstelle einen privaten Spielraum oder tritt mit einem sechsstelligen Code bei.</p>
+          <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
+          <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
+          <div className="lobby-divider"><span>oder beitreten</span></div>
+          <form className="join-form" onSubmit={joinRoom}>
+            <input value={code} onChange={(event) => setCode(event.target.value.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase())} placeholder="SPIELCODE" />
+            <button disabled={busy || !name.trim() || code.length !== 6}>Beitreten</button>
+          </form>
+          {error && <p className="lobby-error">{error}</p>}
+          <small>Keine Registrierung nötig. Räume sind nur für eingeladene Testspieler gedacht.</small>
+        </section>
+        <div className="lobby-board"><FullBoard /></div>
+      </main>
+    );
   }
 
   return (
-    <main className="game-shell">
-      <header className="topbar">
-        <a className="brand" href="#" aria-label="Hexlande Startseite">
-          <span className="brand-mark">⬡</span>
-          <span>HEXLANDE</span>
-        </a>
-        <div className="turn-label">Runde {round} · {players[activePlayer].name} ist am Zug</div>
-        <button className="icon-button" aria-label="Einstellungen">⚙</button>
+    <main className="online-shell">
+      <header className="online-topbar">
+        <div className="brand"><span className="brand-mark">⬡</span> HEXLANDE</div>
+        <div className="room-code">Raum <strong>{room.join_code}</strong></div>
+        <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
       </header>
-
-      <section className="game-grid">
-        <aside className="player-panel card">
-          <p className="eyebrow">Spieler</p>
-          {players.map((player, index) => (
-            <div className={`player ${activePlayer === index ? "active-player" : ""}`} key={player.name}>
-              <span className={`avatar avatar-${player.color}`}>{player.initial}</span>
-              <span><strong>{player.name}</strong><small>{activePlayer === index ? "Ist am Zug" : "Wartet"}</small></span>
-              <b>{points[index]} VP</b>
+      <section className="online-layout">
+        <aside className="room-panel card">
+          <p className="eyebrow">Spieler · {players.length}/4</p>
+          {players.map((player) => (
+            <div className="room-player" key={player.user_id}>
+              <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
+              <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
+              <small>{player.player_index + 1}</small>
             </div>
           ))}
-          <div className="objective">
-            <span>Dein Ziel</span>
-            <strong>10 Siegpunkte</strong>
-            <div className="progress"><i /></div>
-          </div>
+          {Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
         </aside>
-
-        <section className="board-wrap" aria-label="Spielfeld">
-          <div className="sea-ring">
-            <div className="hex-board">
-              {tiles.map((tile, index) => (
-                <button className={`hex-tile hex-${index + 1} ${tile.className}`} key={`${tile.type}-${index}`} title={tile.type}>
-                  <span className="tile-icon">{tile.icon}</span>
-                  <span className="number-token">{tile.value}</span>
-                </button>
-              ))}
-              {settlementSlots.map((slot) => (
-                <button
-                  key={slot}
-                  className={`build-slot settlement-slot ${slot} ${settlements[slot] !== undefined ? `built player-${settlements[slot]}` : ""} ${buildMode === "settlement" ? "available" : ""}`}
-                  onClick={() => buildSettlement(slot)}
-                  aria-label="Siedlungsplatz"
-                >{settlements[slot] !== undefined ? "◆" : "+"}</button>
-              ))}
-              {roadSlots.map((slot) => (
-                <button
-                  key={slot}
-                  className={`build-slot road-slot ${slot} ${roads[slot] !== undefined ? `built player-${roads[slot]}` : ""} ${buildMode === "road" ? "available" : ""}`}
-                  onClick={() => buildRoad(slot)}
-                  aria-label="Straßenplatz"
-                />
-              ))}
+        <section className="online-board-area">
+          <FullBoard />
+          {room.status === "waiting" ? (
+            <div className="waiting-card">
+              <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
+              <span>Teile den Code {room.join_code} oder den Einladungslink.</span>
+              {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
             </div>
-          </div>
-          <p className="board-hint">Wähle später Ecken und Wege direkt auf dem Spielfeld.</p>
-        </section>
-
-        <aside className="action-panel card">
-          <p className="eyebrow">{players[activePlayer].name}s Zug</p>
-          <div className="dice-row" aria-live="polite">
-            <span className="die">{dice[0]}</span>
-            <span className="die">{dice[1]}</span>
-            <strong>= {total}</strong>
-          </div>
-          {!hasRolled ? (
-            <button className="primary-button" onClick={rollDice}>Würfeln</button>
           ) : (
-            <button className="primary-button end-turn" onClick={endTurn}>Zug beenden</button>
+            <div className="waiting-card playing"><strong>Spielraum synchronisiert</strong><span>Die vollständige Zug-Engine folgt in Version 5.</span></div>
           )}
-          <p className="roll-message" aria-live="polite">{message}</p>
-          <div className="divider"><span>danach</span></div>
-          <button
-            className={`secondary-button ${buildMode === "road" ? "selected" : ""}`}
-            disabled={!hasRolled || !canAfford({ wood: 1, brick: 1 })}
-            onClick={() => setBuildMode("road")}
-          >Straße bauen</button>
-          <button
-            className={`secondary-button ${buildMode === "settlement" ? "selected" : ""}`}
-            disabled={!hasRolled || !canAfford({ wood: 1, brick: 1, wool: 1, grain: 1 })}
-            onClick={() => setBuildMode("settlement")}
-          >Siedlung bauen</button>
-          <p className="helper">Straße: Holz + Lehm<br />Siedlung: Holz + Lehm + Wolle + Getreide</p>
-        </aside>
-      </section>
-
-      <section className="resources card" aria-label="Deine Rohstoffe">
-        <div><span className="resource-icon wood">♣</span><small>Holz</small><strong>{resources[activePlayer].wood}</strong></div>
-        <div><span className="resource-icon brick">◆</span><small>Lehm</small><strong>{resources[activePlayer].brick}</strong></div>
-        <div><span className="resource-icon wool">⌁</span><small>Wolle</small><strong>{resources[activePlayer].wool}</strong></div>
-        <div><span className="resource-icon grain">✦</span><small>Getreide</small><strong>{resources[activePlayer].grain}</strong></div>
-        <div><span className="resource-icon ore">▲</span><small>Erz</small><strong>{resources[activePlayer].ore}</strong></div>
+        </section>
       </section>
     </main>
   );
