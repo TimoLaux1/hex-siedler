@@ -287,6 +287,7 @@ export default function Home() {
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
               <span>Teile den Code {room.join_code} oder den Einladungslink.</span>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
+              {error && <span className="setup-error">{error}</span>}
             </div>
           ) : room.state?.phase?.startsWith("setup_") ? (
             <div className="waiting-card playing">
