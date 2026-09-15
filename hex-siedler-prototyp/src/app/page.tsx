@@ -5,10 +5,11 @@ import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
 type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number };
-type Settlement = { vertex: number; player: number };
+type Settlement = { vertex: number; player: number; building?: "settlement" | "city" };
 type Road = { edge: number; a: number; b: number; player: number };
 type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; version?: number };
+type BuildMode = "road" | "settlement" | "city" | null;
 
 const terrain = [
   ["Gebirge", "mountain", "▲", 10], ["Weide", "meadow", "⌁", 2], ["Wald", "forest", "♣", 9],
@@ -166,15 +167,19 @@ function ResourceIcon({ kind }: { kind: ResourceKind }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="m4 20 5-13 9-3 10 9-4 13H10Z"/><path className="icon-light" d="m9 7 7 8 2-11m-2 11 12-2M16 15l8 11m-8-11-6 11"/><path className="icon-line" d="m4 20 5-13 9-3 10 9-4 13H10Z"/></svg>;
 }
 
-function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; myIndex?: number; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
+function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }: { room?: Room | null; myIndex?: number; buildMode?: BuildMode; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
   const state = room?.state;
   const settlements = state?.settlements ?? [];
   const roads = state?.roads ?? [];
   const step = state?.setup_step ?? 0;
   const currentPlayer = state?.setup_order?.[step];
-  const myTurn = myIndex !== undefined && currentPlayer === myIndex;
+  const mySetupTurn = myIndex !== undefined && currentPlayer === myIndex;
+  const regularBuildTurn = Boolean(isActiveTurn && state?.phase === "build");
   const blockedVertices = new Set(settlements.flatMap((item) => [item.vertex, ...(topology.vertices[item.vertex]?.neighbors ?? [])]));
   const latestOwnSettlement = [...settlements].reverse().find((item) => item.player === myIndex)?.vertex;
+  const ownBuildingVertices = new Set(settlements.filter((item) => item.player === myIndex).map((item) => item.vertex));
+  const opponentBuildingVertices = new Set(settlements.filter((item) => item.player !== myIndex).map((item) => item.vertex));
+  const ownRoadVertices = new Set(roads.filter((item) => item.player === myIndex).flatMap((item) => [item.a, item.b]));
   return (
     <div className="full-board" aria-label="Spielfeld mit 19 Landschaftsfeldern">
       <svg className="board-svg" viewBox="0 0 610 544" role="img" aria-label="Spielfeld mit 19 bündig verbundenen Landschaftsfeldern">
@@ -203,15 +208,21 @@ function FullBoard({ room, myIndex, onVertex, onEdge }: { room?: Room | null; my
       </svg>
       {room && topology.edges.map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
-        const selectable = myTurn && state?.phase === "setup_road" && !built && (edge.a === latestOwnSettlement || edge.b === latestOwnSettlement);
+        const setupSelectable = mySetupTurn && state?.phase === "setup_road" && !built && (edge.a === latestOwnSettlement || edge.b === latestOwnSettlement);
+        const roadConnected = [edge.a, edge.b].some((vertex) => ownBuildingVertices.has(vertex) || (!opponentBuildingVertices.has(vertex) && ownRoadVertices.has(vertex)));
+        const buildSelectable = regularBuildTurn && buildMode === "road" && !built && roadConnected;
+        const selectable = setupSelectable || buildSelectable;
         if (!built && !selectable) return null;
         return <button key={`edge-${edge.id}`} className={`setup-edge ${selectable ? "selectable" : "built"}`} style={{ left: edge.x, top: edge.y, transform: `translate(-50%,-50%) rotate(${edge.angle}deg)`, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onEdge?.(edge)} aria-label="Straße setzen" />;
       })}
       {room && topology.vertices.map((vertex) => {
         const built = settlements.find((settlement) => settlement.vertex === vertex.id);
-        const selectable = myTurn && state?.phase === "setup_settlement" && !blockedVertices.has(vertex.id);
+        const setupSelectable = mySetupTurn && state?.phase === "setup_settlement" && !blockedVertices.has(vertex.id);
+        const settlementSelectable = regularBuildTurn && buildMode === "settlement" && !built && !blockedVertices.has(vertex.id) && ownRoadVertices.has(vertex.id);
+        const citySelectable = Boolean(regularBuildTurn && buildMode === "city" && built && built.player === myIndex && built.building !== "city");
+        const selectable = setupSelectable || settlementSelectable || citySelectable;
         if (!built && !selectable) return null;
-        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : "built"}`} style={{ left: vertex.x, top: vertex.y, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onVertex?.(vertex)} aria-label="Siedlung setzen">{built ? "⌂" : "+"}</button>;
+        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : "built"} ${built?.building === "city" ? "city" : ""}`} style={{ left: vertex.x, top: vertex.y, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onVertex?.(vertex)} aria-label={citySelectable ? "Zur Stadt ausbauen" : "Siedlung setzen"}>{built ? built.building === "city" ? "♜" : "⌂" : "+"}</button>;
       })}
     </div>
   );
@@ -224,12 +235,17 @@ export default function Home() {
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [busy, setBusy] = useState(false);
+  const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
   const activePlayer = players.find((player) => player.player_index === room?.state?.active_player);
   const isMyTurn = me?.player_index === room?.state?.active_player;
+  const myResources = me?.resources ?? { wood: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
+  const canBuildRoad = myResources.wood >= 1 && myResources.brick >= 1;
+  const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
+  const canBuildCity = myResources.ore >= 3 && myResources.grain >= 2;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
 
   useEffect(() => {
@@ -332,16 +348,27 @@ export default function Home() {
 
   async function placeSettlement(vertex: Vertex) {
     if (!supabase || !room) return;
-    setError("");
-    const { data, error: placementError } = await supabase.rpc("place_setup_settlement", { p_game_id: room.id, p_vertex: vertex.id, p_neighbor_vertices: vertex.neighbors });
-    if (placementError) setError(placementError.message); else setRoom(normalizedRoom(data));
+    setBusy(true); setError("");
+    const rpcName = room.state?.phase === "setup_settlement"
+      ? "place_setup_settlement"
+      : buildMode === "city" ? "upgrade_game_city" : "build_game_settlement";
+    const parameters = rpcName === "place_setup_settlement"
+      ? { p_game_id: room.id, p_vertex: vertex.id, p_neighbor_vertices: vertex.neighbors }
+      : { p_game_id: room.id, p_vertex: vertex.id };
+    const { data, error: placementError } = await supabase.rpc(rpcName, parameters);
+    if (placementError) setError(placementError.message);
+    else { setRoom(normalizedRoom(data)); setBuildMode(null); }
+    setBusy(false);
   }
 
   async function placeRoad(edge: Edge) {
     if (!supabase || !room) return;
-    setError("");
-    const { data, error: placementError } = await supabase.rpc("place_setup_road", { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
-    if (placementError) setError(placementError.message); else setRoom(normalizedRoom(data));
+    setBusy(true); setError("");
+    const rpcName = room.state?.phase === "setup_road" ? "place_setup_road" : "build_game_road";
+    const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
+    if (placementError) setError(placementError.message);
+    else { setRoom(normalizedRoom(data)); setBuildMode(null); }
+    setBusy(false);
   }
 
   async function rollDice() {
@@ -356,7 +383,7 @@ export default function Home() {
     if (!supabase || !room || !isMyTurn) return;
     setBusy(true); setError("");
     const { data, error: turnError } = await supabase.rpc("end_player_turn", { p_game_id: room.id });
-    if (turnError) setError(turnError.message); else setRoom(normalizedRoom(data));
+    if (turnError) setError(turnError.message); else { setRoom(normalizedRoom(data)); setBuildMode(null); }
     setBusy(false);
   }
 
@@ -420,7 +447,7 @@ export default function Home() {
           )}
         </aside>
         <section className="online-board-area">
-          <FullBoard room={room} myIndex={me?.player_index} onVertex={placeSettlement} onEdge={placeRoad} />
+          <FullBoard room={room} myIndex={me?.player_index} buildMode={buildMode} isActiveTurn={isMyTurn} onVertex={placeSettlement} onEdge={placeRoad} />
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
@@ -444,7 +471,15 @@ export default function Home() {
                 <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /><b>= {room.state.dice[0] + room.state.dice[1]}</b></div>
               ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
               {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
-              {room.state?.phase === "build" && <><span className="turn-note">Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen.</span><div className="build-actions"><button disabled>Straße bauen</button><button disabled>Siedlung bauen</button></div><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug beenden</button></>}
+              {room.state?.phase === "build" && <>
+                <span className="turn-note">{buildMode ? `Wähle jetzt ${buildMode === "road" ? "eine angeschlossene Kante" : buildMode === "settlement" ? "einen erlaubten Bauplatz" : "eine eigene Siedlung"} auf dem Spielfeld.` : "Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen."}</span>
+                <div className="build-actions">
+                  <button className={buildMode === "road" ? "active" : ""} onClick={() => setBuildMode(buildMode === "road" ? null : "road")} disabled={!isMyTurn || busy || !canBuildRoad}><strong>Straße</strong><small>1 Holz · 1 Lehm</small></button>
+                  <button className={buildMode === "settlement" ? "active" : ""} onClick={() => setBuildMode(buildMode === "settlement" ? null : "settlement")} disabled={!isMyTurn || busy || !canBuildSettlement}><strong>Siedlung</strong><small>Holz · Lehm · Wolle · Getreide</small></button>
+                  <button className={buildMode === "city" ? "active" : ""} onClick={() => setBuildMode(buildMode === "city" ? null : "city")} disabled={!isMyTurn || busy || !canBuildCity}><strong>Stadt</strong><small>3 Erz · 2 Getreide</small></button>
+                </div>
+                <button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug beenden</button>
+              </>}
               {room.state?.phase === "robber" && <><span className="turn-note">Eine 7 wurde gewürfelt. Die interaktive Räuberwahl folgt als nächster Schritt.</span><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug fortsetzen</button></>}
               {error && <span className="setup-error">{error}</span>}
             </div>
