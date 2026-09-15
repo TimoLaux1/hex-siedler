@@ -89,11 +89,21 @@ button, a { font: inherit; }
 .lobby-error { padding: 10px 12px; border-radius: 9px; background: #fff0ed; color: #a43f2f; font-size: 12px; }.lobby-card small { margin-top: 18px; color: #8a918f; line-height: 1.5; }
 .lobby-board { display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle, #d8edf0, #8dc2cd); }
 
-.full-board { width: 620px; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 18px 25px rgba(26,72,73,.18)); }
-.hex-row { display: flex; margin-top: -29px; }.hex-row:first-child { margin-top: 0; }
-.full-hex { position: relative; width: 128px; height: 112px; margin: 0 -2px; border: 4px solid rgba(255,255,255,.55); clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%); display: grid; place-items: center; color: white; }
-.full-hex > span { font-size: 30px; opacity: .65; }.full-hex b { position: absolute; width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; background: #fff8e7; color: #4d4a42; box-shadow: 0 2px 5px #0003; }.full-hex .hot-number { color: #b63f2a; }
-.desert { background: #cbb783; }
+.full-board { width: 520px; display: flex; flex-direction: column; align-items: center; padding: 16px; filter: drop-shadow(0 20px 28px rgba(26,72,73,.22)); }
+.hex-row { display: flex; height: 84px; }.hex-row:last-child { height: 112px; }
+.full-hex { position: relative; isolation: isolate; width: 128px; min-width: 128px; height: 112px; margin: 0 -16px; padding: 0; border: 0; clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); display: grid; place-items: center; overflow: hidden; color: white; cursor: default; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+.full-hex::before { content: ""; position: absolute; inset: 3px; z-index: -2; clip-path: inherit; background: linear-gradient(145deg,rgba(255,255,255,.26),transparent 38%,rgba(22,35,29,.18)); }
+.full-hex::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .72; }
+.terrain-symbol { position: absolute; left: 15px; top: 19px; font-size: 28px; line-height: 1; opacity: .42; transform: rotate(-8deg); text-shadow: 0 2px 3px #0003; }
+.terrain-name { position: absolute; bottom: 15px; font-size: 8px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; opacity: .82; text-shadow: 0 1px 2px #0006; }
+.full-hex b { position: absolute; z-index: 3; width: 36px; height: 36px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.8); border-radius: 50%; background: radial-gradient(circle at 36% 30%,#fffdf4,#f3e6c9); color: #413d34; font-size: 14px; box-shadow: 0 3px 7px #19241f55; }
+.full-hex .hot-number { color: #b43b28; box-shadow: 0 0 0 3px rgba(180,59,40,.18),0 3px 7px #19241f55; }
+.forest { background: #286148; }.forest::after { background: radial-gradient(ellipse at 18% 45%,#163d2c 0 9%,transparent 10%),radial-gradient(ellipse at 82% 32%,#4f8763 0 12%,transparent 13%),radial-gradient(ellipse at 70% 82%,#174b36 0 14%,transparent 15%); }
+.meadow { background: #82a967; }.meadow::after { background: repeating-linear-gradient(70deg,transparent 0 13px,rgba(239,246,194,.24) 14px 16px),radial-gradient(circle at 22% 70%,#f6e68c 0 2px,transparent 3px),radial-gradient(circle at 77% 29%,#fff1a8 0 2px,transparent 3px); }
+.field { background: #d1a53e; }.field::after { background: repeating-linear-gradient(76deg,transparent 0 8px,rgba(116,74,15,.24) 9px 11px),linear-gradient(12deg,transparent 44%,rgba(255,231,133,.26) 45% 51%,transparent 52%); }
+.clay { background: #a95c3e; }.clay::after { background: radial-gradient(ellipse at 25% 28%,#d4875f 0 12%,transparent 13%),radial-gradient(ellipse at 78% 72%,#743a2d 0 14%,transparent 15%),repeating-linear-gradient(-18deg,transparent 0 18px,rgba(83,35,25,.15) 19px 21px); }
+.mountain { background: #687774; }.mountain::after { background: linear-gradient(135deg,transparent 44%,#aab5ae 45% 55%,transparent 56%) 0 0/52px 52px,linear-gradient(45deg,transparent 48%,#455451 49% 58%,transparent 59%) 20px 12px/64px 64px; }
+.desert { background: #c4af79; }.desert::after { background: radial-gradient(ellipse at 20% 62%,transparent 0 17%,rgba(255,241,190,.3) 18% 21%,transparent 22%),radial-gradient(ellipse at 82% 38%,transparent 0 20%,rgba(132,104,48,.2) 21% 24%,transparent 25%); }
 
 .online-shell { min-height: 100vh; background: #f7f2e7; }.online-topbar { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 4vw; background: white; border-bottom: 1px solid #ddd8cd; }
 .room-code { padding: 9px 15px; border-radius: 999px; background: #e4f1ec; font-size: 13px; }.room-code strong { letter-spacing: .16em; color: #1f6b57; }
