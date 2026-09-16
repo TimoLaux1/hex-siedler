@@ -1108,7 +1108,12 @@ export default function Home() {
               <p className="eyebrow">Deine Rohstoffe</p>
               <div className="resource-list">
                 {resourceCards.map(({ key, label }) => (
-                  <div className={`resource-card resource-${key}`} key={key}>
+                  <div
+                    className={`resource-card resource-${key}`}
+                    key={key}
+                    title={`${label}: ${me.resources?.[key] ?? 0}`}
+                    aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
+                  >
                     <span className="resource-badge"><ResourceIcon kind={key} /></span>
                     <span className="resource-label">{label}</span>
                     <b>{me.resources?.[key] ?? 0}</b>
