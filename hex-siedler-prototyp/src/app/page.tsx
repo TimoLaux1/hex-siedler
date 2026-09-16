@@ -5,15 +5,17 @@ import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
 type ResourceKind = keyof Resources;
-type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number };
+type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" | "goldmine" };
 type Road = { edge: number; a: number; b: number; player: number };
 type FishTile = { slot: number; number: number };
 type BoardTile = { name: string; className: string; symbol: string; number: number; resource: ResourceKind | "none" };
+type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
+type DiscardEntry = { player: number; remaining: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; trade_offer?: TradeOffer; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
@@ -96,6 +98,12 @@ const fishCenters = [
   { x: tileCenters[18].x + hexWidth, y: tileCenters[18].y },
 ];
 const fishNumbers = [2, 3, 4, 5, 9, 10, 11, 12];
+const harbors = [
+  { id: 0, x: 166.44, y: 28, vertices: [5, 0] },
+  { id: 1, x: 443.56, y: 28, vertices: [10, 11] },
+  { id: 2, x: 166.44, y: 516, vertices: [48, 49] },
+  { id: 3, x: 443.56, y: 516, vertices: [52, 53] },
+];
 
 type Vertex = { id: number; x: number; y: number; neighbors: number[] };
 type Edge = { id: number; a: number; b: number; x: number; y: number; angle: number };
@@ -339,6 +347,11 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
             {room && klausMode === "robber" && <circle className="klaus-tile-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(index)} />}
           </g>;
         })}
+        {harbors.map((harbor) => <g className="harbor" key={`harbor-${harbor.id}`} transform={`translate(${harbor.x} ${harbor.y})`}>
+          <circle r="23" />
+          <text className="harbor-anchor" y="-2">⚓</text>
+          <text className="harbor-rate" y="12">3:1</text>
+        </g>)}
       </svg>
       {room && topology.edges.filter((edge) => visibleVertices.has(edge.a) && visibleVertices.has(edge.b)).map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
@@ -380,6 +393,10 @@ export default function Home() {
   const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
   const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
+  const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
+  const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
+  const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
+  const [tradeTarget, setTradeTarget] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
@@ -409,6 +426,11 @@ export default function Home() {
   const goldmineChooser = room?.state?.goldmine_queue?.[0];
   const isGoldmineChooser = goldmineChooser !== undefined && goldmineChooser === me?.player_index;
   const longestRoadHolder = players.find((player) => player.player_index === room?.state?.longest_road_holder);
+  const myDiscard = room?.state?.discard_queue?.find((entry) => entry.player === me?.player_index);
+  const tradeOffer = room?.state?.trade_offer;
+  const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
+  const bankTradeRate = hasHarbor ? 3 : 4;
+  const hasBankTradedThisRound = me?.last_bank_trade_round === (room?.state?.round ?? 1);
   const robberVictims = selectedRobberTile === null ? [] : players.filter((player) =>
     player.player_index !== me?.player_index && (room?.state?.settlements ?? []).some((settlement) =>
       settlement.player === player.player_index && topology.tileVertices[selectedRobberTile]?.includes(settlement.vertex)
@@ -622,11 +644,67 @@ export default function Home() {
     setBusy(false);
   }
 
+  function resetTradeSelection() {
+    setTradeGive(null);
+    setTradeWant(null);
+    setTradeTarget(null);
+  }
+
+  async function tradeWithBank() {
+    if (!supabase || !room || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
+    setBusy(true); setError("");
+    const { data, error: tradeError } = await supabase.rpc("trade_with_bank", { p_game_id: room.id, p_give: tradeGive, p_want: tradeWant });
+    if (tradeError) setError(tradeError.message);
+    else {
+      setRoom(normalizedRoom(data));
+      resetTradeSelection();
+      setTradeMode(null);
+    }
+    setBusy(false);
+  }
+
+  async function offerPlayerTrade() {
+    if (!supabase || !room || tradeTarget === null || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
+    setBusy(true); setError("");
+    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: tradeTarget, p_give: tradeGive, p_want: tradeWant });
+    if (tradeError) setError(tradeError.message);
+    else {
+      setRoom(normalizedRoom(data));
+      resetTradeSelection();
+      setTradeMode(null);
+    }
+    setBusy(false);
+  }
+
+  async function respondToTrade(accept: boolean) {
+    if (!supabase || !room) return;
+    setBusy(true); setError("");
+    const { data, error: tradeError } = await supabase.rpc("respond_player_trade", { p_game_id: room.id, p_accept: accept });
+    if (tradeError) setError(tradeError.message); else setRoom(normalizedRoom(data));
+    setBusy(false);
+  }
+
+  async function cancelTrade() {
+    if (!supabase || !room) return;
+    setBusy(true); setError("");
+    const { data, error: tradeError } = await supabase.rpc("cancel_player_trade", { p_game_id: room.id });
+    if (tradeError) setError(tradeError.message); else setRoom(normalizedRoom(data));
+    setBusy(false);
+  }
+
+  async function discardResource(resource: ResourceKind) {
+    if (!supabase || !room || !myDiscard || (myResources[resource] ?? 0) < 1) return;
+    setBusy(true); setError("");
+    const { data, error: discardError } = await supabase.rpc("discard_seven_resource", { p_game_id: room.id, p_resource: resource });
+    if (discardError) setError(discardError.message); else setRoom(normalizedRoom(data));
+    setBusy(false);
+  }
+
   async function endTurn() {
     if (!supabase || !room || !isMyTurn) return;
     setBusy(true); setError("");
     const { data, error: turnError } = await supabase.rpc("end_player_turn", { p_game_id: room.id });
-    if (turnError) setError(turnError.message); else { setRoom(normalizedRoom(data)); setBuildMode(null); }
+    if (turnError) setError(turnError.message); else { setRoom(normalizedRoom(data)); setBuildMode(null); setTradeMode(null); resetTradeSelection(); }
     setBusy(false);
   }
 
@@ -713,7 +791,7 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? " · 🛣 +2" : ""}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · 🛣 Längste Handelsstraße (+2 VP)</span> : null}</>}</small>
             </div>
           ))}
           {Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
@@ -785,8 +863,14 @@ export default function Home() {
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
               </div>
               {room.state?.dice ? (
-                <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /><b>= {room.state.dice[0] + room.state.dice[1]}</b></div>
+                <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /></div>
               ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
+              {tradeOffer && <div className="trade-offer-banner">
+                <strong>🤝 Handelsangebot</strong>
+                <span>{players.find((player) => player.player_index === tradeOffer.from)?.player_name} bietet 1 {resourceCards.find((resource) => resource.key === tradeOffer.give)?.label} gegen 1 {resourceCards.find((resource) => resource.key === tradeOffer.want)?.label} von {players.find((player) => player.player_index === tradeOffer.to)?.player_name}.</span>
+                {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={busy}>Ablehnen</button></div>}
+                {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={busy}>Angebot zurückziehen</button>}
+              </div>}
               {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <>
                 {activeCard ? (
@@ -808,7 +892,15 @@ export default function Home() {
                     <button className={buildMode === "city" ? "active" : ""} onClick={() => setBuildMode(buildMode === "city" ? null : "city")} disabled={!isMyTurn || busy || !canBuildCity || Boolean(forcedCard)}><strong>Stadt</strong><small>3 Erz · 2 Getreide</small></button>
                     {(me?.victory_points ?? 0) >= 8 && <button className={`goldmine-build ${buildMode === "goldmine" ? "active" : ""}`} onClick={() => setBuildMode(buildMode === "goldmine" ? null : "goldmine")} disabled={!isMyTurn || busy || !canBuildGoldmine || Boolean(forcedCard)}><strong>Goldmine</strong><small>2 Lehm · 2 Holz</small></button>}
                     <button className="klaus-buy" onClick={() => void buyKlausCard()} disabled={!isMyTurn || busy || !canCallKlaus || Boolean(forcedCard) || Boolean(room.state?.card_event)}><strong>Klaus rufen</strong><small>1 Erz · 1 Wolle · 1 Getreide</small></button>
+                    <button className={tradeMode ? "active trade-toggle" : "trade-toggle"} onClick={() => { setTradeMode(tradeMode ? null : "bank"); resetTradeSelection(); }} disabled={!isMyTurn || busy || Boolean(forcedCard) || Boolean(tradeOffer)}><strong>Handeln</strong><small>{hasHarbor ? "Hafen 3:1" : "Bank 4:1"} · oder Spieler</small></button>
                   </div>
+                  {tradeMode && <div className="trade-panel">
+                    <div className="trade-tabs"><button className={tradeMode === "bank" ? "active" : ""} onClick={() => { setTradeMode("bank"); resetTradeSelection(); }}>Vorrat {bankTradeRate}:1</button><button className={tradeMode === "player" ? "active" : ""} onClick={() => { setTradeMode("player"); resetTradeSelection(); }}>Spieler 1:1</button></div>
+                    {tradeMode === "player" && <div className="trade-step"><span>Mit wem möchtest du handeln?</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}</button>)}</div></div>}
+                    <div className="trade-step"><span>{tradeMode === "bank" ? `${bankTradeRate} gleiche Rohstoffe abgeben` : "1 Rohstoff anbieten"}</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeGive === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeGive(resource.key)} disabled={(myResources[resource.key] ?? 0) < (tradeMode === "bank" ? bankTradeRate : 1)}><ResourceIcon kind={resource.key} />{resource.label} ({myResources[resource.key] ?? 0})</button>)}</div></div>
+                    <div className="trade-step"><span>Gewünschten Rohstoff wählen</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeWant === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeWant(resource.key)} disabled={tradeGive === resource.key}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></div>
+                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || hasBankTradedThisRound || !tradeGive || !tradeWant}>{hasBankTradedThisRound ? "Diese Runde bereits getauscht" : `${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
+                  </div>}
                 </>}
                 <button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>
               </>}
@@ -821,6 +913,10 @@ export default function Home() {
                     <button onClick={() => setSelectedRobberTile(null)}>Anderes Feld</button>
                   </div>
                 </>}
+              </div>}
+              {room.state?.phase === "discard" && <div className="discard-panel">
+                <strong>🃏 Karten wegen der 7 abgeben</strong>
+                {myDiscard ? <><span>Du musst noch {myDiscard.remaining} Rohstoff{myDiscard.remaining === 1 ? "" : "e"} abgeben. Tippe die Karten einzeln an.</span><div className="discard-resources">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void discardResource(resource.key)} disabled={busy || (myResources[resource.key] ?? 0) < 1}><ResourceIcon kind={resource.key} /><b>{resource.label}</b><span>{myResources[resource.key] ?? 0}</span></button>)}</div></> : <span>Warte, bis alle betroffenen Spieler ihre Karten abgegeben haben.</span>}
               </div>}
               {room.state?.phase === "goldmine" && <div className="goldmine-choice-panel">
                 <strong>⛏ Goldmine fördert</strong>
