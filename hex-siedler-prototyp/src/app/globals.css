@@ -79,6 +79,7 @@ button, a { font: inherit; }
 .lobby-brand { font-weight: 900; letter-spacing: .14em; }.lobby-brand span { color: #d89231; font-size: 28px; vertical-align: middle; }
 .lobby-kicker { margin: clamp(36px,5vh,58px) 0 13px; color: #1f6b57; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 800; }
 .lobby-card h1 { margin: 0; max-width: 480px; font-size: clamp(32px,2.4vw,46px); line-height: 1.04; letter-spacing: -.035em; text-wrap: balance; }
+.lobby-title-line { display: block; white-space: nowrap; font-size: .78em; letter-spacing: -.045em; }
 .lobby-card h1 + label { margin-top: 30px; }
 .lobby-copy { color: #68736f; line-height: 1.6; margin: 22px 0 28px; }
 .lobby-card label { display: grid; gap: 8px; font-size: 12px; font-weight: 800; }
