@@ -8,8 +8,8 @@ type Player = { user_id: string; player_name: string; player_index: number; colo
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" };
 type Road = { edge: number; a: number; b: number; player: number };
 type FishTile = { slot: number; number: number };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
-type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; version?: number };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | null;
 
 const terrain = [
@@ -139,6 +139,29 @@ function FishArtwork({ x, y }: { x: number; y: number }) {
   </g>;
 }
 
+function OceanDecorations() {
+  const fish = (x: number, y: number, scale = 1, flip = false) => <g className="ocean-fish" transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
+    <path d="M-18 0C-8-13 11-13 23 0 11 13-8 13-18 0Z" />
+    <path d="m-17 0-14-11v22Z" />
+    <circle cx="15" cy="-2" r="2" />
+  </g>;
+  const dolphin = (x: number, y: number, scale = 1, flip = false) => <g className="ocean-dolphin" transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
+    <path d="M-36 9C-17-17 17-22 42-5 27-5 22 2 12 9 0 18-15 18-28 14l-13 10 4-15Z" />
+    <path d="M4-10 16-27 19-7M-5 11 8 25 10 8" />
+    <circle cx="29" cy="-7" r="1.8" />
+  </g>;
+  return <svg className="ocean-decorations" viewBox="0 0 610 544" aria-hidden="true">
+    {fish(-72, 98, .78)}{fish(-118, 145, .48)}{fish(-88, 195, .58, true)}
+    {fish(686, 92, .65, true)}{fish(724, 142, .46, true)}{fish(692, 205, .52)}
+    {fish(-98, 455, .62)}{fish(701, 462, .7, true)}
+    {fish(105, -78, .55)}{fish(505, -92, .48, true)}
+    {fish(118, 637, .55, true)}{fish(495, 648, .62)}
+    {dolphin(-112, 318, .95)}{dolphin(718, 330, .88, true)}
+    {dolphin(278, -105, .7, true)}{dolphin(337, 661, .75)}
+    <g className="ocean-bubbles"><circle cx="-55" cy="255" r="7"/><circle cx="-34" cy="279" r="3"/><circle cx="672" cy="265" r="6"/><circle cx="650" cy="286" r="3"/></g>
+  </svg>;
+}
+
 function hexPoints(x: number, y: number) {
   return Array.from({ length: 6 }, (_, corner) => {
     const angle = (-90 + corner * 60) * Math.PI / 180;
@@ -212,6 +235,7 @@ function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex
   const visibleVertices = new Set(visibleTileIndices.flatMap((index) => topology.tileVertices[index] ?? []));
   return (
     <div className="full-board" aria-label={`Spielfeld mit 19 Landschaftsfeldern und ${visibleFish.length} Fischfeldern`}>
+      <OceanDecorations />
       <svg className="board-svg" viewBox="0 0 610 544" role="img" aria-label={`Spielfeld mit 19 Landschaftsfeldern und ${visibleFish.length} Fischfeldern`}>
         <defs>
           <linearGradient id="mountain-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#aeb9b3"/><stop offset=".45" stopColor="#667572"/><stop offset="1" stopColor="#3e4c49"/></linearGradient>
@@ -270,6 +294,7 @@ function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex
 export default function Home() {
   const [name, setName] = useState("");
   const [fishTiles, setFishTiles] = useState<FishTile[]>([]);
+  const [victoryTarget, setVictoryTarget] = useState(10);
   const [code, setCode] = useState(() => typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase());
   const [userId, setUserId] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
@@ -297,6 +322,10 @@ export default function Home() {
     const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)];
     const number = fishNumbers[Math.floor(Math.random() * fishNumbers.length)];
     setFishTiles((current) => [...current, { slot, number }]);
+  }
+
+  function cycleVictoryTarget() {
+    setVictoryTarget((current) => current >= 15 ? 10 : current + 1);
   }
 
   useEffect(() => {
@@ -352,11 +381,11 @@ export default function Home() {
     event.preventDefault();
     if (!supabase || !name.trim()) return;
     setBusy(true); setError("");
-    const { data, error: rpcError } = await supabase.rpc("create_game_room_with_fish", { p_player_name: name.trim(), p_fish_tiles: fishTiles });
+    const { data, error: rpcError } = await supabase.rpc("create_game_room_with_options", { p_player_name: name.trim(), p_fish_tiles: fishTiles, p_victory_target: victoryTarget });
     if (rpcError) setError(rpcError.message);
     else {
       const result = data[0];
-      setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId, fish_tiles: fishTiles });
+      setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId, fish_tiles: fishTiles, victory_target: victoryTarget });
       window.history.replaceState({}, "", `?room=${result.join_code}`);
     }
     setBusy(false);
@@ -408,7 +437,12 @@ export default function Home() {
       : { p_game_id: room.id, p_vertex: vertex.id };
     const { data, error: placementError } = await supabase.rpc(rpcName, parameters);
     if (placementError) setError(placementError.message);
-    else { setRoom(normalizedRoom(data)); setBuildMode(null); }
+    else {
+      const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
+      if (winnerError) setError(winnerError.message);
+      setRoom(normalizedRoom(winnerData ?? data));
+      setBuildMode(null);
+    }
     setBusy(false);
   }
 
@@ -453,6 +487,10 @@ export default function Home() {
           <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
             <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
             <strong>{fishTiles.length}/4</strong>
+          </button>
+          <button className="victory-option" type="button" onClick={cycleVictoryTarget}>
+            <span><b>Siegpunkte</b><small>Ziel für den Spielsieg</small></span>
+            <strong>{victoryTarget}</strong>
           </button>
           <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
@@ -506,9 +544,15 @@ export default function Home() {
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
-              <span>Teile den Code {room.join_code} oder den Einladungslink.</span>
+              <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
               {error && <span className="setup-error">{error}</span>}
+            </div>
+          ) : room.status === "finished" ? (
+            <div className="waiting-card victory-card">
+              <span className="victory-crown">♛</span>
+              <strong>{players.find((player) => player.player_index === room.state?.winner_player)?.player_name ?? "Ein Spieler"} gewinnt!</strong>
+              <span>Das Ziel von {room.victory_target ?? 10} Siegpunkten wurde erreicht.</span>
             </div>
           ) : room.state?.phase?.startsWith("setup_") ? (
             <div className="waiting-card playing">
