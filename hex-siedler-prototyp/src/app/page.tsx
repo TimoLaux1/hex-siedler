@@ -466,6 +466,10 @@ function MobileInstallPrompt({
   );
 }
 
+function MobileFullscreenButton({ onClick }: { onClick: () => void }) {
+  return <button className="mobile-fullscreen-button" type="button" onClick={onClick} aria-label="Vollbild öffnen">⛶ <span>Vollbild</span></button>;
+}
+
 function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentName: string }) {
   return (
     <section className="highscore-board" aria-label="Highscore Board">
@@ -591,6 +595,23 @@ export default function Home() {
     const choice = await installPromptEvent.userChoice;
     if (choice.outcome === "accepted") dismissInstallPrompt();
     setInstallPromptEvent(null);
+  }
+
+  async function openMobileFullscreen() {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (document.documentElement.requestFullscreen) {
+      try {
+        await document.documentElement.requestFullscreen();
+        return;
+      } catch {
+        // iPhone/iPad Safari erlaubt echtes Vollbild nur als installierte Web-App.
+      }
+    }
+    setShowInstallInstructions(true);
+    setShowInstallPrompt(true);
   }
 
   useEffect(() => {
@@ -1031,6 +1052,7 @@ export default function Home() {
           {authError && <p className="auth-error">{authError}</p>}
           <small>Beispiel: timo.laux@… wird zu Timo L.</small>
         </section>
+        <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
     );
@@ -1067,6 +1089,7 @@ export default function Home() {
           <HighScoreBoard scores={highScores} currentName={name} />
         </section>
         <div className="lobby-board"><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></div>
+        <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
     );
@@ -1250,6 +1273,7 @@ export default function Home() {
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
       {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Klaus spendiert ein neues Gebäude: Goldmine</strong><p>Kann nur an die Wüste angrenzend aus einer Siedlung entwickelt werden. Gibt keinen extra Siegpunkt, aber immer wenn die 7 gewürfelt wird, darf ein beliebiger Rohstoff genommen werden.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={() => void closeGoldmineMessage()}>Goldmine freigeschaltet</button></div></div>}
+      <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
       <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
     </main>
   );

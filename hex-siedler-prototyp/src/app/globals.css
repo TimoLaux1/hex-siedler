@@ -233,9 +233,13 @@ button, a { font: inherit; }
   .online-board-area .full-board { transform: scale(.78); transform-origin: top center; margin: 0 0 -120px; }
 }
 
-/* Kompakte Spielfeld- und Rohstoffansicht für Mobilgeräte im Querformat. */
-@media (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
-  .lobby-shell { height: 100svh; min-height: 0; grid-template-columns: minmax(280px,44%) minmax(0,1fr); overflow: hidden; }
+.mobile-fullscreen-button { display: none; }
+
+/* Kompakte Spielfeld- und Rohstoffansicht für Touch-Geräte im Querformat. */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 700px),
+  (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
+  .mobile-fullscreen-button { position: fixed; z-index: 1400; top: max(8px,env(safe-area-inset-top)); right: max(8px,env(safe-area-inset-right)); display: flex; align-items: center; gap: 5px; min-height: 36px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.72); border-radius: 999px; background: rgba(31,107,87,.94); color: white; box-shadow: 0 5px 16px rgba(23,63,52,.22); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; backdrop-filter: blur(8px); }
+  .lobby-shell { height: 100svh; min-height: 0; grid-template-columns: minmax(260px,42%) minmax(0,1fr); overflow: hidden; }
   .lobby-card { min-height: 0; padding: 14px 18px; overflow-y: auto; }
   .lobby-brand { font-size: 11px; }
   .lobby-brand span { font-size: 21px; }
@@ -252,7 +256,7 @@ button, a { font: inherit; }
   .highscore-board { margin-top: 13px; padding-top: 11px; }
   .highscore-list { max-height: 88px; }
   .lobby-board { height: 100svh; min-height: 0; }
-  .lobby-board .full-board { transform: scale(.5); }
+  .lobby-board .full-board { transform: scale(.46); }
   .online-topbar { height: 54px; }
   .online-layout { min-height: calc(100svh - 54px); padding: 6px 66px 12px 8px; }
   .online-board-area .full-board { transform: scale(.58); transform-origin: top center; margin: 0 0 -228px; }
