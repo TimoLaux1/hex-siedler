@@ -1070,14 +1070,16 @@ export default function Home() {
             </span>
           </h1>
           <div className="lobby-account"><span><small>Eingeloggt als</small><strong>{name}</strong></span><button type="button" onClick={() => void signOut()}>Abmelden</button></div>
-          <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
-            <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
-            <strong>{fishTiles.length}/4</strong>
-          </button>
-          <button className="victory-option" type="button" onClick={cycleVictoryTarget}>
-            <span><b>Siegpunkte</b><small>Ziel für den Spielsieg</small></span>
-            <strong>{victoryTarget}</strong>
-          </button>
+          <div className="lobby-options-grid">
+            <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
+              <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
+              <strong>{fishTiles.length}/4</strong>
+            </button>
+            <button className="victory-option" type="button" onClick={cycleVictoryTarget}>
+              <span><b>Siegpunkte</b><small>Ziel für den Spielsieg</small></span>
+              <strong>{victoryTarget}</strong>
+            </button>
+          </div>
           <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
           <form className="join-form" onSubmit={joinRoom}>
