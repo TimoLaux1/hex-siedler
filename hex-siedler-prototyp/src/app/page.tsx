@@ -4,13 +4,25 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
-type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number };
+type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" };
 type Road = { edge: number; a: number; b: number; player: number };
 type FishTile = { slot: number; number: number };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
+type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; created_at?: string };
+type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | null;
+type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
+
+const klausCards: Record<KlausKind, { title: string; face: string; description: string; tone: string }> = {
+  disappointed: { title: "Enttäuschter Klaus", face: "😞", description: "Ein Mitspieler verliert 1 Siegpunkt.", tone: "blue" },
+  angry: { title: "Böser Klaus", face: "😠", description: "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.", tone: "red" },
+  proud: { title: "Stolzer Klaus", face: "😌", description: "Nimmt einen gewählten Rohstoff von allen Mitspielern.", tone: "gold" },
+  stupid: { title: "Blöder Klaus", face: "🤪", description: "Zerstört sofort eine eigene Straße.", tone: "violet" },
+  sneaky: { title: "Sneaky Klaus", face: "🥸", description: "Erlaubt eine Siedlung mit nur einer Straße Abstand.", tone: "green" },
+};
 
 const terrain = [
   ["Gebirge", "mountain", "▲", 10], ["Weide", "meadow", "⌁", 2], ["Wald", "forest", "♣", 9],
@@ -217,7 +229,18 @@ function ResourceIcon({ kind }: { kind: ResourceKind }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="m4 20 5-13 9-3 10 9-4 13H10Z"/><path className="icon-light" d="m9 7 7 8 2-11m-2 11 12-2M16 15l8 11m-8-11-6 11"/><path className="icon-line" d="m4 20 5-13 9-3 10 9-4 13H10Z"/></svg>;
 }
 
-function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex, onEdge }: { room?: Room | null; fishTiles?: FishTile[]; myIndex?: number; buildMode?: BuildMode; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
+function KlausCardView({ kind, compact = false }: { kind: KlausKind; compact?: boolean }) {
+  const card = klausCards[kind];
+  return <div className={`klaus-card klaus-${card.tone} ${compact ? "compact" : ""}`}>
+    <div className="klaus-card-pattern" aria-hidden="true">⬡ ◇ ⬡ ◇</div>
+    <span className="klaus-face" aria-hidden="true">{card.face}</span>
+    <strong>{card.title}</strong>
+    <p>{card.description}</p>
+    <small>NEW KATAN · KLAUS-KARTE</small>
+  </div>;
+}
+
+function FullBoard({ room, fishTiles, myIndex, buildMode, klausMode, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const settlements = state?.settlements ?? [];
@@ -266,6 +289,8 @@ function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex
             <TerrainArtwork type={className} x={x} y={y} />
             <text className="svg-name" x={x} y={y + 37}>{name}</text>
             {number > 0 && <g className={`svg-token ${number === 6 || number === 8 ? "hot" : ""}`}><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{number}</text></g>}
+            {state?.robber_tile === index && <g className="robber-marker"><circle cx={x + 34} cy={y - 30} r="13"/><text x={x + 34} y={y - 25}>♞</text></g>}
+            {room && klausMode === "robber" && <circle className="klaus-tile-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(index)} />}
           </g>;
         })}
       </svg>
@@ -274,18 +299,20 @@ function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex
         const setupSelectable = mySetupTurn && state?.phase === "setup_road" && !built && (edge.a === latestOwnSettlement || edge.b === latestOwnSettlement);
         const roadConnected = [edge.a, edge.b].some((vertex) => ownBuildingVertices.has(vertex) || (!opponentBuildingVertices.has(vertex) && ownRoadVertices.has(vertex)));
         const buildSelectable = regularBuildTurn && buildMode === "road" && !built && roadConnected;
-        const selectable = setupSelectable || buildSelectable;
+        const klausSelectable = klausMode === "destroy_road" && built?.player === myIndex;
+        const selectable = setupSelectable || buildSelectable || klausSelectable;
         if (!built && !selectable) return null;
-        return <button key={`edge-${edge.id}`} className={`setup-edge ${selectable ? "selectable" : "built"}`} style={{ left: edge.x, top: edge.y, transform: `translate(-50%,-50%) rotate(${edge.angle}deg)`, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onEdge?.(edge)} aria-label="Straße setzen" />;
+        return <button key={`edge-${edge.id}`} className={`setup-edge ${selectable ? "selectable" : "built"} ${klausSelectable ? "klaus-danger" : ""}`} style={{ left: edge.x, top: edge.y, transform: `translate(-50%,-50%) rotate(${edge.angle}deg)`, background: built && !klausSelectable ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausEdge?.(edge) : selectable && onEdge?.(edge)} aria-label={klausSelectable ? "Straße zerstören" : "Straße setzen"} />;
       })}
       {room && topology.vertices.filter((vertex) => visibleVertices.has(vertex.id)).map((vertex) => {
         const built = settlements.find((settlement) => settlement.vertex === vertex.id);
         const setupSelectable = mySetupTurn && state?.phase === "setup_settlement" && !blockedVertices.has(vertex.id);
         const settlementSelectable = regularBuildTurn && buildMode === "settlement" && !built && !blockedVertices.has(vertex.id) && ownRoadVertices.has(vertex.id);
         const citySelectable = Boolean(regularBuildTurn && buildMode === "city" && built && built.player === myIndex && built.building !== "city");
-        const selectable = setupSelectable || settlementSelectable || citySelectable;
+        const klausSelectable = klausMode === "sneaky" && !built && ownRoadVertices.has(vertex.id);
+        const selectable = setupSelectable || settlementSelectable || citySelectable || klausSelectable;
         if (!built && !selectable) return null;
-        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : "built"} ${built?.building === "city" ? "city" : ""}`} style={{ left: vertex.x, top: vertex.y, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onVertex?.(vertex)} aria-label={citySelectable ? "Zur Stadt ausbauen" : "Siedlung setzen"}>{built ? built.building === "city" ? "♜" : "⌂" : "+"}</button>;
+        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : "built"} ${built?.building === "city" ? "city" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, background: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : "Siedlung setzen"}>{built ? built.building === "city" ? "♜" : "⌂" : klausSelectable ? "🥸" : "+"}</button>;
       })}
     </div>
   );
@@ -299,6 +326,10 @@ export default function Home() {
   const [userId, setUserId] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [myCards, setMyCards] = useState<KlausCard[]>([]);
+  const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
+  const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
+  const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
@@ -311,7 +342,22 @@ export default function Home() {
   const canBuildRoad = myResources.wood >= 1 && myResources.brick >= 1;
   const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const canBuildCity = myResources.ore >= 3 && myResources.grain >= 2;
+  const canCallKlaus = myResources.ore >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
+  const forcedCard = myCards.find((card) => card.must_play);
+  const activeCard = selectedCard ?? forcedCard ?? null;
+  const klausMode: KlausMapMode = activeCard?.card_type === "angry" && selectedRobberTile === null
+    ? "robber"
+    : activeCard?.card_type === "stupid"
+      ? "destroy_road"
+      : activeCard?.card_type === "sneaky"
+        ? "sneaky"
+        : null;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
+  const robberVictims = selectedRobberTile === null ? [] : players.filter((player) =>
+    player.player_index !== me?.player_index && (room?.state?.settlements ?? []).some((settlement) =>
+      settlement.player === player.player_index && topology.tileVertices[selectedRobberTile]?.includes(settlement.vertex)
+    )
+  );
 
   function cycleFishTiles() {
     if (fishTiles.length === 4) {
@@ -350,12 +396,18 @@ export default function Home() {
     const client = supabase;
     if (!roomId || !client) return;
     const loadPlayers = async () => {
-      const { data, error: playersError } = await client.rpc("get_game_players", { p_game_id: roomId });
+      const { data, error: playersError } = await client.rpc("get_game_players_with_cards", { p_game_id: roomId });
       if (playersError) {
         setError(playersError.message);
         return;
       }
       setPlayers((data as Player[]) ?? []);
+      const [{ data: handData }, { data: countData }] = await Promise.all([
+        client.rpc("get_my_klaus_cards", { p_game_id: roomId }),
+        client.rpc("get_game_card_counts", { p_game_id: roomId }),
+      ]);
+      setMyCards((handData as KlausCard[]) ?? []);
+      setCardCounts(Object.fromEntries(((countData as { player_index: number; card_count: number }[]) ?? []).map((item) => [item.player_index, item.card_count])));
     };
     const loadRoom = async () => {
       const { data } = await client.rpc("get_game_room", { p_game_id: roomId });
@@ -376,6 +428,18 @@ export default function Home() {
       client.removeChannel(channel);
     };
   }, [roomId]);
+
+  useEffect(() => {
+    const client = supabase;
+    const event = room?.state?.card_event;
+    if (!client || !roomId || !event) return;
+    const delay = Math.max(0, new Date(event.resolve_at).getTime() - Date.now() + 120);
+    const timer = window.setTimeout(async () => {
+      const { data } = await client.rpc("resolve_klaus_card", { p_game_id: roomId, p_card_id: event.card_id });
+      if (data) setRoom(normalizedRoom(data));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [room?.state?.card_event, roomId]);
 
   async function createRoom(event: FormEvent) {
     event.preventDefault();
@@ -472,6 +536,41 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function buyKlausCard() {
+    if (!supabase || !room || !isMyTurn) return;
+    setBusy(true); setError("");
+    const { data, error: cardError } = await supabase.rpc("buy_klaus_card", { p_game_id: room.id });
+    if (cardError) setError(cardError.message);
+    else {
+      const card = (Array.isArray(data) ? data[0] : data) as KlausCard;
+      if (card) {
+        setMyCards((current) => [...current, card]);
+        if (card.must_play) setSelectedCard(card);
+      }
+    }
+    setBusy(false);
+  }
+
+  async function playKlausCard(payload: Record<string, unknown>) {
+    if (!supabase || !room || !activeCard || !isMyTurn) return;
+    setBusy(true); setError("");
+    const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: activeCard.id, p_payload: payload });
+    if (cardError) setError(cardError.message);
+    else {
+      setRoom(normalizedRoom(data));
+      setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
+      setSelectedCard(null);
+      setSelectedRobberTile(null);
+    }
+    setBusy(false);
+  }
+
+  function chooseKlausCard(card: KlausCard) {
+    setBuildMode(null);
+    setSelectedRobberTile(null);
+    setSelectedCard(card);
+  }
+
   async function copyInvite() {
     await navigator.clipboard.writeText(shareUrl);
   }
@@ -520,7 +619,7 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : `${player.victory_points ?? 2} VP`}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}</>}</small>
             </div>
           ))}
           {Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
@@ -538,9 +637,33 @@ export default function Home() {
               </div>
             </div>
           )}
+          {room.status !== "waiting" && me && (
+            <div className="klaus-hand">
+              <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>
+              {myCards.length === 0 ? <span className="empty-hand">Noch keine Handkarten.</span> : (
+                <div className="klaus-hand-list">
+                  {myCards.map((card) => <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event)}>
+                    <KlausCardView kind={card.card_type} compact />
+                    <span>{card.must_play ? "Muss sofort gespielt werden" : "Karte spielen"}</span>
+                  </button>)}
+                </div>
+              )}
+            </div>
+          )}
         </aside>
         <section className="online-board-area">
-          <FullBoard room={room} myIndex={me?.player_index} buildMode={buildMode} isActiveTurn={isMyTurn} onVertex={placeSettlement} onEdge={placeRoad} />
+          <FullBoard
+            room={room}
+            myIndex={me?.player_index}
+            buildMode={buildMode}
+            klausMode={klausMode}
+            isActiveTurn={isMyTurn}
+            onVertex={placeSettlement}
+            onEdge={placeRoad}
+            onKlausVertex={(vertex) => void playKlausCard({ vertex: vertex.id })}
+            onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
+            onKlausTile={(tile) => setSelectedRobberTile(tile)}
+          />
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
@@ -571,13 +694,27 @@ export default function Home() {
               ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
               {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <>
-                <span className="turn-note">{buildMode ? `Wähle jetzt ${buildMode === "road" ? "eine angeschlossene Kante" : buildMode === "settlement" ? "einen erlaubten Bauplatz" : "eine eigene Siedlung"} auf dem Spielfeld.` : "Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen."}</span>
-                <div className="build-actions">
-                  <button className={buildMode === "road" ? "active" : ""} onClick={() => setBuildMode(buildMode === "road" ? null : "road")} disabled={!isMyTurn || busy || !canBuildRoad}><strong>Straße</strong><small>1 Holz · 1 Lehm</small></button>
-                  <button className={buildMode === "settlement" ? "active" : ""} onClick={() => setBuildMode(buildMode === "settlement" ? null : "settlement")} disabled={!isMyTurn || busy || !canBuildSettlement}><strong>Siedlung</strong><small>Holz · Lehm · Wolle · Getreide</small></button>
-                  <button className={buildMode === "city" ? "active" : ""} onClick={() => setBuildMode(buildMode === "city" ? null : "city")} disabled={!isMyTurn || busy || !canBuildCity}><strong>Stadt</strong><small>3 Erz · 2 Getreide</small></button>
-                </div>
-                <button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug beenden</button>
+                {activeCard ? (
+                  <div className="klaus-action-panel">
+                    <KlausCardView kind={activeCard.card_type} compact />
+                    {activeCard.card_type === "disappointed" && <><span>Welcher Mitspieler verliert einen Siegpunkt?</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index).map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ target_player: player.player_index })}>{player.player_name}</button>)}</div></>}
+                    {activeCard.card_type === "proud" && <><span>Welchen Rohstoff soll Klaus einsammeln?</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void playKlausCard({ resource: resource.key })}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></>}
+                    {activeCard.card_type === "angry" && selectedRobberTile === null && <span>Wähle auf dem Spielfeld das neue Ritterfeld.</span>}
+                    {activeCard.card_type === "angry" && selectedRobberTile !== null && <><span>{robberVictims.length ? "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?" : "An diesem Feld ist kein Mitspieler betroffen."}</span><div className="choice-grid">{robberVictims.map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ tile: selectedRobberTile, target_player: player.player_index })}>{player.player_name}</button>)}{robberVictims.length === 0 && <button onClick={() => void playKlausCard({ tile: selectedRobberTile })}>Ritter hier setzen</button>}<button onClick={() => setSelectedRobberTile(null)}>Anderes Feld</button></div></>}
+                    {activeCard.card_type === "stupid" && <span>Wähle auf dem Spielfeld eine deiner Straßen zum Zerstören.</span>}
+                    {activeCard.card_type === "sneaky" && <span>Wähle einen freien, direkt an dein Straßennetz angeschlossenen Knoten. Die normalen Baukosten werden abgezogen.</span>}
+                    {!activeCard.must_play && <button className="cancel-card" onClick={() => { setSelectedCard(null); setSelectedRobberTile(null); }}>Abbrechen</button>}
+                  </div>
+                ) : <>
+                  <span className="turn-note">{buildMode ? `Wähle jetzt ${buildMode === "road" ? "eine angeschlossene Kante" : buildMode === "settlement" ? "einen erlaubten Bauplatz" : "eine eigene Siedlung"} auf dem Spielfeld.` : "Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen."}</span>
+                  <div className="build-actions">
+                    <button className={buildMode === "road" ? "active" : ""} onClick={() => setBuildMode(buildMode === "road" ? null : "road")} disabled={!isMyTurn || busy || !canBuildRoad || Boolean(forcedCard)}><strong>Straße</strong><small>1 Holz · 1 Lehm</small></button>
+                    <button className={buildMode === "settlement" ? "active" : ""} onClick={() => setBuildMode(buildMode === "settlement" ? null : "settlement")} disabled={!isMyTurn || busy || !canBuildSettlement || Boolean(forcedCard)}><strong>Siedlung</strong><small>Holz · Lehm · Wolle · Getreide</small></button>
+                    <button className={buildMode === "city" ? "active" : ""} onClick={() => setBuildMode(buildMode === "city" ? null : "city")} disabled={!isMyTurn || busy || !canBuildCity || Boolean(forcedCard)}><strong>Stadt</strong><small>3 Erz · 2 Getreide</small></button>
+                    <button className="klaus-buy" onClick={() => void buyKlausCard()} disabled={!isMyTurn || busy || !canCallKlaus || Boolean(forcedCard) || Boolean(room.state?.card_event)}><strong>Klaus rufen</strong><small>1 Erz · 1 Wolle · 1 Getreide</small></button>
+                  </div>
+                </>}
+                <button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>
               </>}
               {room.state?.phase === "robber" && <><span className="turn-note">Eine 7 wurde gewürfelt. Die interaktive Räuberwahl folgt als nächster Schritt.</span><button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy}>Zug fortsetzen</button></>}
               {error && <span className="setup-error">{error}</span>}
@@ -585,6 +722,7 @@ export default function Home() {
           )}
         </section>
       </section>
+      {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
     </main>
   );
 }
