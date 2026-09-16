@@ -763,7 +763,7 @@ export default function Home() {
 
   async function verifyLoginCode(event: FormEvent) {
     event.preventDefault();
-    if (!supabase || otp.length !== 6) return;
+    if (!supabase || otp.length < 6 || otp.length > 8) return;
     setBusy(true);
     setAuthError("");
     const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
@@ -1015,11 +1015,11 @@ export default function Home() {
           <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
           <div className="auth-klaus">🧔🏻‍♂️</div>
           <h1>{otpSent ? "Code eingeben" : "Klaus prüft die Gästeliste"}</h1>
-          <p>{otpSent ? <>Wir haben einen sechsstelligen Code an <b>{email}</b> gesendet.</> : "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet."}</p>
+          <p>{otpSent ? <>Wir haben einen Verifizierungscode an <b>{email}</b> gesendet.</> : "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet."}</p>
           {otpSent ? (
             <form className="auth-form" onSubmit={verifyLoginCode}>
-              <label>Verifizierungscode<input className="otp-input" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label>
-              <button disabled={busy || otp.length !== 6}>{busy ? "Prüfe …" : "Einloggen"}</button>
+              <label>Verifizierungscode<input className="otp-input" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" placeholder="Code eingeben" autoFocus /></label>
+              <button disabled={busy || otp.length < 6 || otp.length > 8}>{busy ? "Prüfe …" : "Einloggen"}</button>
               <button className="auth-back" type="button" onClick={() => { setOtpSent(false); setOtp(""); setAuthError(""); }}>Andere E-Mail-Adresse</button>
             </form>
           ) : (
