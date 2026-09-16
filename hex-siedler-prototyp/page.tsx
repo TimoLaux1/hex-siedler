@@ -12,6 +12,7 @@ type FishTile = { slot: number; number: number };
 type BoardTile = { name: string; className: string; symbol: string; number: number; resource: ResourceKind | "none" };
 type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
 type DiscardEntry = { player: number; remaining: number };
+type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
@@ -19,6 +20,10 @@ type GameState = { round?: number; phase?: string; setup_step?: number; setup_or
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 const klausCards: Record<KlausKind, { title: string; face: string; description: string; tone: string }> = {
   disappointed: { title: "Enttäuschter Klaus", face: "😞", description: "Ein Mitspieler verliert 1 Siegpunkt.", tone: "blue" },
@@ -51,6 +56,12 @@ function shuffled<T>(items: T[]) {
     [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
   }
   return copy;
+}
+
+function displayNameFromEmail(email: string) {
+  const parts = email.split("@")[0].toLowerCase().split(/[._-]+/).map((part) => part.replace(/[^a-zäöüß]/gi, "")).filter(Boolean);
+  const firstName = parts[0] ? parts[0][0].toUpperCase() + parts[0].slice(1) : "Spieler";
+  return parts[1] ? `${firstName} ${parts[1][0].toUpperCase()}.` : firstName;
 }
 
 function createRandomBoard(): BoardTile[] {
@@ -420,8 +431,64 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   );
 }
 
+function MobileInstallPrompt({
+  open,
+  showInstructions,
+  canInstall,
+  onInstall,
+  onDismiss,
+}: {
+  open: boolean;
+  showInstructions: boolean;
+  canInstall: boolean;
+  onInstall: () => void;
+  onDismiss: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="install-prompt-overlay" role="dialog" aria-modal="true" aria-labelledby="install-prompt-title">
+      <div className="install-prompt-card">
+        <span className="install-prompt-icon">⬡</span>
+        {showInstructions ? <>
+          <strong id="install-prompt-title">New Katan installieren</strong>
+          <p>Tippe in Safari unten auf <b>Teilen</b> und danach auf <b>„Zum Home-Bildschirm“</b>.</p>
+          <button className="install-primary" onClick={onDismiss}>Verstanden</button>
+        </> : <>
+          <strong id="install-prompt-title">Zum Homebildschirm hinzufügen?</strong>
+          <p>{canInstall ? "Starte New Katan künftig direkt wie eine App." : "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab."}</p>
+          <div className="install-prompt-actions">
+            <button className="install-primary" onClick={onInstall}>Hinzufügen</button>
+            <button className="install-secondary" onClick={onDismiss}>Abbrechen</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentName: string }) {
+  return (
+    <section className="highscore-board" aria-label="Highscore Board">
+      <div className="highscore-heading"><span>♛</span><div><strong>Highscore Board</strong><small>Siege aller Spieler</small></div></div>
+      <div className="highscore-list">
+        {scores.length === 0 ? <p>Noch keine Siege eingetragen.</p> : scores.map((score) => (
+          <div className={`highscore-row ${score.display_name === currentName ? "current" : ""}`} key={`${score.rank}-${score.display_name}`}>
+            <b>{score.rank}.</b><span>{score.display_name}</span><strong>{score.wins} {score.wins === 1 ? "Sieg" : "Siege"}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [highScores, setHighScores] = useState<HighScore[]>([]);
   const [fishTiles, setFishTiles] = useState<FishTile[]>([]);
   const [boardTiles, setBoardTiles] = useState<BoardTile[]>(terrain);
   const [victoryTarget, setVictoryTarget] = useState(10);
@@ -442,6 +509,9 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
@@ -488,6 +558,42 @@ export default function Home() {
   );
 
   useEffect(() => {
+    const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
+    const isMobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || standaloneNavigator.standalone === true;
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+    if (!isMobile || isStandalone || window.localStorage.getItem("new-katan-install-dismissed")) return;
+
+    const captureInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    const timer = window.setTimeout(() => setShowInstallPrompt(true), 700);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+    };
+  }, []);
+
+  function dismissInstallPrompt() {
+    window.localStorage.setItem("new-katan-install-dismissed", "true");
+    setShowInstallPrompt(false);
+    setShowInstallInstructions(false);
+  }
+
+  async function installToHomeScreen() {
+    if (!installPromptEvent) {
+      setShowInstallInstructions(true);
+      return;
+    }
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice;
+    if (choice.outcome === "accepted") dismissInstallPrompt();
+    setInstallPromptEvent(null);
+  }
+
+  useEffect(() => {
     if (!room || !me || (me.victory_points ?? 0) < 8) return;
     const storageKey = `new-katan-goldmine-${room.id}-${me.user_id}`;
     if (window.localStorage.getItem(storageKey)) return;
@@ -522,18 +628,42 @@ export default function Home() {
   useEffect(() => {
     const client = supabase;
     if (!client) {
-      return;
+      const timer = window.setTimeout(() => setAuthReady(true), 0);
+      return () => window.clearTimeout(timer);
     }
-    client.auth.getSession().then(async ({ data }) => {
-      if (data.session?.user.id) {
-        setUserId(data.session.user.id);
+    const applySession = async (session: Awaited<ReturnType<typeof client.auth.getSession>>["data"]["session"]) => {
+      const sessionEmail = session?.user.email;
+      if (session?.user.id && sessionEmail) {
+        setUserId(session.user.id);
+        setEmail(sessionEmail);
+        setName(displayNameFromEmail(sessionEmail));
+      } else {
+        setUserId("");
+        setName("");
+        if (session?.user.is_anonymous) await client.auth.signOut();
+      }
+      setAuthReady(true);
+    };
+    void client.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => void applySession(session));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !userId) return;
+    const loadHighScores = async () => {
+      const { data, error: scoreError } = await client.rpc("get_katan_highscores");
+      if (scoreError) {
+        if (!scoreError.message.includes("get_katan_highscores")) setError(scoreError.message);
         return;
       }
-      const { data: authData, error: authError } = await client.auth.signInAnonymously();
-      if (authError) setError(authError.message);
-      else setUserId(authData.user?.id ?? "");
-    });
-  }, []);
+      setHighScores((data as HighScore[]) ?? []);
+    };
+    void loadHighScores();
+    const timer = window.setInterval(() => void loadHighScores(), 15000);
+    return () => window.clearInterval(timer);
+  }, [userId]);
 
   const roomId = room?.id;
 
@@ -612,6 +742,46 @@ export default function Home() {
     }, delay);
     return () => window.clearTimeout(timer);
   }, [room?.state?.card_event, roomId]);
+
+  async function sendLoginCode(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || !email.trim()) return;
+    setBusy(true);
+    setAuthError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error: loginError } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { shouldCreateUser: true, data: { display_name: displayNameFromEmail(normalizedEmail) } },
+    });
+    if (loginError) setAuthError(loginError.message);
+    else {
+      setEmail(normalizedEmail);
+      setOtpSent(true);
+    }
+    setBusy(false);
+  }
+
+  async function verifyLoginCode(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || otp.length < 6 || otp.length > 8) return;
+    setBusy(true);
+    setAuthError("");
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+    if (verifyError) setAuthError(verifyError.message);
+    setBusy(false);
+  }
+
+  async function signOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setRoom(null);
+    setPlayers([]);
+    setHighScores([]);
+    setOtp("");
+    setOtpSent(false);
+    setUserId("");
+    setName("");
+  }
 
   async function createRoom(event: FormEvent) {
     event.preventDefault();
@@ -834,6 +1004,38 @@ export default function Home() {
     await navigator.clipboard.writeText(shareUrl);
   }
 
+  if (!authReady) {
+    return <main className="auth-shell"><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
+  }
+
+  if (!userId) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
+          <div className="auth-klaus">🧔🏻‍♂️</div>
+          <h1>{otpSent ? "Code eingeben" : "Klaus prüft die Gästeliste"}</h1>
+          <p>{otpSent ? <>Wir haben einen Verifizierungscode an <b>{email}</b> gesendet.</> : "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet."}</p>
+          {otpSent ? (
+            <form className="auth-form" onSubmit={verifyLoginCode}>
+              <label>Verifizierungscode<input className="otp-input" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoComplete="one-time-code" placeholder="Code eingeben" autoFocus /></label>
+              <button disabled={busy || otp.length < 6 || otp.length > 8}>{busy ? "Prüfe …" : "Einloggen"}</button>
+              <button className="auth-back" type="button" onClick={() => { setOtpSent(false); setOtp(""); setAuthError(""); }}>Andere E-Mail-Adresse</button>
+            </form>
+          ) : (
+            <form className="auth-form" onSubmit={sendLoginCode}>
+              <label>E-Mail-Adresse<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="timo.laux@beispiel.de" required autoFocus /></label>
+              <button disabled={busy || !email.trim()}>{busy ? "Sende …" : "Code senden"}</button>
+            </form>
+          )}
+          {authError && <p className="auth-error">{authError}</p>}
+          <small>Beispiel: timo.laux@… wird zu Timo L.</small>
+        </section>
+        <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
+      </main>
+    );
+  }
+
   if (!room) {
     return (
       <main className="lobby-shell">
@@ -845,7 +1047,7 @@ export default function Home() {
               <span className="lobby-title-line">Teubi muss draußen bleiben.</span>
             </span>
           </h1>
-          <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
+          <div className="lobby-account"><span><small>Eingeloggt als</small><strong>{name}</strong></span><button type="button" onClick={() => void signOut()}>Abmelden</button></div>
           <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
             <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
             <strong>{fishTiles.length}/4</strong>
@@ -861,9 +1063,11 @@ export default function Home() {
             <button disabled={busy || !name.trim() || code.length !== 6}>Beitreten</button>
           </form>
           {error && <p className="lobby-error">{error}</p>}
-          <small>Keine Registrierung nötig. Räume sind nur für eingeladene Testspieler gedacht.</small>
+          <small>Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.</small>
+          <HighScoreBoard scores={highScores} currentName={name} />
         </section>
         <div className="lobby-board"><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></div>
+        <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
     );
   }
@@ -882,7 +1086,7 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 VP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
@@ -904,7 +1108,12 @@ export default function Home() {
               <p className="eyebrow">Deine Rohstoffe</p>
               <div className="resource-list">
                 {resourceCards.map(({ key, label }) => (
-                  <div className={`resource-card resource-${key}`} key={key}>
+                  <div
+                    className={`resource-card resource-${key}`}
+                    key={key}
+                    title={`${label}: ${me.resources?.[key] ?? 0}`}
+                    aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
+                  >
                     <span className="resource-badge"><ResourceIcon kind={key} /></span>
                     <span className="resource-label">{label}</span>
                     <b>{me.resources?.[key] ?? 0}</b>
@@ -942,7 +1151,7 @@ export default function Home() {
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={(tile) => setSelectedRobberTile(tile)}
           />
-          {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 VP</div>}
+          {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
@@ -1041,6 +1250,7 @@ export default function Home() {
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
       {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Klaus spendiert ein neues Gebäude: Goldmine</strong><p>Kann nur an die Wüste angrenzend aus einer Siedlung entwickelt werden. Gibt keinen extra Siegpunkt, aber immer wenn die 7 gewürfelt wird, darf ein beliebiger Rohstoff genommen werden.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={() => void closeGoldmineMessage()}>Goldmine freigeschaltet</button></div></div>}
+      <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
     </main>
   );
 }
