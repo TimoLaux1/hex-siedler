@@ -7,8 +7,9 @@ type Resources = { wood: number; brick: number; wool: number; grain: number; ore
 type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" };
 type Road = { edge: number; a: number; b: number; player: number };
+type FishTile = { slot: number; number: number };
 type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
-type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; version?: number };
+type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; version?: number };
 type BuildMode = "road" | "settlement" | "city" | null;
 
 const terrain = [
@@ -29,17 +30,23 @@ const tileCenters = rows.flatMap((count, row) => {
   return Array.from({ length: count }, (_, column) => ({ x: startX + column * hexWidth, y: 80 + row * 96 }));
 });
 
+const fishCenters = [
+  { x: tileCenters[0].x - hexWidth, y: tileCenters[0].y },
+  { x: tileCenters[2].x + hexWidth, y: tileCenters[2].y },
+  { x: tileCenters[16].x - hexWidth, y: tileCenters[16].y },
+  { x: tileCenters[18].x + hexWidth, y: tileCenters[18].y },
+];
+const fishNumbers = [2, 3, 4, 5, 9, 10, 11, 12];
+
 type Vertex = { id: number; x: number; y: number; neighbors: number[] };
 type Edge = { id: number; a: number; b: number; x: number; y: number; angle: number };
 
-function createBoardTopology() {
+function createBoardTopology(centers: { x: number; y: number }[]) {
   const vertices: Array<Omit<Vertex, "neighbors">> = [];
   const vertexKeys = new Map<string, number>();
   const edgePairs = new Map<string, { a: number; b: number }>();
-  let tile = 0;
-  rows.forEach((count) => {
-    for (let column = 0; column < count; column++) {
-      const { x: centerX, y: centerY } = tileCenters[tile++];
+  const tileVertices: number[][] = [];
+  centers.forEach(({ x: centerX, y: centerY }) => {
       const corners: number[] = [];
       for (let corner = 0; corner < 6; corner++) {
         const angle = (-90 + corner * 60) * Math.PI / 180;
@@ -59,7 +66,7 @@ function createBoardTopology() {
         const key = [a, b].sort((left, right) => left - right).join(":");
         edgePairs.set(key, { a, b });
       });
-    }
+      tileVertices.push(corners);
   });
   const neighborSets = vertices.map(() => new Set<number>());
   const edges: Edge[] = [...edgePairs.values()].map(({ a, b }, id) => {
@@ -67,10 +74,10 @@ function createBoardTopology() {
     const va = vertices[a], vb = vertices[b];
     return { id, a, b, x: (va.x + vb.x) / 2, y: (va.y + vb.y) / 2, angle: Math.atan2(vb.y - va.y, vb.x - va.x) * 180 / Math.PI };
   });
-  return { vertices: vertices.map((vertex, id) => ({ ...vertex, neighbors: [...neighborSets[id]] })), edges };
+  return { vertices: vertices.map((vertex, id) => ({ ...vertex, neighbors: [...neighborSets[id]] })), edges, tileVertices };
 }
 
-const topology = createBoardTopology();
+const topology = createBoardTopology([...tileCenters, ...fishCenters]);
 
 function TerrainArtwork({ type, x, y }: { type: string; x: number; y: number }) {
   if (type === "mountain") {
@@ -117,6 +124,26 @@ function TerrainArtwork({ type, x, y }: { type: string; x: number; y: number }) 
     <path className="terrain-front" d="M-63 29Q-25 3 9 28Q37 45 64 20V44H-63Z" />
     <path className="desert-wind" d="M17-28q16-7 30 0M29-18q12-5 23 1" />
   </g>;
+}
+
+function FishArtwork({ x, y }: { x: number; y: number }) {
+  return <g className="terrain-art fish-art" transform={`translate(${x} ${y})`}>
+    <path className="fish-wave fish-wave-back" d="M-63 12Q-40-2-17 12T29 12T75 12V44H-63Z" />
+    <path className="fish-wave fish-wave-front" d="M-63 27Q-39 13-15 27T33 27T81 27V44H-63Z" />
+    <g className="fish-school" transform="translate(-38 -23)">
+      <path d="M0 9 9 1c10-7 24-2 29 8-5 10-19 15-29 8Z" />
+      <path d="m0 9-10-8v16Z" />
+      <circle cx="28" cy="8" r="1.8" />
+    </g>
+    <path className="fish-bubbles" d="M32-26a4 4 0 1 0 0 .1M43-16a2.5 2.5 0 1 0 0 .1" />
+  </g>;
+}
+
+function hexPoints(x: number, y: number) {
+  return Array.from({ length: 6 }, (_, corner) => {
+    const angle = (-90 + corner * 60) * Math.PI / 180;
+    return `${x + hexRadius * Math.cos(angle)},${y + hexRadius * Math.sin(angle)}`;
+  }).join(" ");
 }
 
 const diePips: Record<number, number[]> = {
@@ -167,8 +194,9 @@ function ResourceIcon({ kind }: { kind: ResourceKind }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="m4 20 5-13 9-3 10 9-4 13H10Z"/><path className="icon-light" d="m9 7 7 8 2-11m-2 11 12-2M16 15l8 11m-8-11-6 11"/><path className="icon-line" d="m4 20 5-13 9-3 10 9-4 13H10Z"/></svg>;
 }
 
-function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }: { room?: Room | null; myIndex?: number; buildMode?: BuildMode; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
+function FullBoard({ room, fishTiles, myIndex, buildMode, isActiveTurn, onVertex, onEdge }: { room?: Room | null; fishTiles?: FishTile[]; myIndex?: number; buildMode?: BuildMode; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void }) {
   const state = room?.state;
+  const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const settlements = state?.settlements ?? [];
   const roads = state?.roads ?? [];
   const step = state?.setup_step ?? 0;
@@ -180,9 +208,11 @@ function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }:
   const ownBuildingVertices = new Set(settlements.filter((item) => item.player === myIndex).map((item) => item.vertex));
   const opponentBuildingVertices = new Set(settlements.filter((item) => item.player !== myIndex).map((item) => item.vertex));
   const ownRoadVertices = new Set(roads.filter((item) => item.player === myIndex).flatMap((item) => [item.a, item.b]));
+  const visibleTileIndices = [...Array.from({ length: terrain.length }, (_, index) => index), ...visibleFish.map((fish) => terrain.length + fish.slot)];
+  const visibleVertices = new Set(visibleTileIndices.flatMap((index) => topology.tileVertices[index] ?? []));
   return (
-    <div className="full-board" aria-label="Spielfeld mit 19 Landschaftsfeldern">
-      <svg className="board-svg" viewBox="0 0 610 544" role="img" aria-label="Spielfeld mit 19 bündig verbundenen Landschaftsfeldern">
+    <div className="full-board" aria-label={`Spielfeld mit 19 Landschaftsfeldern und ${visibleFish.length} Fischfeldern`}>
+      <svg className="board-svg" viewBox="0 0 610 544" role="img" aria-label={`Spielfeld mit 19 Landschaftsfeldern und ${visibleFish.length} Fischfeldern`}>
         <defs>
           <linearGradient id="mountain-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#aeb9b3"/><stop offset=".45" stopColor="#667572"/><stop offset="1" stopColor="#3e4c49"/></linearGradient>
           <linearGradient id="meadow-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#b9ce8e"/><stop offset="1" stopColor="#719854"/></linearGradient>
@@ -190,13 +220,22 @@ function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }:
           <linearGradient id="field-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#efd06a"/><stop offset="1" stopColor="#bd8e29"/></linearGradient>
           <linearGradient id="clay-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#cd805b"/><stop offset="1" stopColor="#88452f"/></linearGradient>
           <linearGradient id="desert-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#dac997"/><stop offset="1" stopColor="#aa945d"/></linearGradient>
+          <linearGradient id="fish-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#62c7d5"/><stop offset=".55" stopColor="#278fa9"/><stop offset="1" stopColor="#166b88"/></linearGradient>
         </defs>
+        {visibleFish.map((fish) => {
+          const { x, y } = fishCenters[fish.slot];
+          const points = hexPoints(x, y);
+          return <g key={`fish-${fish.slot}`} className="svg-tile fish">
+            <polygon points={points} fill="url(#fish-fill)" />
+            <polygon className="tile-inset" points={points} />
+            <FishArtwork x={x} y={y} />
+            <text className="svg-name" x={x} y={y + 37}>Fischgrund</text>
+            <g className="svg-token"><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{fish.number}</text></g>
+          </g>;
+        })}
         {tileCenters.map(({ x, y }, index) => {
           const [name, className, , number] = terrain[index];
-          const points = Array.from({ length: 6 }, (_, corner) => {
-            const angle = (-90 + corner * 60) * Math.PI / 180;
-            return `${x + hexRadius * Math.cos(angle)},${y + hexRadius * Math.sin(angle)}`;
-          }).join(" ");
+          const points = hexPoints(x, y);
           return <g key={`${name}-${index}`} className={`svg-tile ${className}`}>
             <polygon points={points} fill={`url(#${className}-fill)`} />
             <polygon className="tile-inset" points={points} />
@@ -206,7 +245,7 @@ function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }:
           </g>;
         })}
       </svg>
-      {room && topology.edges.map((edge) => {
+      {room && topology.edges.filter((edge) => visibleVertices.has(edge.a) && visibleVertices.has(edge.b)).map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
         const setupSelectable = mySetupTurn && state?.phase === "setup_road" && !built && (edge.a === latestOwnSettlement || edge.b === latestOwnSettlement);
         const roadConnected = [edge.a, edge.b].some((vertex) => ownBuildingVertices.has(vertex) || (!opponentBuildingVertices.has(vertex) && ownRoadVertices.has(vertex)));
@@ -215,7 +254,7 @@ function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }:
         if (!built && !selectable) return null;
         return <button key={`edge-${edge.id}`} className={`setup-edge ${selectable ? "selectable" : "built"}`} style={{ left: edge.x, top: edge.y, transform: `translate(-50%,-50%) rotate(${edge.angle}deg)`, background: built ? colors[built.player] : undefined }} onClick={() => selectable && onEdge?.(edge)} aria-label="Straße setzen" />;
       })}
-      {room && topology.vertices.map((vertex) => {
+      {room && topology.vertices.filter((vertex) => visibleVertices.has(vertex.id)).map((vertex) => {
         const built = settlements.find((settlement) => settlement.vertex === vertex.id);
         const setupSelectable = mySetupTurn && state?.phase === "setup_settlement" && !blockedVertices.has(vertex.id);
         const settlementSelectable = regularBuildTurn && buildMode === "settlement" && !built && !blockedVertices.has(vertex.id) && ownRoadVertices.has(vertex.id);
@@ -230,6 +269,7 @@ function FullBoard({ room, myIndex, buildMode, isActiveTurn, onVertex, onEdge }:
 
 export default function Home() {
   const [name, setName] = useState("");
+  const [fishTiles, setFishTiles] = useState<FishTile[]>([]);
   const [code, setCode] = useState(() => typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase());
   const [userId, setUserId] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
@@ -247,6 +287,17 @@ export default function Home() {
   const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const canBuildCity = myResources.ore >= 3 && myResources.grain >= 2;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
+
+  function cycleFishTiles() {
+    if (fishTiles.length === 4) {
+      setFishTiles([]);
+      return;
+    }
+    const freeSlots = fishCenters.map((_, slot) => slot).filter((slot) => !fishTiles.some((fish) => fish.slot === slot));
+    const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)];
+    const number = fishNumbers[Math.floor(Math.random() * fishNumbers.length)];
+    setFishTiles((current) => [...current, { slot, number }]);
+  }
 
   useEffect(() => {
     const client = supabase;
@@ -301,11 +352,11 @@ export default function Home() {
     event.preventDefault();
     if (!supabase || !name.trim()) return;
     setBusy(true); setError("");
-    const { data, error: rpcError } = await supabase.rpc("create_game_room", { p_player_name: name.trim() });
+    const { data, error: rpcError } = await supabase.rpc("create_game_room_with_fish", { p_player_name: name.trim(), p_fish_tiles: fishTiles });
     if (rpcError) setError(rpcError.message);
     else {
       const result = data[0];
-      setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId });
+      setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId, fish_tiles: fishTiles });
       window.history.replaceState({}, "", `?room=${result.join_code}`);
     }
     setBusy(false);
@@ -399,6 +450,10 @@ export default function Home() {
           <p className="lobby-kicker">Online-Prototyp · Version 4</p>
           <h1>Katan ohne Klaus.<span className="lobby-title-line">Teubi muss draußen bleiben.</span></h1>
           <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
+          <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
+            <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
+            <strong>{fishTiles.length}/4</strong>
+          </button>
           <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
           <form className="join-form" onSubmit={joinRoom}>
@@ -408,7 +463,7 @@ export default function Home() {
           {error && <p className="lobby-error">{error}</p>}
           <small>Keine Registrierung nötig. Räume sind nur für eingeladene Testspieler gedacht.</small>
         </section>
-        <div className="lobby-board"><FullBoard /></div>
+        <div className="lobby-board"><FullBoard fishTiles={fishTiles} /></div>
       </main>
     );
   }
