@@ -15,7 +15,7 @@ type DiscardEntry = { player: number; remaining: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; trade_offer?: TradeOffer; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
@@ -36,6 +36,13 @@ const terrainCatalog: Omit<BoardTile, "number">[] = [
   ...Array.from({ length: 3 }, () => ({ name: "Lehm", className: "clay", symbol: "◆", resource: "brick" as const })),
 ];
 const numberTokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, 3, 8, 8, 3, 4, 5, 5, 6, 11];
+const adjacentTilePairs = [
+  [0,1],[0,3],[0,4],[1,2],[1,4],[1,5],[2,5],[2,6],[3,4],[3,7],[3,8],
+  [4,5],[4,8],[4,9],[5,6],[5,9],[5,10],[6,10],[6,11],[7,8],[7,12],
+  [8,9],[8,12],[8,13],[9,10],[9,13],[9,14],[10,11],[10,14],[10,15],
+  [11,15],[12,13],[12,16],[13,14],[13,16],[13,17],[14,15],[14,17],
+  [14,18],[15,18],[16,17],[17,18],
+] as const;
 
 function shuffled<T>(items: T[]) {
   const copy = [...items];
@@ -48,12 +55,20 @@ function shuffled<T>(items: T[]) {
 
 function createRandomBoard(): BoardTile[] {
   const landscapes = shuffled(terrainCatalog);
-  const numbers = shuffled(numberTokens);
+  let numbersByTile: number[];
+  do {
+    const shuffledNumbers = shuffled(numberTokens);
+    let numberCursor = 0;
+    numbersByTile = Array.from({ length: 19 }, (_, index) => index === 9 ? 0 : shuffledNumbers[numberCursor++]);
+  } while (adjacentTilePairs.some(([first, second]) =>
+    (numbersByTile[first] === 6 || numbersByTile[first] === 8)
+      && (numbersByTile[second] === 6 || numbersByTile[second] === 8)
+  ));
   let cursor = 0;
   return Array.from({ length: 19 }, (_, index) => {
     if (index === 9) return { name: "Wüste", className: "desert", symbol: "●", number: 0, resource: "none" };
     const tile = landscapes[cursor];
-    const result = { ...tile, number: numbers[cursor] };
+    const result = { ...tile, number: numbersByTile[index] };
     cursor += 1;
     return result;
   });
@@ -395,6 +410,7 @@ export default function Home() {
   const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
   const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
   const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
   const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
@@ -430,6 +446,10 @@ export default function Home() {
   const longestRoadHolder = players.find((player) => player.player_index === room?.state?.longest_road_holder);
   const myDiscard = room?.state?.discard_queue?.find((entry) => entry.player === me?.player_index);
   const tradeOffer = room?.state?.trade_offer;
+  const turnTimerPaused = Boolean(room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine");
+  const turnTimerReference = room?.state?.timer_paused_at ? new Date(room.state.timer_paused_at).getTime() : clockNow;
+  const turnSeconds = room?.state?.turn_deadline ? Math.max(0, Math.ceil((new Date(room.state.turn_deadline).getTime() - turnTimerReference) / 1000)) : 70;
+  const discardSeconds = room?.state?.discard_deadline ? Math.max(0, Math.ceil((new Date(room.state.discard_deadline).getTime() - clockNow) / 1000)) : 10;
   const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
   const bankTradeRate = hasHarbor ? 3 : 4;
   const hasBankTradedThisRound = me?.last_bank_trade_round === (room?.state?.round ?? 1);
@@ -444,7 +464,10 @@ export default function Home() {
     const storageKey = `new-katan-goldmine-${room.id}-${me.user_id}`;
     if (window.localStorage.getItem(storageKey)) return;
     window.localStorage.setItem(storageKey, "seen");
-    const timer = window.setTimeout(() => setShowGoldmineUnlock(true), 0);
+    const timer = window.setTimeout(() => {
+      setShowGoldmineUnlock(true);
+      void supabase?.rpc("set_turn_timer_paused", { p_game_id: room.id, p_paused: true });
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [room, me]);
 
@@ -522,6 +545,33 @@ export default function Home() {
       client.removeChannel(channel);
     };
   }, [roomId]);
+
+  useEffect(() => {
+    if (!roomId || room?.status !== "playing") return;
+    const clock = window.setInterval(() => setClockNow(Date.now()), 250);
+    return () => window.clearInterval(clock);
+  }, [roomId, room?.status]);
+
+  useEffect(() => {
+    if (!showGoldmineUnlock || !supabase || !roomId || !room?.state?.turn_deadline) return;
+    void supabase.rpc("set_turn_timer_paused", { p_game_id: roomId, p_paused: true });
+  }, [showGoldmineUnlock, roomId, room?.state?.turn_deadline]);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !roomId || room?.status !== "playing" || room.state?.phase?.startsWith("setup_")) return;
+    const synchronize = async () => {
+      const { data, error: timerError } = await client.rpc("sync_game_timer", { p_game_id: roomId });
+      if (timerError) {
+        if (!timerError.message.includes("function public.sync_game_timer")) setError(timerError.message);
+        return;
+      }
+      if (data) setRoom(normalizedRoom(data));
+    };
+    void synchronize();
+    const timer = window.setInterval(() => void synchronize(), 1000);
+    return () => window.clearInterval(timer);
+  }, [roomId, room?.status, room?.state?.phase]);
 
   useEffect(() => {
     const client = supabase;
@@ -710,6 +760,13 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function closeGoldmineMessage() {
+    setShowGoldmineUnlock(false);
+    if (!supabase || !room) return;
+    const { data } = await supabase.rpc("set_turn_timer_paused", { p_game_id: room.id, p_paused: false });
+    if (data) setRoom(normalizedRoom(data));
+  }
+
   async function buyKlausCard() {
     if (!supabase || !room || !isMyTurn) return;
     setBusy(true); setError("");
@@ -800,7 +857,7 @@ export default function Home() {
               <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · 🛣 Längste Handelsstraße (+2 VP)</span> : null}</>}</small>
             </div>
           ))}
-          {Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
+          {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
           {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
             <div className="resource-wallet">
               <p className="eyebrow">Deine Rohstoffe</p>
@@ -868,6 +925,10 @@ export default function Home() {
                 <span>Runde {room.state?.round ?? 1}</span>
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
               </div>
+              <div className={`turn-timer ${turnSeconds <= 15 && !turnTimerPaused ? "urgent" : ""} ${turnTimerPaused ? "paused" : ""}`}>
+                <div className="turn-timer-track"><span style={{ width: `${turnTimerPaused ? Math.max(0, Math.min(100, turnSeconds / 70 * 100)) : turnSeconds / 70 * 100}%` }} /></div>
+                <strong>{turnTimerPaused ? "Timer pausiert" : `${turnSeconds} Sek.`}</strong>
+              </div>
               {room.state?.dice ? (
                 <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /></div>
               ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
@@ -922,6 +983,7 @@ export default function Home() {
               </div>}
               {room.state?.phase === "discard" && <div className="discard-panel">
                 <strong>🃏 Karten wegen der 7 abgeben</strong>
+                <span className={`discard-countdown ${discardSeconds <= 3 ? "urgent" : ""}`}>Noch {discardSeconds} Sekunden – danach wird zufällig abgegeben.</span>
                 {myDiscard ? <><span>Du musst noch {myDiscard.remaining} Rohstoff{myDiscard.remaining === 1 ? "" : "e"} abgeben. Tippe die Karten einzeln an.</span><div className="discard-resources">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void discardResource(resource.key)} disabled={busy || (myResources[resource.key] ?? 0) < 1}><ResourceIcon kind={resource.key} /><b>{resource.label}</b><span>{myResources[resource.key] ?? 0}</span></button>)}</div></> : <span>Warte, bis alle betroffenen Spieler ihre Karten abgegeben haben.</span>}
               </div>}
               {room.state?.phase === "goldmine" && <div className="goldmine-choice-panel">
@@ -935,7 +997,7 @@ export default function Home() {
         </section>
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
-      {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Klaus spendiert ein neues Gebäude: Goldmine</strong><p>Kann nur an die Wüste angrenzend aus einer Siedlung entwickelt werden. Gibt keinen extra Siegpunkt, aber immer wenn die 7 gewürfelt wird, darf ein beliebiger Rohstoff genommen werden.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={() => setShowGoldmineUnlock(false)}>Goldmine freigeschaltet</button></div></div>}
+      {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Klaus spendiert ein neues Gebäude: Goldmine</strong><p>Kann nur an die Wüste angrenzend aus einer Siedlung entwickelt werden. Gibt keinen extra Siegpunkt, aber immer wenn die 7 gewürfelt wird, darf ein beliebiger Rohstoff genommen werden.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={() => void closeGoldmineMessage()}>Goldmine freigeschaltet</button></div></div>}
     </main>
   );
 }
