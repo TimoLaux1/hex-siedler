@@ -239,24 +239,26 @@ button, a { font: inherit; }
 @media (orientation: landscape) and (pointer: coarse) and (max-height: 700px),
   (max-width: 900px) and (max-height: 500px) and (orientation: landscape) {
   .mobile-fullscreen-button { position: fixed; z-index: 1400; top: max(8px,env(safe-area-inset-top)); right: max(8px,env(safe-area-inset-right)); display: flex; align-items: center; gap: 5px; min-height: 36px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.72); border-radius: 999px; background: rgba(31,107,87,.94); color: white; box-shadow: 0 5px 16px rgba(23,63,52,.22); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; backdrop-filter: blur(8px); }
-  .lobby-shell { height: 100svh; min-height: 0; grid-template-columns: minmax(260px,42%) minmax(0,1fr); overflow: hidden; }
-  .lobby-card { min-height: 0; padding: 14px 18px; overflow-y: auto; }
+  .lobby-shell { position: fixed; inset: 0; width: 100vw; height: 100dvh; min-height: 0; grid-template-columns: minmax(260px,40%) minmax(0,1fr); overflow: hidden; }
+  .lobby-card { min-height: 0; padding: 10px 16px 10px max(16px,calc(env(safe-area-inset-left) + 8px)); overflow-y: auto; scrollbar-gutter: auto; }
   .lobby-brand { font-size: 11px; }
   .lobby-brand span { font-size: 21px; }
-  .lobby-brand + h1 { margin-top: 16px; }
-  .lobby-card h1 { font-size: clamp(24px,4vw,30px); }
-  .lobby-sign-hanger { margin: 15px 0 2px 5px; transform: rotate(1.5deg); }
-  .lobby-sign-hanger:before { height: 25px; }
-  .lobby-sign-hanger:after { height: 29px; }
-  .lobby-title-line { padding: 8px 13px 9px; border-width: 2px; font-size: .43em; }
-  .lobby-account { min-height: 48px; margin-top: 14px; padding: 7px 10px; }
-  .fish-option,.victory-option { min-height: 46px; margin-top: 7px; padding: 6px 9px; }
-  .lobby-primary,.join-form button,.waiting-card button { min-height: 42px; margin-top: 8px; padding: 10px; }
-  .lobby-divider { margin: 12px 0; }
-  .highscore-board { margin-top: 13px; padding-top: 11px; }
-  .highscore-list { max-height: 88px; }
-  .lobby-board { height: 100svh; min-height: 0; }
-  .lobby-board .full-board { transform: scale(.46); }
+  .lobby-card > h1 { display: none; }
+  .lobby-account { min-height: 38px; margin-top: 7px; padding: 5px 9px; }
+  .fish-option,.victory-option { min-height: 38px; margin-top: 5px; padding: 4px 8px; }
+  .fish-option small,.victory-option small { margin: 0; font-size: 8px; line-height: 1.15; }
+  .lobby-primary,.join-form button,.waiting-card button { min-height: 36px; margin-top: 6px; padding: 7px; }
+  .lobby-divider { margin: 7px 0; }
+  .join-form { grid-template-columns: minmax(0,1fr) 96px; gap: 6px; }
+  .lobby-card input { min-height: 36px; padding: 7px 10px; }
+  .lobby-card > small { display: none; }
+  .highscore-board { margin-top: 7px; padding-top: 7px; }
+  .highscore-heading { margin-bottom: 4px; }
+  .highscore-heading > span { width: 27px; height: 27px; font-size: 15px; }
+  .highscore-list { max-height: 58px; }
+  .highscore-row { min-height: 28px; padding-block: 3px; }
+  .lobby-board { height: 100dvh; min-height: 0; padding-right: env(safe-area-inset-right); }
+  .lobby-board .full-board { transform: scale(.42); }
   .online-topbar { height: 54px; }
   .online-layout { min-height: calc(100svh - 54px); padding: 6px 66px 12px 8px; }
   .online-board-area .full-board { transform: scale(.58); transform-origin: top center; margin: 0 0 -228px; }
