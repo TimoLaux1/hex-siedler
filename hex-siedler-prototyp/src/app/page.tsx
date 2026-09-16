@@ -12,6 +12,7 @@ type FishTile = { slot: number; number: number };
 type BoardTile = { name: string; className: string; symbol: string; number: number; resource: ResourceKind | "none" };
 type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
 type DiscardEntry = { player: number; remaining: number };
+type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
@@ -55,6 +56,12 @@ function shuffled<T>(items: T[]) {
     [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
   }
   return copy;
+}
+
+function displayNameFromEmail(email: string) {
+  const parts = email.split("@")[0].toLowerCase().split(/[._-]+/).map((part) => part.replace(/[^a-zäöüß]/gi, "")).filter(Boolean);
+  const firstName = parts[0] ? parts[0][0].toUpperCase() + parts[0].slice(1) : "Spieler";
+  return parts[1] ? `${firstName} ${parts[1][0].toUpperCase()}.` : firstName;
 }
 
 function createRandomBoard(): BoardTile[] {
@@ -459,8 +466,29 @@ function MobileInstallPrompt({
   );
 }
 
+function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentName: string }) {
+  return (
+    <section className="highscore-board" aria-label="Highscore Board">
+      <div className="highscore-heading"><span>♛</span><div><strong>Highscore Board</strong><small>Siege aller Spieler</small></div></div>
+      <div className="highscore-list">
+        {scores.length === 0 ? <p>Noch keine Siege eingetragen.</p> : scores.map((score) => (
+          <div className={`highscore-row ${score.display_name === currentName ? "current" : ""}`} key={`${score.rank}-${score.display_name}`}>
+            <b>{score.rank}.</b><span>{score.display_name}</span><strong>{score.wins} {score.wins === 1 ? "Sieg" : "Siege"}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [highScores, setHighScores] = useState<HighScore[]>([]);
   const [fishTiles, setFishTiles] = useState<FishTile[]>([]);
   const [boardTiles, setBoardTiles] = useState<BoardTile[]>(terrain);
   const [victoryTarget, setVictoryTarget] = useState(10);
@@ -600,18 +628,42 @@ export default function Home() {
   useEffect(() => {
     const client = supabase;
     if (!client) {
-      return;
+      const timer = window.setTimeout(() => setAuthReady(true), 0);
+      return () => window.clearTimeout(timer);
     }
-    client.auth.getSession().then(async ({ data }) => {
-      if (data.session?.user.id) {
-        setUserId(data.session.user.id);
+    const applySession = async (session: Awaited<ReturnType<typeof client.auth.getSession>>["data"]["session"]) => {
+      const sessionEmail = session?.user.email;
+      if (session?.user.id && sessionEmail) {
+        setUserId(session.user.id);
+        setEmail(sessionEmail);
+        setName(displayNameFromEmail(sessionEmail));
+      } else {
+        setUserId("");
+        setName("");
+        if (session?.user.is_anonymous) await client.auth.signOut();
+      }
+      setAuthReady(true);
+    };
+    void client.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => void applySession(session));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !userId) return;
+    const loadHighScores = async () => {
+      const { data, error: scoreError } = await client.rpc("get_katan_highscores");
+      if (scoreError) {
+        if (!scoreError.message.includes("get_katan_highscores")) setError(scoreError.message);
         return;
       }
-      const { data: authData, error: authError } = await client.auth.signInAnonymously();
-      if (authError) setError(authError.message);
-      else setUserId(authData.user?.id ?? "");
-    });
-  }, []);
+      setHighScores((data as HighScore[]) ?? []);
+    };
+    void loadHighScores();
+    const timer = window.setInterval(() => void loadHighScores(), 15000);
+    return () => window.clearInterval(timer);
+  }, [userId]);
 
   const roomId = room?.id;
 
@@ -690,6 +742,46 @@ export default function Home() {
     }, delay);
     return () => window.clearTimeout(timer);
   }, [room?.state?.card_event, roomId]);
+
+  async function sendLoginCode(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || !email.trim()) return;
+    setBusy(true);
+    setAuthError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const { error: loginError } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { shouldCreateUser: true, data: { display_name: displayNameFromEmail(normalizedEmail) } },
+    });
+    if (loginError) setAuthError(loginError.message);
+    else {
+      setEmail(normalizedEmail);
+      setOtpSent(true);
+    }
+    setBusy(false);
+  }
+
+  async function verifyLoginCode(event: FormEvent) {
+    event.preventDefault();
+    if (!supabase || otp.length !== 6) return;
+    setBusy(true);
+    setAuthError("");
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email, token: otp, type: "email" });
+    if (verifyError) setAuthError(verifyError.message);
+    setBusy(false);
+  }
+
+  async function signOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setRoom(null);
+    setPlayers([]);
+    setHighScores([]);
+    setOtp("");
+    setOtpSent(false);
+    setUserId("");
+    setName("");
+  }
 
   async function createRoom(event: FormEvent) {
     event.preventDefault();
@@ -912,6 +1004,38 @@ export default function Home() {
     await navigator.clipboard.writeText(shareUrl);
   }
 
+  if (!authReady) {
+    return <main className="auth-shell"><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
+  }
+
+  if (!userId) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
+          <div className="auth-klaus">🧔🏻‍♂️</div>
+          <h1>{otpSent ? "Code eingeben" : "Klaus prüft die Gästeliste"}</h1>
+          <p>{otpSent ? <>Wir haben einen sechsstelligen Code an <b>{email}</b> gesendet.</> : "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet."}</p>
+          {otpSent ? (
+            <form className="auth-form" onSubmit={verifyLoginCode}>
+              <label>Verifizierungscode<input className="otp-input" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" autoFocus /></label>
+              <button disabled={busy || otp.length !== 6}>{busy ? "Prüfe …" : "Einloggen"}</button>
+              <button className="auth-back" type="button" onClick={() => { setOtpSent(false); setOtp(""); setAuthError(""); }}>Andere E-Mail-Adresse</button>
+            </form>
+          ) : (
+            <form className="auth-form" onSubmit={sendLoginCode}>
+              <label>E-Mail-Adresse<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="timo.laux@beispiel.de" required autoFocus /></label>
+              <button disabled={busy || !email.trim()}>{busy ? "Sende …" : "Code senden"}</button>
+            </form>
+          )}
+          {authError && <p className="auth-error">{authError}</p>}
+          <small>Beispiel: timo.laux@… wird zu Timo L.</small>
+        </section>
+        <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
+      </main>
+    );
+  }
+
   if (!room) {
     return (
       <main className="lobby-shell">
@@ -923,7 +1047,7 @@ export default function Home() {
               <span className="lobby-title-line">Teubi muss draußen bleiben.</span>
             </span>
           </h1>
-          <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
+          <div className="lobby-account"><span><small>Eingeloggt als</small><strong>{name}</strong></span><button type="button" onClick={() => void signOut()}>Abmelden</button></div>
           <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
             <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
             <strong>{fishTiles.length}/4</strong>
@@ -939,7 +1063,8 @@ export default function Home() {
             <button disabled={busy || !name.trim() || code.length !== 6}>Beitreten</button>
           </form>
           {error && <p className="lobby-error">{error}</p>}
-          <small>Keine Registrierung nötig. Räume sind nur für eingeladene Testspieler gedacht.</small>
+          <small>Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.</small>
+          <HighScoreBoard scores={highScores} currentName={name} />
         </section>
         <div className="lobby-board"><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></div>
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
