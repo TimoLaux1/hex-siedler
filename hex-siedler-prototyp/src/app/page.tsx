@@ -101,8 +101,10 @@ const fishNumbers = [2, 3, 4, 5, 9, 10, 11, 12];
 const harbors = [
   { id: 0, x: 166.44, y: 28, vertices: [5, 0] },
   { id: 1, x: 443.56, y: 28, vertices: [10, 11] },
-  { id: 2, x: 166.44, y: 516, vertices: [48, 49] },
-  { id: 3, x: 443.56, y: 516, vertices: [52, 53] },
+  { id: 2, x: 28, y: 272, vertices: [27, 28] },
+  { id: 3, x: 582, y: 272, vertices: [35, 36] },
+  { id: 4, x: 166.44, y: 516, vertices: [48, 49] },
+  { id: 5, x: 443.56, y: 516, vertices: [52, 53] },
 ];
 
 type Vertex = { id: number; x: number; y: number; neighbors: number[] };
@@ -752,8 +754,12 @@ export default function Home() {
       <main className="lobby-shell">
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
-          <p className="lobby-kicker">Online-Prototyp · Version 4</p>
-          <h1>Katan ohne Klaus.<span className="lobby-title-line">Teubi muss draußen bleiben.</span></h1>
+          <h1>
+            <span className="lobby-title-main">Katan ohne Klaus.</span>
+            <span className="lobby-sign-hanger" aria-label="Teubi muss draußen bleiben.">
+              <span className="lobby-title-line">Teubi muss draußen bleiben.</span>
+            </span>
+          </h1>
           <label>Dein Spielername<input value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder="z. B. Timo" /></label>
           <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
             <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>

@@ -77,9 +77,14 @@ button, a { font: inherit; }
 .lobby-card { padding: clamp(42px,6vh,76px) clamp(48px,4vw,82px); display: flex; flex-direction: column; justify-content: center; background: linear-gradient(155deg,#fff 0%,#fff 72%,#fbfaf6 100%); box-shadow: 20px 0 60px rgba(32,48,45,.08); z-index: 2; }
 .lobby-card > * { width: 100%; max-width: 490px; }
 .lobby-brand { font-weight: 900; letter-spacing: .14em; }.lobby-brand span { color: #d89231; font-size: 28px; vertical-align: middle; }
-.lobby-kicker { margin: clamp(36px,5vh,58px) 0 13px; color: #1f6b57; text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 800; }
-.lobby-card h1 { margin: 0; max-width: 480px; font-size: clamp(32px,2.4vw,46px); line-height: 1.04; letter-spacing: -.035em; text-wrap: balance; }
-.lobby-title-line { display: block; white-space: nowrap; font-size: .78em; letter-spacing: -.045em; }
+.lobby-brand + h1 { margin-top: clamp(42px,6vh,68px); }
+.lobby-card h1 { margin: 0; max-width: 490px; overflow: visible; font-size: clamp(32px,2.4vw,46px); line-height: 1.04; letter-spacing: -.035em; }
+.lobby-title-main { display: block; white-space: nowrap; }
+.lobby-sign-hanger { position: relative; display: block; width: max-content; max-width: calc(100% - 12px); margin: 32px 0 3px 10px; transform: rotate(2.4deg); transform-origin: 18% -28px; }
+.lobby-sign-hanger:before,.lobby-sign-hanger:after { content:""; position: absolute; z-index: -1; bottom: calc(100% - 3px); width: 2px; height: 38px; border-radius: 2px; background: linear-gradient(90deg,#71543a,#c09b70,#6b4c32); box-shadow: 1px 0 #fff8; transform-origin: bottom; }
+.lobby-sign-hanger:before { left: 18%; transform: rotate(39deg); }.lobby-sign-hanger:after { right: 15%; height: 43px; transform: rotate(-43deg); }
+.lobby-title-line { position: relative; display: block; padding: 12px 22px 13px; border: 3px solid #754427; border-radius: 5px; background: linear-gradient(100deg,rgba(255,255,255,.14),transparent 25%,rgba(74,36,14,.13) 26%,transparent 27%,transparent 67%,rgba(255,255,255,.12) 68%,transparent 69%),repeating-linear-gradient(3deg,#b8753f 0,#b8753f 7px,#a96534 8px,#c4864e 12px); color: #fff8dc; font-family: Georgia,"Times New Roman",serif; font-size: .57em; font-weight: 800; letter-spacing: -.025em; line-height: 1; white-space: nowrap; text-shadow: 0 2px 1px #4d291c,0 0 1px #2b170f; box-shadow: inset 0 0 0 2px #d89b61,inset 0 -8px 18px #63301638,0 7px 12px #3a23192e; }
+.lobby-title-line:before,.lobby-title-line:after { content:""; position: absolute; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle at 35% 30%,#ead0a0,#6e482c 60%,#352319); box-shadow: 0 1px 1px #3b211c; }.lobby-title-line:before { left: 8px; }.lobby-title-line:after { right: 8px; }
 .lobby-card h1 + label { margin-top: 30px; }
 .lobby-copy { color: #68736f; line-height: 1.6; margin: 22px 0 28px; }
 .lobby-card label { display: grid; gap: 8px; font-size: 12px; font-weight: 800; }
@@ -168,5 +173,6 @@ button, a { font: inherit; }
 @keyframes reveal-in { from { opacity: 0; } } @keyframes card-flip { 0% { transform: perspective(900px) rotateY(90deg) scale(.7); } 12%,88% { transform: perspective(900px) rotateY(0) scale(1); } 100% { transform: perspective(900px) rotateY(0) scale(.92); opacity: .9; } }
 @media (min-width: 1600px) and (min-height: 850px) { .lobby-board .full-board { transform: scale(1.6); } }
 @media (max-width: 1100px) and (min-width: 901px) { .lobby-shell { grid-template-columns: 470px minmax(0,1fr); }.lobby-card { padding-inline: 48px; }.lobby-board .full-board { transform: scale(.9); } }
-@media (max-width: 900px) { .lobby-shell { grid-template-columns: 1fr; }.lobby-card { padding: 45px 8vw; }.lobby-card > * { max-width: 560px; margin-inline: auto; }.lobby-kicker { margin-top: 34px; }.lobby-board { min-height: 560px; }.lobby-board .full-board { transform: scale(.88); }.online-layout { grid-template-columns: 1fr; }.room-panel { max-width: 600px; width: 100%; margin: auto; order: 2; } }
+@media (max-width: 900px) { .lobby-shell { grid-template-columns: 1fr; }.lobby-card { padding: 45px 8vw; }.lobby-card > * { max-width: 560px; margin-inline: auto; }.lobby-brand + h1 { margin-top: 38px; }.lobby-board { min-height: 560px; }.lobby-board .full-board { transform: scale(.88); }.online-layout { grid-template-columns: 1fr; }.room-panel { max-width: 600px; width: 100%; margin: auto; order: 2; } }
 @media (max-width: 650px) { .full-board { transform: scale(.68); margin: -80px 0; }.online-topbar { padding: 0 14px; }.copy-button { font-size: 0; }.copy-button:after { content: "Link kopieren"; font-size: 12px; }.online-layout { padding: 25px 12px; overflow: hidden; }.join-form { grid-template-columns: 1fr; }.build-actions { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .lobby-card h1 { font-size: clamp(27px,8.2vw,36px); }.lobby-title-line { padding: 11px 14px 12px; font-size: .5em; }.lobby-sign-hanger { margin-top: 29px; } }
