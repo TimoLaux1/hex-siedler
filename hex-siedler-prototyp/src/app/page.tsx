@@ -13,12 +13,16 @@ type BoardTile = { name: string; className: string; symbol: string; number: numb
 type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
 type DiscardEntry = { player: number; remaining: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
-type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; created_at?: string };
+type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 const klausCards: Record<KlausKind, { title: string; face: string; description: string; tone: string }> = {
   disappointed: { title: "Enttäuschter Klaus", face: "😞", description: "Ein Mitspieler verliert 1 Siegpunkt.", tone: "blue" },
@@ -159,6 +163,30 @@ function createBoardTopology(centers: { x: number; y: number }[]) {
     return { id, a, b, x: (va.x + vb.x) / 2, y: (va.y + vb.y) / 2, angle: Math.atan2(vb.y - va.y, vb.x - va.x) * 180 / Math.PI };
   });
   return { vertices: vertices.map((vertex, id) => ({ ...vertex, neighbors: [...neighborSets[id]] })), edges, tileVertices };
+}
+
+function calculateLongestRoad(playerIndex: number, roads: Road[], settlements: Settlement[]) {
+  const playerRoads = roads.filter((road) => road.player === playerIndex);
+  if (playerRoads.length === 0) return 0;
+  const blockedVertices = new Set(settlements.filter((building) => building.player !== playerIndex).map((building) => building.vertex));
+  const connected = new Map<number, Road[]>();
+  playerRoads.forEach((road) => {
+    connected.set(road.a, [...(connected.get(road.a) ?? []), road]);
+    connected.set(road.b, [...(connected.get(road.b) ?? []), road]);
+  });
+  const walk = (vertex: number, usedEdges: Set<number>, started: boolean): number => {
+    if (started && blockedVertices.has(vertex)) return 0;
+    let best = 0;
+    for (const road of connected.get(vertex) ?? []) {
+      if (usedEdges.has(road.edge)) continue;
+      const nextUsed = new Set(usedEdges);
+      nextUsed.add(road.edge);
+      const nextVertex = road.a === vertex ? road.b : road.a;
+      best = Math.max(best, 1 + walk(nextVertex, nextUsed, true));
+    }
+    return best;
+  };
+  return Math.max(...Array.from(connected.keys(), (vertex) => walk(vertex, new Set<number>(), false)));
 }
 
 const topology = createBoardTopology([...tileCenters, ...fishCenters]);
@@ -396,6 +424,41 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   );
 }
 
+function MobileInstallPrompt({
+  open,
+  showInstructions,
+  canInstall,
+  onInstall,
+  onDismiss,
+}: {
+  open: boolean;
+  showInstructions: boolean;
+  canInstall: boolean;
+  onInstall: () => void;
+  onDismiss: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="install-prompt-overlay" role="dialog" aria-modal="true" aria-labelledby="install-prompt-title">
+      <div className="install-prompt-card">
+        <span className="install-prompt-icon">⬡</span>
+        {showInstructions ? <>
+          <strong id="install-prompt-title">New Katan installieren</strong>
+          <p>Tippe in Safari unten auf <b>Teilen</b> und danach auf <b>„Zum Home-Bildschirm“</b>.</p>
+          <button className="install-primary" onClick={onDismiss}>Verstanden</button>
+        </> : <>
+          <strong id="install-prompt-title">Zum Homebildschirm hinzufügen?</strong>
+          <p>{canInstall ? "Starte New Katan künftig direkt wie eine App." : "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab."}</p>
+          <div className="install-prompt-actions">
+            <button className="install-primary" onClick={onInstall}>Hinzufügen</button>
+            <button className="install-secondary" onClick={onDismiss}>Abbrechen</button>
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [name, setName] = useState("");
   const [fishTiles, setFishTiles] = useState<FishTile[]>([]);
@@ -418,6 +481,9 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
@@ -446,6 +512,10 @@ export default function Home() {
   const longestRoadHolder = players.find((player) => player.player_index === room?.state?.longest_road_holder);
   const myDiscard = room?.state?.discard_queue?.find((entry) => entry.player === me?.player_index);
   const tradeOffer = room?.state?.trade_offer;
+  const diceSums = Array.from({ length: 11 }, (_, index) => index + 2);
+  const diceStats = room?.state?.dice_stats ?? {};
+  const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
+  const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const turnTimerPaused = Boolean(room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine");
   const turnTimerReference = room?.state?.timer_paused_at ? new Date(room.state.timer_paused_at).getTime() : clockNow;
   const turnSeconds = room?.state?.turn_deadline ? Math.max(0, Math.ceil((new Date(room.state.turn_deadline).getTime() - turnTimerReference) / 1000)) : 70;
@@ -458,6 +528,42 @@ export default function Home() {
       settlement.player === player.player_index && topology.tileVertices[selectedRobberTile]?.includes(settlement.vertex)
     )
   );
+
+  useEffect(() => {
+    const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
+    const isMobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || standaloneNavigator.standalone === true;
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+    if (!isMobile || isStandalone || window.localStorage.getItem("new-katan-install-dismissed")) return;
+
+    const captureInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    const timer = window.setTimeout(() => setShowInstallPrompt(true), 700);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+    };
+  }, []);
+
+  function dismissInstallPrompt() {
+    window.localStorage.setItem("new-katan-install-dismissed", "true");
+    setShowInstallPrompt(false);
+    setShowInstallInstructions(false);
+  }
+
+  async function installToHomeScreen() {
+    if (!installPromptEvent) {
+      setShowInstallInstructions(true);
+      return;
+    }
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice;
+    if (choice.outcome === "accepted") dismissInstallPrompt();
+    setInstallPromptEvent(null);
+  }
 
   useEffect(() => {
     if (!room || !me || (me.victory_points ?? 0) < 8) return;
@@ -836,6 +942,7 @@ export default function Home() {
           <small>Keine Registrierung nötig. Räume sind nur für eingeladene Testspieler gedacht.</small>
         </section>
         <div className="lobby-board"><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></div>
+        <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
     );
   }
@@ -854,10 +961,23 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} VP · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · 🛣 Längste Handelsstraße (+2 VP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
+          {room.status !== "waiting" && <div className="dice-statistics">
+            <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
+            <div className="dice-chart">
+              {diceSums.map((sum) => {
+                const count = diceStats[String(sum)] ?? 0;
+                return <div className={`dice-column ${sum === 6 || sum === 8 ? "hot" : ""}`} key={sum} title={`${sum}: ${count}× gewürfelt`}>
+                  <b>{count}</b>
+                  <span style={{ height: `${count === 0 ? 2 : Math.max(12, count / highestDiceCount * 100)}%` }} />
+                  <small>{sum}</small>
+                </div>;
+              })}
+            </div>
+          </div>}
           {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
             <div className="resource-wallet">
               <p className="eyebrow">Deine Rohstoffe</p>
@@ -877,10 +997,12 @@ export default function Home() {
               <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>
               {myCards.length === 0 ? <span className="empty-hand">Noch keine Handkarten.</span> : (
                 <div className="klaus-hand-list">
-                  {myCards.map((card) => <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event)}>
+                  {myCards.map((card) => {
+                    const playableThisTurn = card.must_play || card.bought_round === undefined || card.bought_round < (room.state?.round ?? 1);
+                    return <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event) || !playableThisTurn}>
                     <KlausCardView kind={card.card_type} compact />
-                    <span>{card.must_play ? "Muss sofort gespielt werden" : "Karte spielen"}</span>
-                  </button>)}
+                    <span>{card.must_play ? "Muss sofort gespielt werden" : playableThisTurn ? "Karte spielen" : "Ab deinem nächsten Zug spielbar"}</span>
+                  </button>;})}
                 </div>
               )}
             </div>
@@ -899,7 +1021,7 @@ export default function Home() {
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={(tile) => setSelectedRobberTile(tile)}
           />
-          {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 VP</div>}
+          {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
@@ -998,6 +1120,7 @@ export default function Home() {
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
       {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Klaus spendiert ein neues Gebäude: Goldmine</strong><p>Kann nur an die Wüste angrenzend aus einer Siedlung entwickelt werden. Gibt keinen extra Siegpunkt, aber immer wenn die 7 gewürfelt wird, darf ein beliebiger Rohstoff genommen werden.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={() => void closeGoldmineMessage()}>Goldmine freigeschaltet</button></div></div>}
+      <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
     </main>
   );
 }

@@ -15,6 +15,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "New Katan – Strategiespiel",
   description: "Ein eigenständiger Prototyp für ein webbasiertes Hex-Strategiespiel.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "New Katan",
+  },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
