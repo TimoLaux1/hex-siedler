@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
@@ -516,6 +516,7 @@ export default function Home() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const resumeAttemptedForUser = useRef("");
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
@@ -685,6 +686,44 @@ export default function Home() {
     const timer = window.setInterval(() => void loadHighScores(), 15000);
     return () => window.clearInterval(timer);
   }, [userId]);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !userId || !name || room || resumeAttemptedForUser.current === userId) return;
+    resumeAttemptedForUser.current = userId;
+
+    const resumeRoom = async () => {
+      const urlCode = new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "";
+      const storedCode = window.localStorage.getItem(`new-katan-last-room-${userId}`)?.trim().toUpperCase() ?? "";
+      const requestedCode = urlCode || storedCode || null;
+      let { data, error: resumeError } = await client.rpc("resume_my_game_room", { p_join_code: requestedCode });
+
+      if (!resumeError && !data && !urlCode && storedCode) {
+        const fallback = await client.rpc("resume_my_game_room", { p_join_code: null });
+        data = fallback.data;
+        resumeError = fallback.error;
+      }
+
+      if (resumeError) {
+        if (!resumeError.message.includes("resume_my_game_room")) setError(resumeError.message);
+        return;
+      }
+
+      const resumedRoom = (Array.isArray(data) ? data[0] : data) as Room | null;
+      if (!resumedRoom?.id || !resumedRoom.join_code) return;
+      setRoom(resumedRoom);
+      setCode(resumedRoom.join_code);
+      window.localStorage.setItem(`new-katan-last-room-${userId}`, resumedRoom.join_code);
+      window.history.replaceState({}, "", `?room=${resumedRoom.join_code}`);
+    };
+
+    void resumeRoom();
+  }, [name, room, userId]);
+
+  useEffect(() => {
+    if (!room?.join_code || !userId) return;
+    window.localStorage.setItem(`new-katan-last-room-${userId}`, room.join_code);
+  }, [room?.join_code, userId]);
 
   const roomId = room?.id;
 
