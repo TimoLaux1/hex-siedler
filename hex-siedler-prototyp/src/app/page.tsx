@@ -1084,12 +1084,11 @@ export default function Home() {
             </form>
           ) : (
             <form className="auth-form" onSubmit={sendLoginCode}>
-              <label>E-Mail-Adresse<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="timo.laux@beispiel.de" required autoFocus /></label>
+              <label>E-Mail-Adresse<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="E-Mail-Adresse eingeben" required autoFocus /></label>
               <button disabled={busy || !email.trim()}>{busy ? "Sende …" : "Code senden"}</button>
             </form>
           )}
           {authError && <p className="auth-error">{authError}</p>}
-          <small>Beispiel: timo.laux@… wird zu Timo L.</small>
         </section>
         <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
