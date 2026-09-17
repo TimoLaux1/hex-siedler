@@ -1172,6 +1172,10 @@ export default function Home() {
     const { data, error: placementError } = await supabase.rpc(rpcName, parameters);
     if (placementError) setError(placementError.message);
     else {
+      if (rpcName === "place_setup_settlement") {
+        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", { p_game_id: room.id });
+        if (resourceSyncError) setError(resourceSyncError.message);
+      }
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
       if (winnerError) setError(winnerError.message);
       const nextRoom = normalizedRoom(winnerData ?? data);
@@ -1456,7 +1460,7 @@ export default function Home() {
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
-          {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
+          {room.status !== "waiting" && me && (
             <div className="resource-wallet">
               <p className="eyebrow">Deine Rohstoffe</p>
               <div className="resource-list">

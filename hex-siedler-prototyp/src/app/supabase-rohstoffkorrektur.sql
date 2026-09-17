@@ -68,6 +68,98 @@ after update of state on public.games
 for each row
 execute function public.correct_setup_starting_resources();
 
+-- Wird vom Client unmittelbar nach dem Setzen einer Startsiedlung aufgerufen.
+-- Diese abschließende Korrektur läuft nach place_setup_settlement und kann daher
+-- nicht mehr von einer älteren, hart codierten Rohstoffvergabe überschrieben werden.
+create or replace function public.sync_my_setup_resources(p_game_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  game_row public.games;
+  my_index integer;
+  own_buildings integer;
+  second_vertex integer;
+  tile_index integer;
+  resource_name text;
+  corrected jsonb := '{"wood":0,"brick":0,"wool":0,"grain":0,"ore":0}'::jsonb;
+begin
+  select * into game_row
+  from public.games
+  where id = p_game_id;
+
+  if game_row.id is null then
+    raise exception 'Spiel nicht gefunden';
+  end if;
+
+  select player_index into my_index
+  from public.game_players
+  where game_id = p_game_id
+    and user_id = auth.uid();
+
+  if my_index is null then
+    raise exception 'Du gehörst nicht zu diesem Spiel';
+  end if;
+
+  if game_row.status <> 'playing'
+     or coalesce(game_row.state->>'phase','') not like 'setup_%' then
+    return (
+      select resources
+      from public.game_players
+      where game_id = p_game_id and player_index = my_index
+    );
+  end if;
+
+  select count(*), max(case when placement_order = latest_order then vertex end)
+  into own_buildings, second_vertex
+  from (
+    select
+      (building->>'vertex')::integer as vertex,
+      placement_order,
+      max(placement_order) over () as latest_order
+    from jsonb_array_elements(coalesce(game_row.state->'settlements','[]'::jsonb))
+      with ordinality placed(building,placement_order)
+    where (building->>'player')::integer = my_index
+  ) own_settlements;
+
+  if own_buildings <> 2 or second_vertex is null then
+    return (
+      select resources
+      from public.game_players
+      where game_id = p_game_id and player_index = my_index
+    );
+  end if;
+
+  for tile_index in
+    select unnest(mapping.tile_indices)
+    from public.board_vertex_tiles mapping
+    where mapping.vertex_id = second_vertex
+  loop
+    resource_name := game_row.board_tiles->tile_index->>'resource';
+    if resource_name in ('wood','brick','wool','grain','ore') then
+      corrected := jsonb_set(
+        corrected,
+        array[resource_name],
+        to_jsonb(coalesce((corrected->>resource_name)::integer,0) + 1),
+        true
+      );
+    end if;
+  end loop;
+
+  update public.game_players
+  set resources = corrected
+  where game_id = p_game_id
+    and player_index = my_index;
+
+  return corrected;
+end;
+$$;
+
+revoke all on function public.sync_my_setup_resources(uuid) from public;
+grant execute on function public.sync_my_setup_resources(uuid) to authenticated;
+
 create or replace function public.roll_turn_dice(p_game_id uuid)
 returns public.games
 language plpgsql
