@@ -1,12 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#2f8069"/>
-      <stop offset="1" stop-color="#174f43"/>
+    <radialGradient id="background" cx="38%" cy="28%" r="88%">
+      <stop stop-color="#2d7b65"/>
+      <stop offset="1" stop-color="#123f36"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f1c665"/>
+      <stop offset=".48" stop-color="#d9942d"/>
+      <stop offset="1" stop-color="#a96218"/>
     </linearGradient>
+    <linearGradient id="forest" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#4f8763"/>
+      <stop offset="1" stop-color="#1b4937"/>
+    </linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0cf68"/>
+      <stop offset="1" stop-color="#bd8525"/>
+    </linearGradient>
+    <linearGradient id="clay" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#d27f59"/>
+      <stop offset="1" stop-color="#86422e"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <path d="M256 82 407 169v174L256 430 105 343V169z"/>
+    </clipPath>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="15" stdDeviation="16" flood-color="#08271f" flood-opacity=".55"/>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#f7f2e7"/>
-  <path d="M256 70 413 161v181L256 432 99 342V161z" fill="url(#sea)" stroke="#d89231" stroke-width="24"/>
-  <path d="M256 142 351 197v110l-95 55-95-55V197z" fill="#d89231" opacity=".95"/>
-  <text x="256" y="294" text-anchor="middle" fill="#fff9e9" font-family="Arial,sans-serif" font-size="112" font-weight="900">NK</text>
+
+  <rect width="512" height="512" rx="112" fill="url(#background)"/>
+  <path d="M52 145 256 27l204 118v235L256 498 52 380z" fill="none" stroke="#ffffff" stroke-opacity=".055" stroke-width="3"/>
+  <path d="M94 169 256 75l162 94v187l-162 94-162-94z" fill="none" stroke="#ffffff" stroke-opacity=".07" stroke-width="3"/>
+
+  <g filter="url(#shadow)">
+    <path d="M256 65 422 161v191L256 448 90 352V161z" fill="url(#gold)"/>
+    <g clip-path="url(#tile)">
+      <path d="M256 256 65 146 256 35 447 146z" fill="url(#forest)"/>
+      <path d="M256 256 256 476 65 366 65 146z" fill="url(#field)"/>
+      <path d="M256 256 447 146 447 366 256 476z" fill="url(#clay)"/>
+
+      <g fill="#173d2f" opacity=".72">
+        <path d="M142 203l29-58 29 58h-15l22 41h-72l22-41z"/>
+        <path d="M220 180l35-72 35 72h-17l25 47h-86l25-47z"/>
+        <path d="M303 200l27-55 27 55h-14l21 39h-68l20-39z"/>
+      </g>
+      <g fill="none" stroke="#fff0ad" stroke-linecap="round" stroke-width="7" opacity=".72">
+        <path d="M132 285v91M132 311l-22-18m22 42 24-20m-24 43-20-16"/>
+        <path d="M183 303v82M183 326l-20-16m20 39 21-18"/>
+      </g>
+      <g fill="#e6a078" stroke="#743522" stroke-width="4" opacity=".82">
+        <rect x="310" y="285" width="63" height="27" rx="7"/>
+        <rect x="343" y="319" width="63" height="27" rx="7"/>
+        <rect x="292" y="353" width="63" height="27" rx="7"/>
+        <rect x="362" y="353" width="50" height="27" rx="7"/>
+      </g>
+    </g>
+    <path d="M256 82 407 169v174L256 430 105 343V169z" fill="none" stroke="#fff6dc" stroke-width="10" stroke-linejoin="round"/>
+
+    <path d="M256 163 337 210v93l-81 47-81-47v-93z" fill="#173f35" stroke="#fff5d9" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M256 182 320 219v74l-64 37-64-37v-74z" fill="none" stroke="url(#gold)" stroke-width="5" stroke-linejoin="round"/>
+    <text x="256" y="294" text-anchor="middle" fill="#fff7e2" font-family="Arial,Helvetica,sans-serif" font-size="111" font-weight="900">N</text>
+  </g>
 </svg>
