@@ -16,7 +16,7 @@ type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
@@ -485,6 +485,11 @@ function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentN
   );
 }
 
+function formatClock(seconds: number) {
+  const safeSeconds = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, "0")}`;
+}
+
 export default function Home() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -517,11 +522,14 @@ export default function Home() {
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
   const resumeAttemptedForUser = useRef("");
+  const playerTimerInitialized = useRef(new Set<string>());
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
   const activePlayer = players.find((player) => player.player_index === room?.state?.active_player);
-  const isMyTurn = me?.player_index === room?.state?.active_player;
+  const eliminatedPlayers = room?.state?.eliminated_players ?? [];
+  const isEliminated = me?.player_index !== undefined && eliminatedPlayers.includes(me.player_index);
+  const isMyTurn = !isEliminated && me?.player_index === room?.state?.active_player;
   const myResources = me?.resources ?? { wood: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
   const canBuildRoad = myResources.wood >= 1 && myResources.brick >= 1;
   const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
@@ -549,9 +557,18 @@ export default function Home() {
   const diceStats = room?.state?.dice_stats ?? {};
   const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
-  const turnTimerPaused = Boolean(room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine");
-  const turnTimerReference = room?.state?.timer_paused_at ? new Date(room.state.timer_paused_at).getTime() : clockNow;
-  const turnSeconds = room?.state?.turn_deadline ? Math.max(0, Math.ceil((new Date(room.state.turn_deadline).getTime() - turnTimerReference) / 1000)) : 70;
+  const activePlayerIndex = room?.state?.active_player;
+  const playerTimersReady = Boolean(room?.state?.player_time_remaining);
+  const playerClockPaused = Boolean(room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
+  const storedActiveSeconds = activePlayerIndex === undefined ? 600 : Number(room?.state?.player_time_remaining?.[String(activePlayerIndex)] ?? 600);
+  const activeClockElapsed = !playerClockPaused && room?.state?.player_timer_active === activePlayerIndex && room?.state?.player_timer_started_at
+    ? Math.max(0, (clockNow - new Date(room.state.player_timer_started_at).getTime()) / 1000)
+    : 0;
+  const activePlayerSeconds = Math.max(0, storedActiveSeconds - activeClockElapsed);
+  const playerSeconds = (playerIndex: number) => {
+    if (playerIndex === activePlayerIndex) return activePlayerSeconds;
+    return Math.max(0, Number(room?.state?.player_time_remaining?.[String(playerIndex)] ?? 600));
+  };
   const discardSeconds = room?.state?.discard_deadline ? Math.max(0, Math.ceil((new Date(room.state.discard_deadline).getTime() - clockNow) / 1000)) : 10;
   const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
   const bankTradeRate = hasHarbor ? 3 : 4;
@@ -777,11 +794,25 @@ export default function Home() {
 
   useEffect(() => {
     const client = supabase;
-    if (!client || !roomId || room?.status !== "playing" || room.state?.phase?.startsWith("setup_")) return;
-    const synchronize = async () => {
-      const { data, error: timerError } = await client.rpc("sync_game_timer", { p_game_id: roomId });
+    if (!client || !roomId || room?.status !== "playing" || playerTimersReady || playerTimerInitialized.current.has(roomId)) return;
+    playerTimerInitialized.current.add(roomId);
+    void client.rpc("ensure_player_game_timer", { p_game_id: roomId }).then(({ data, error: timerError }) => {
       if (timerError) {
-        if (!timerError.message.includes("function public.sync_game_timer")) setError(timerError.message);
+        playerTimerInitialized.current.delete(roomId);
+        if (!timerError.message.includes("function public.ensure_player_game_timer")) setError(timerError.message);
+        return;
+      }
+      if (data) setRoom(normalizedRoom(data));
+    });
+  }, [playerTimersReady, roomId, room?.status]);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !roomId || room?.status !== "playing" || !playerTimersReady) return;
+    const synchronize = async () => {
+      const { data, error: timerError } = await client.rpc("sync_player_game_timer", { p_game_id: roomId });
+      if (timerError) {
+        if (!timerError.message.includes("function public.sync_player_game_timer")) setError(timerError.message);
         return;
       }
       if (data) setRoom(normalizedRoom(data));
@@ -789,7 +820,7 @@ export default function Home() {
     void synchronize();
     const timer = window.setInterval(() => void synchronize(), 1000);
     return () => window.clearInterval(timer);
-  }, [roomId, room?.status, room?.state?.phase]);
+  }, [playerTimersReady, roomId, room?.status]);
 
   useEffect(() => {
     const client = supabase;
@@ -889,7 +920,15 @@ export default function Home() {
     if (!supabase || !room || players.length < 2) return;
     setError("");
     const { data, error: setupError } = await supabase.rpc("start_game_setup", { p_game_id: room.id });
-    if (setupError) setError(setupError.message); else setRoom(normalizedRoom(data));
+    if (setupError) {
+      setError(setupError.message);
+      return;
+    }
+    const startedRoom = normalizedRoom(data);
+    setRoom(startedRoom);
+    const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
+    if (timerError) setError(timerError.message);
+    else if (timedRoom) setRoom(normalizedRoom(timedRoom));
   }
 
   async function placeSettlement(vertex: Vertex) {
@@ -1145,27 +1184,15 @@ export default function Home() {
       <section className="online-layout">
         <aside className="room-panel card">
           <p className="eyebrow">Spieler · {players.length}/4</p>
+          {room.status !== "waiting" && room.state?.phase === "build" && <button className="end-button room-end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
           {players.map((player) => (
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
-          {room.status !== "waiting" && <div className="dice-statistics">
-            <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
-            <div className="dice-chart">
-              {diceSums.map((sum) => {
-                const count = diceStats[String(sum)] ?? 0;
-                return <div className={`dice-column ${sum === 6 || sum === 8 ? "hot" : ""}`} key={sum} title={`${sum}: ${count}× gewürfelt`}>
-                  <b>{count}</b>
-                  <span style={{ height: `${count === 0 ? 2 : Math.max(12, count / highestDiceCount * 100)}%` }} />
-                  <small>{sum}</small>
-                </div>;
-              })}
-            </div>
-          </div>}
           {room.state?.phase && !room.state.phase.startsWith("setup_") && me && (
             <div className="resource-wallet">
               <p className="eyebrow">Deine Rohstoffe</p>
@@ -1242,9 +1269,10 @@ export default function Home() {
                 <span>Runde {room.state?.round ?? 1}</span>
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
               </div>
-              <div className={`turn-timer ${turnSeconds <= 15 && !turnTimerPaused ? "urgent" : ""} ${turnTimerPaused ? "paused" : ""}`}>
-                <div className="turn-timer-track"><span style={{ width: `${turnTimerPaused ? Math.max(0, Math.min(100, turnSeconds / 70 * 100)) : turnSeconds / 70 * 100}%` }} /></div>
-                <strong>{turnTimerPaused ? "Timer pausiert" : `${turnSeconds} Sek.`}</strong>
+              {isEliminated && <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>}
+              <div className={`turn-timer ${activePlayerSeconds <= 60 ? "urgent" : ""} ${playerClockPaused ? "paused" : ""}`}>
+                <div className="turn-timer-track"><span style={{ width: `${Math.max(0, Math.min(100, activePlayerSeconds / 600 * 100))}%` }} /></div>
+                <strong>{formatClock(activePlayerSeconds)}</strong>
               </div>
               {room.state?.dice ? (
                 <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /></div>
@@ -1252,8 +1280,8 @@ export default function Home() {
               {tradeOffer && <div className="trade-offer-banner">
                 <strong>🤝 Handelsangebot</strong>
                 <span>{players.find((player) => player.player_index === tradeOffer.from)?.player_name} bietet 1 {resourceCards.find((resource) => resource.key === tradeOffer.give)?.label} gegen 1 {resourceCards.find((resource) => resource.key === tradeOffer.want)?.label} von {players.find((player) => player.player_index === tradeOffer.to)?.player_name}.</span>
-                {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={busy}>Ablehnen</button></div>}
-                {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={busy}>Angebot zurückziehen</button>}
+                {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={isEliminated || busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={isEliminated || busy}>Ablehnen</button></div>}
+                {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={isEliminated || busy}>Angebot zurückziehen</button>}
               </div>}
               {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <>
@@ -1286,7 +1314,19 @@ export default function Home() {
                     {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || hasBankTradedThisRound || !tradeGive || !tradeWant}>{hasBankTradedThisRound ? "Diese Runde bereits getauscht" : `${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
                   </div>}
                 </>}
-                <button className="end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>
+                <div className="dice-statistics">
+                  <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
+                  <div className="dice-chart">
+                    {diceSums.map((sum) => {
+                      const count = diceStats[String(sum)] ?? 0;
+                      return <div className={`dice-column ${sum === 6 || sum === 8 ? "hot" : ""}`} key={sum} title={`${sum}: ${count}× gewürfelt`}>
+                        <b>{count}</b>
+                        <span style={{ height: `${count === 0 ? 2 : Math.max(12, count / highestDiceCount * 100)}%` }} />
+                        <small>{sum}</small>
+                      </div>;
+                    })}
+                  </div>
+                </div>
               </>}
               {room.state?.phase === "robber" && <div className="robber-action-panel">
                 {selectedRobberTile === null ? <span className="turn-note">Eine 7 wurde gewürfelt. {isMyTurn ? "Versetze den Räuber auf ein anderes Feld. Danach ist dein Zug beendet." : `${activePlayer?.player_name ?? "Der aktive Spieler"} versetzt den Räuber und setzt anschließend aus.`}</span> : <>
