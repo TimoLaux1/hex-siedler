@@ -63,8 +63,9 @@ end;
 $$;
 
 drop trigger if exists correct_setup_starting_resources_trigger on public.games;
-create trigger correct_setup_starting_resources_trigger
-after update of state on public.games
+create constraint trigger correct_setup_starting_resources_trigger
+after update on public.games
+deferrable initially deferred
 for each row
 execute function public.correct_setup_starting_resources();
 
