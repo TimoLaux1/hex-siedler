@@ -942,13 +942,15 @@ export default function Home() {
       showActivity(next, playSound);
     };
     const loadActivity = async () => {
-      const { data } = await client.from("game_activity").select("message,kind,created_at").eq("game_id", roomId).maybeSingle();
-      if (data?.message) applyRemoteActivity(data as GameActivity, false);
+      const { data } = await client.rpc("get_latest_game_activity", { p_game_id: roomId });
+      const latest = (Array.isArray(data) ? data[0] : data) as GameActivity | null;
+      if (latest?.message) applyRemoteActivity(latest, false);
     };
     void loadActivity();
     const activityPoll = window.setInterval(async () => {
-      const { data } = await client.from("game_activity").select("message,kind,created_at").eq("game_id", roomId).maybeSingle();
-      if (data?.message) applyRemoteActivity(data as GameActivity, true);
+      const { data } = await client.rpc("get_latest_game_activity", { p_game_id: roomId });
+      const latest = (Array.isArray(data) ? data[0] : data) as GameActivity | null;
+      if (latest?.message) applyRemoteActivity(latest, true);
     }, 1000);
     const channel = client.channel(`activity-${roomId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_activity", filter: `game_id=eq.${roomId}` }, (payload) => {

@@ -2,6 +2,34 @@
 -- Korrigiert Rohstoffausgabe für zufällige Bretter, Aufbau, Städte,
 -- Fischgründe, Räuber, Goldminen und die Kartenabgabe bei einer 7.
 
+-- Die Karte wird für jedes Spiel neu gemischt. Deshalb wird der Rohstoff immer
+-- aus dem tatsächlich gespeicherten sichtbaren Feldtyp abgeleitet. So bleiben
+-- auch ältere Räume korrekt, deren "resource"-Eigenschaft noch nicht zum
+-- angezeigten Namen bzw. className passt.
+create or replace function public.board_tile_resource(p_tile jsonb)
+returns text
+language sql
+immutable
+as $$
+  select case lower(coalesce(p_tile->>'className', p_tile->>'classname', ''))
+    when 'forest' then 'wood'
+    when 'clay' then 'brick'
+    when 'meadow' then 'wool'
+    when 'field' then 'grain'
+    when 'mountain' then 'ore'
+    when 'desert' then 'none'
+    else case lower(coalesce(p_tile->>'name', ''))
+      when 'wald' then 'wood'
+      when 'lehm' then 'brick'
+      when 'weide' then 'wool'
+      when 'feld' then 'grain'
+      when 'gebirge' then 'ore'
+      when 'wüste' then 'none'
+      else coalesce(p_tile->>'resource', 'none')
+    end
+  end;
+$$;
+
 create or replace function public.correct_setup_starting_resources()
 returns trigger
 language plpgsql
@@ -41,7 +69,7 @@ begin
         from public.board_vertex_tiles mapping
         where mapping.vertex_id = (placed->>'vertex')::integer
       loop
-        resource_name := new.board_tiles->tile_index->>'resource';
+        resource_name := public.board_tile_resource(new.board_tiles->tile_index);
         if resource_name in ('wood','brick','wool','grain','ore') then
           corrected := jsonb_set(
             corrected,
@@ -138,7 +166,7 @@ begin
     from public.board_vertex_tiles mapping
     where mapping.vertex_id = second_vertex
   loop
-    resource_name := game_row.board_tiles->tile_index->>'resource';
+    resource_name := public.board_tile_resource(game_row.board_tiles->tile_index);
     if resource_name in ('wood','brick','wool','grain','ore') then
       corrected := jsonb_set(
         corrected,
@@ -209,7 +237,7 @@ begin
       loop
         if tile_index <> coalesce((game_row.state->>'robber_tile')::integer,9)
            and (game_row.board_tiles->tile_index->>'number')::integer = rolled then
-          resource_name := game_row.board_tiles->tile_index->>'resource';
+          resource_name := public.board_tile_resource(game_row.board_tiles->tile_index);
           if resource_name in ('wood','brick','wool','grain','ore') then
             update public.game_players
             set resources = jsonb_set(
