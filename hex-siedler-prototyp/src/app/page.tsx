@@ -1190,7 +1190,7 @@ export default function Home() {
     if (placementError) setError(placementError.message);
     else {
       if (rpcName === "place_setup_settlement") {
-        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", { p_game_id: room.id });
+        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", { p_game_id: room.id, p_vertex: vertex.id });
         if (resourceSyncError) setError(resourceSyncError.message);
       }
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });

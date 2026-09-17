@@ -100,7 +100,9 @@ execute function public.correct_setup_starting_resources();
 -- Wird vom Client unmittelbar nach dem Setzen einer Startsiedlung aufgerufen.
 -- Diese abschließende Korrektur läuft nach place_setup_settlement und kann daher
 -- nicht mehr von einer älteren, hart codierten Rohstoffvergabe überschrieben werden.
-create or replace function public.sync_my_setup_resources(p_game_id uuid)
+drop function if exists public.sync_my_setup_resources(uuid);
+
+create or replace function public.sync_my_setup_resources(p_game_id uuid, p_vertex integer)
 returns jsonb
 language plpgsql
 security definer
@@ -110,7 +112,6 @@ declare
   game_row public.games;
   my_index integer;
   own_buildings integer;
-  second_vertex integer;
   tile_index integer;
   resource_name text;
   corrected jsonb := '{"wood":0,"brick":0,"wool":0,"grain":0,"ore":0}'::jsonb;
@@ -141,19 +142,18 @@ begin
     );
   end if;
 
-  select count(*), max(case when placement_order = latest_order then vertex end)
-  into own_buildings, second_vertex
-  from (
-    select
-      (building->>'vertex')::integer as vertex,
-      placement_order,
-      max(placement_order) over () as latest_order
-    from jsonb_array_elements(coalesce(game_row.state->'settlements','[]'::jsonb))
-      with ordinality placed(building,placement_order)
-    where (building->>'player')::integer = my_index
-  ) own_settlements;
+  select count(*) into own_buildings
+  from jsonb_array_elements(coalesce(game_row.state->'settlements','[]'::jsonb)) placed(building)
+  where (building->>'player')::integer = my_index;
 
-  if own_buildings <> 2 or second_vertex is null then
+  -- Nur die zweite eigene Startsiedlung vergibt Rohstoffe. p_vertex ist exakt
+  -- der soeben im Client angeklickte Punkt; die JSON-Reihenfolge ist irrelevant.
+  if own_buildings <> 2 or not exists (
+    select 1
+    from jsonb_array_elements(coalesce(game_row.state->'settlements','[]'::jsonb)) placed(building)
+    where (building->>'player')::integer = my_index
+      and (building->>'vertex')::integer = p_vertex
+  ) then
     return (
       select resources
       from public.game_players
@@ -164,7 +164,7 @@ begin
   for tile_index in
     select unnest(mapping.tile_indices)
     from public.board_vertex_tiles mapping
-    where mapping.vertex_id = second_vertex
+    where mapping.vertex_id = p_vertex
   loop
     resource_name := public.board_tile_resource(game_row.board_tiles->tile_index);
     if resource_name in ('wood','brick','wool','grain','ore') then
@@ -186,8 +186,8 @@ begin
 end;
 $$;
 
-revoke all on function public.sync_my_setup_resources(uuid) from public;
-grant execute on function public.sync_my_setup_resources(uuid) to authenticated;
+revoke all on function public.sync_my_setup_resources(uuid,integer) from public;
+grant execute on function public.sync_my_setup_resources(uuid,integer) to authenticated;
 
 create or replace function public.roll_turn_dice(p_game_id uuid)
 returns public.games
