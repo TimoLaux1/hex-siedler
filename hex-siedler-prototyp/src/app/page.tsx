@@ -1177,6 +1177,8 @@ export default function Home() {
             onKlausTile={(tile) => setSelectedRobberTile(tile)}
           />
           {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
+        </section>
+        <section className="online-control-area">
           {room.status === "waiting" ? (
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
