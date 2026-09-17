@@ -227,6 +227,8 @@ button, a { font: inherit; }
 .player-eliminated-message { padding: 10px 12px; border: 1px solid #dba89d; border-radius: 10px; background: #fff0ec; color: #963e31; font-size: 12px; font-weight: 900; text-align: center; }
 .turn-card > .leave-game-button { width: 100%; min-height: 48px; border: 1px solid #b86d5f; border-radius: 12px; background: #a95043; color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 7px 16px rgba(125, 55, 45, .16); }
 .turn-card > .leave-game-button:hover { background: #914438; }
+.victory-card > .leave-game-button { width: min(100%, 280px); min-height: 48px; margin-top: 8px; border: 1px solid #b86d5f; border-radius: 12px; background: #a95043; color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 7px 16px rgba(125, 55, 45, .16); }
+.victory-card > .leave-game-button:hover { background: #914438; }
 
 /* Beide Bereiche der linken Spielleiste bleiben unabhängig scrollbar. */
 .room-panel,

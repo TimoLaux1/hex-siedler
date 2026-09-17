@@ -1497,6 +1497,7 @@ export default function Home() {
               <span className="victory-crown">♛</span>
               <strong>{players.find((player) => player.player_index === room.state?.winner_player)?.player_name ?? "Ein Spieler"} gewinnt!</strong>
               <span>Das Ziel von {room.victory_target ?? 10} Siegpunkten wurde erreicht.</span>
+              <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
             </div>
           ) : room.state?.phase?.startsWith("setup_") ? (
             <div className="waiting-card playing">
