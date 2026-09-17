@@ -229,8 +229,6 @@ button, a { font: inherit; }
 .turn-card > .leave-game-button:hover { background: #914438; }
 .victory-card > .leave-game-button { width: min(100%, 280px); min-height: 48px; margin-top: 8px; border: 1px solid #b86d5f; border-radius: 12px; background: #a95043; color: #fff; font-weight: 900; cursor: pointer; box-shadow: 0 7px 16px rgba(125, 55, 45, .16); }
 .victory-card > .leave-game-button:hover { background: #914438; }
-.waiting-card:not(.victory-card) > .leave-game-button { width: 100%; min-height: 38px; margin-top: 4px; border: 1px solid #d9dedb; border-radius: 10px; background: transparent; color: #78827e; font-size: 12px; font-weight: 750; cursor: pointer; box-shadow: none; }
-.waiting-card:not(.victory-card) > .leave-game-button:hover { border-color: #bcc5c0; background: #f5f7f6; color: #4f5c57; }
 
 /* Beide Bereiche der linken Spielleiste bleiben unabhängig scrollbar. */
 .room-panel,

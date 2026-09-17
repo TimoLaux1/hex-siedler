@@ -1490,7 +1490,6 @@ export default function Home() {
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
               <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
-              <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
               {error && <span className="setup-error">{error}</span>}
             </div>
           ) : room.status === "finished" ? (
