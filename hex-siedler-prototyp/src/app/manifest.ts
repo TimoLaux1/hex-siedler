@@ -6,9 +6,9 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "New Katan",
     description: "Das Hex-Strategiespiel mit Klaus.",
     start_url: "/",
-    display: "standalone",
+    display: "fullscreen",
     background_color: "#f7f2e7",
-    theme_color: "#1f6b57",
+    theme_color: "#f7f2e7",
     orientation: "landscape",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
