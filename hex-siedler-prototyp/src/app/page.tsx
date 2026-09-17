@@ -1065,6 +1065,24 @@ export default function Home() {
     setName("");
   }
 
+  function leaveGame() {
+    if (typeof window !== "undefined") {
+      if (userId) window.localStorage.removeItem(`new-katan-last-room-${userId}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    setRoom(null);
+    setPlayers([]);
+    setMyCards([]);
+    setCardCounts({});
+    setSelectedCard(null);
+    setSelectedRobberTile(null);
+    setTradeMode(null);
+    setTradeGive(null);
+    setTradeWant(null);
+    setTradeTarget(null);
+    setError("");
+  }
+
   async function createRoom(event: FormEvent) {
     event.preventDefault();
     if (!supabase || !name.trim()) return;
@@ -1492,7 +1510,10 @@ export default function Home() {
                 <span>Runde {room.state?.round ?? 1}</span>
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
               </div>
-              {isEliminated && <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>}
+              {isEliminated && <>
+                <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>
+                <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
+              </>}
               <div className={`turn-timer ${activePlayerSeconds <= 60 ? "urgent" : ""} ${playerClockPaused ? "paused" : ""}`}>
                 <div className="turn-timer-track"><span style={{ width: `${Math.max(0, Math.min(100, activePlayerSeconds / 600 * 100))}%` }} /></div>
                 <strong>{formatClock(activePlayerSeconds)}</strong>
@@ -1506,7 +1527,7 @@ export default function Home() {
                 {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={isEliminated || busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={isEliminated || busy}>Ablehnen</button></div>}
                 {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={isEliminated || busy}>Angebot zurückziehen</button>}
               </div>}
-              {room.state?.phase === "turn" && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
+              {room.state?.phase === "turn" && !isEliminated && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <>
                 {activeCard ? (
                   <div className="klaus-action-panel">
