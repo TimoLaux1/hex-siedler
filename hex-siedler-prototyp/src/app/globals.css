@@ -587,7 +587,8 @@ button, a { font: inherit; }
   }
 
   .lobby-board .full-board {
-    top: -20px;
+    top: -62px;
+    left: -60px;
     transform: scale(.49);
   }
 
