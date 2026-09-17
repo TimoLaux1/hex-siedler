@@ -1220,9 +1220,30 @@ export default function Home() {
     if (!supabase || !room) return;
     setBusy(true); setError("");
     const rpcName = room.state?.phase === "setup_road" ? "place_setup_road" : "build_game_road";
+    const setupSettlementVertex = rpcName === "place_setup_road"
+      ? (room.state?.settlements ?? []).find((settlement) =>
+          settlement.player === me?.player_index && (settlement.vertex === edge.a || settlement.vertex === edge.b)
+        )?.vertex
+      : undefined;
     const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
     if (placementError) setError(placementError.message);
-    else { setRoom(normalizedRoom(data)); setBuildMode(null); announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build"); await loadPlayerData(room.id); }
+    else {
+      if (rpcName === "place_setup_road" && setupSettlementVertex !== undefined) {
+        const adjacentTileIndices = topology.tileVertices
+          .slice(0, tileCenters.length)
+          .flatMap((tileVertices, tileIndex) => tileVertices.includes(setupSettlementVertex) ? [tileIndex] : []);
+        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", {
+          p_game_id: room.id,
+          p_vertex: setupSettlementVertex,
+          p_tile_indices: adjacentTileIndices,
+        });
+        if (resourceSyncError) setError(resourceSyncError.message);
+      }
+      setRoom(normalizedRoom(data));
+      setBuildMode(null);
+      announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build");
+      await loadPlayerData(room.id);
+    }
     setBusy(false);
   }
 
