@@ -1190,7 +1190,17 @@ export default function Home() {
     if (placementError) setError(placementError.message);
     else {
       if (rpcName === "place_setup_settlement") {
-        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", { p_game_id: room.id, p_vertex: vertex.id });
+        // Die angrenzenden Felder werden aus genau derselben dynamischen
+        // Topologie ermittelt, die der Spieler gerade sieht. Dadurch gibt es
+        // keine Abhängigkeit mehr von einer alten statischen SQL-Zuordnung.
+        const adjacentTileIndices = topology.tileVertices
+          .slice(0, tileCenters.length)
+          .flatMap((tileVertices, tileIndex) => tileVertices.includes(vertex.id) ? [tileIndex] : []);
+        const { error: resourceSyncError } = await supabase.rpc("sync_my_setup_resources", {
+          p_game_id: room.id,
+          p_vertex: vertex.id,
+          p_tile_indices: adjacentTileIndices,
+        });
         if (resourceSyncError) setError(resourceSyncError.message);
       }
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
