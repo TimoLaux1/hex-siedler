@@ -753,7 +753,7 @@ export default function Home() {
     const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
     const isMobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches || standaloneNavigator.standalone === true;
-    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js");
+    if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js?v=2", { updateViaCache: "none" });
     if (!isMobile || isStandalone || window.localStorage.getItem("new-katan-install-dismissed")) return;
 
     const captureInstallPrompt = (event: Event) => {
