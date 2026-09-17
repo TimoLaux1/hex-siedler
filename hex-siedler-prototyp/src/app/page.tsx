@@ -1239,6 +1239,12 @@ export default function Home() {
         });
         if (resourceSyncError) setError(resourceSyncError.message);
       }
+      if (rpcName === "place_setup_road") {
+        const { error: allResourcesSyncError } = await supabase.rpc("sync_all_setup_resources", {
+          p_game_id: room.id,
+        });
+        if (allResourcesSyncError) setError(allResourcesSyncError.message);
+      }
       setRoom(normalizedRoom(data));
       setBuildMode(null);
       announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build");
