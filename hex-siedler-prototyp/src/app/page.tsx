@@ -16,6 +16,8 @@ type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
+type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
+type GameActivity = { message: string; kind: ActivityKind; created_at: string };
 type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
@@ -521,8 +523,13 @@ export default function Home() {
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
+  const [activity, setActivity] = useState<GameActivity>({ message: "Willkommen bei New Katan.", kind: "info", created_at: "" });
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const resumeAttemptedForUser = useRef("");
   const playerTimerInitialized = useRef(new Set<string>());
+  const audioContext = useRef<AudioContext | null>(null);
+  const lastPlayedActivity = useRef("");
+  const lastPlayedActivityAt = useRef(0);
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
@@ -578,6 +585,65 @@ export default function Home() {
       settlement.player === player.player_index && topology.tileVertices[selectedRobberTile]?.includes(settlement.vertex)
     )
   );
+
+  function playActivitySound(kind: ActivityKind) {
+    if (!soundEnabled || typeof window === "undefined") return;
+    const notes: Record<ActivityKind, number[]> = {
+      info: [440], turn: [440, 590], dice: [230, 290, 360], build: [360, 520],
+      trade: [420, 500], klaus: [190, 145, 110], win: [523, 659, 784],
+    };
+    try {
+      const context = audioContext.current ?? new AudioContext();
+      audioContext.current = context;
+      void context.resume();
+      notes[kind].forEach((frequency, index) => {
+        const start = context.currentTime + index * .075;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = kind === "klaus" ? "sawtooth" : "sine";
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(.0001, start);
+        gain.gain.exponentialRampToValueAtTime(kind === "win" ? .1 : .055, start + .012);
+        gain.gain.exponentialRampToValueAtTime(.0001, start + .11);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(start + .12);
+      });
+    } catch {
+      // Manche Browser erlauben Ton erst nach der ersten Berührung der Seite.
+    }
+  }
+
+  function showActivity(next: GameActivity, playSound = true) {
+    setActivity(next);
+    const isEcho = next.message === lastPlayedActivity.current && Date.now() - lastPlayedActivityAt.current < 1200;
+    if (playSound && !isEcho) {
+      lastPlayedActivity.current = next.message;
+      lastPlayedActivityAt.current = Date.now();
+      playActivitySound(next.kind);
+    }
+  }
+
+  function announceActivity(action: string, fallbackMessage: string, kind: ActivityKind, detail?: string) {
+    const now = new Date().toISOString();
+    showActivity({ message: fallbackMessage, kind, created_at: now });
+    if (!supabase || !room) return;
+    void supabase.rpc("record_game_activity", { p_game_id: room.id, p_action: action, p_detail: detail ?? null })
+      .then(({ data }) => {
+        const result = (Array.isArray(data) ? data[0] : data) as GameActivity | null;
+        if (result?.message) showActivity(result, false);
+      });
+  }
+
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    window.localStorage.setItem("new-katan-sound", next ? "on" : "off");
+  }
+
+  useEffect(() => {
+    setSoundEnabled(window.localStorage.getItem("new-katan-sound") !== "off");
+  }, []);
 
   useEffect(() => {
     const standaloneNavigator = navigator as Navigator & { standalone?: boolean };
@@ -743,6 +809,23 @@ export default function Home() {
   }, [room?.join_code, userId]);
 
   const roomId = room?.id;
+
+  useEffect(() => {
+    const client = supabase;
+    if (!roomId || !client) return;
+    const loadActivity = async () => {
+      const { data } = await client.from("game_activity").select("message,kind,created_at").eq("game_id", roomId).maybeSingle();
+      if (data?.message) showActivity(data as GameActivity, false);
+    };
+    void loadActivity();
+    const channel = client.channel(`activity-${roomId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "game_activity", filter: `game_id=eq.${roomId}` }, (payload) => {
+        const next = payload.new as GameActivity;
+        if (next?.message) showActivity(next);
+      })
+      .subscribe();
+    return () => { client.removeChannel(channel); };
+  }, [roomId, soundEnabled]);
 
   useEffect(() => {
     const client = supabase;
@@ -926,6 +1009,8 @@ export default function Home() {
     }
     const startedRoom = normalizedRoom(data);
     setRoom(startedRoom);
+    const firstPlayer = players.find((player) => player.player_index === startedRoom.state?.active_player)?.player_name ?? me?.player_name ?? name;
+    announceActivity("turn", `${firstPlayer} beginnt die Aufbauphase.`, "turn", firstPlayer);
     const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
     if (timerError) setError(timerError.message);
     else if (timedRoom) setRoom(normalizedRoom(timedRoom));
@@ -945,7 +1030,11 @@ export default function Home() {
     else {
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
       if (winnerError) setError(winnerError.message);
-      setRoom(normalizedRoom(winnerData ?? data));
+      const nextRoom = normalizedRoom(winnerData ?? data);
+      setRoom(nextRoom);
+      const building = rpcName === "upgrade_game_city" ? "eine Stadt" : rpcName === "upgrade_game_goldmine" ? "eine Goldmine" : "eine Siedlung";
+      if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
+      else announceActivity(rpcName === "upgrade_game_city" ? "city" : rpcName === "upgrade_game_goldmine" ? "goldmine" : "settlement", `${me?.player_name ?? name} baut ${building}.`, "build");
       setBuildMode(null);
     }
     setBusy(false);
@@ -957,7 +1046,7 @@ export default function Home() {
     const rpcName = room.state?.phase === "setup_road" ? "place_setup_road" : "build_game_road";
     const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
     if (placementError) setError(placementError.message);
-    else { setRoom(normalizedRoom(data)); setBuildMode(null); }
+    else { setRoom(normalizedRoom(data)); setBuildMode(null); announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build"); }
     setBusy(false);
   }
 
@@ -965,7 +1054,13 @@ export default function Home() {
     if (!supabase || !room || !isMyTurn) return;
     setBusy(true); setError("");
     const { data, error: rollError } = await supabase.rpc("roll_turn_dice", { p_game_id: room.id });
-    if (rollError) setError(rollError.message); else setRoom(normalizedRoom(data));
+    if (rollError) setError(rollError.message); else {
+      const nextRoom = normalizedRoom(data);
+      setRoom(nextRoom);
+      const dice = nextRoom.state?.dice ?? [];
+      const sum = dice.reduce((total, die) => total + die, 0);
+      announceActivity("dice", `${me?.player_name ?? name} würfelt${sum ? ` eine ${sum}` : ""}.`, "dice", sum ? String(sum) : undefined);
+    }
     setBusy(false);
   }
 
@@ -981,6 +1076,7 @@ export default function Home() {
     else {
       setRoom(normalizedRoom(data));
       setSelectedRobberTile(null);
+      announceActivity("robber", `${me?.player_name ?? name} versetzt den Ritter.`, "klaus");
     }
     setBusy(false);
   }
@@ -989,7 +1085,7 @@ export default function Home() {
     if (!supabase || !room || !isGoldmineChooser) return;
     setBusy(true); setError("");
     const { data, error: goldmineError } = await supabase.rpc("choose_goldmine_resource", { p_game_id: room.id, p_resource: resource });
-    if (goldmineError) setError(goldmineError.message); else setRoom(normalizedRoom(data));
+    if (goldmineError) setError(goldmineError.message); else { setRoom(normalizedRoom(data)); announceActivity("goldmine_resource", `${me?.player_name ?? name} wählt einen Goldminen-Rohstoff.`, "build"); }
     setBusy(false);
   }
 
@@ -1008,6 +1104,7 @@ export default function Home() {
       setRoom(normalizedRoom(data));
       resetTradeSelection();
       setTradeMode(null);
+      announceActivity("bank_trade", `${me?.player_name ?? name} handelt mit dem Vorrat.`, "trade");
     }
     setBusy(false);
   }
@@ -1021,6 +1118,7 @@ export default function Home() {
       setRoom(normalizedRoom(data));
       resetTradeSelection();
       setTradeMode(null);
+      announceActivity("trade_offer", `${me?.player_name ?? name} bietet einen Handel an.`, "trade");
     }
     setBusy(false);
   }
@@ -1029,7 +1127,7 @@ export default function Home() {
     if (!supabase || !room) return;
     setBusy(true); setError("");
     const { data, error: tradeError } = await supabase.rpc("respond_player_trade", { p_game_id: room.id, p_accept: accept });
-    if (tradeError) setError(tradeError.message); else setRoom(normalizedRoom(data));
+    if (tradeError) setError(tradeError.message); else { setRoom(normalizedRoom(data)); announceActivity(accept ? "trade_accept" : "trade_reject", `${me?.player_name ?? name} ${accept ? "nimmt den Handel an" : "lehnt den Handel ab"}.`, "trade"); }
     setBusy(false);
   }
 
@@ -1045,7 +1143,7 @@ export default function Home() {
     if (!supabase || !room || !myDiscard || (myResources[resource] ?? 0) < 1) return;
     setBusy(true); setError("");
     const { data, error: discardError } = await supabase.rpc("discard_seven_resource", { p_game_id: room.id, p_resource: resource });
-    if (discardError) setError(discardError.message); else setRoom(normalizedRoom(data));
+    if (discardError) setError(discardError.message); else { setRoom(normalizedRoom(data)); announceActivity("discard", `${me?.player_name ?? name} gibt einen Rohstoff ab.`, "klaus"); }
     setBusy(false);
   }
 
@@ -1053,7 +1151,12 @@ export default function Home() {
     if (!supabase || !room || !isMyTurn) return;
     setBusy(true); setError("");
     const { data, error: turnError } = await supabase.rpc("end_player_turn", { p_game_id: room.id });
-    if (turnError) setError(turnError.message); else { setRoom(normalizedRoom(data)); setBuildMode(null); setTradeMode(null); resetTradeSelection(); }
+    if (turnError) setError(turnError.message); else {
+      const nextRoom = normalizedRoom(data);
+      setRoom(nextRoom); setBuildMode(null); setTradeMode(null); resetTradeSelection();
+      const nextPlayer = players.find((player) => player.player_index === nextRoom.state?.active_player)?.player_name;
+      announceActivity(nextPlayer ? "turn" : "end_turn", nextPlayer ? `${nextPlayer} ist am Zug.` : `${me?.player_name ?? name} beendet den Zug.`, "turn", nextPlayer);
+    }
     setBusy(false);
   }
 
@@ -1074,6 +1177,7 @@ export default function Home() {
       if (card) {
         setMyCards((current) => [...current, card]);
         if (card.must_play) setSelectedCard(card);
+        announceActivity("klaus", `${me?.player_name ?? name} ruft Klaus.`, "klaus");
       }
     }
     setBusy(false);
@@ -1089,6 +1193,7 @@ export default function Home() {
       setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
       setSelectedCard(null);
       setSelectedRobberTile(null);
+      announceActivity("klaus_card", `${me?.player_name ?? name} spielt „${klausCards[activeCard.card_type].title}“.`, "klaus", klausCards[activeCard.card_type].title);
     }
     setBusy(false);
   }
@@ -1178,8 +1283,11 @@ export default function Home() {
     <main className="online-shell">
       <header className="online-topbar">
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
-        <div className="room-code">Raum <strong>{room.join_code}</strong></div>
-        <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
+        <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
+        <div className="topbar-actions">
+          <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
+          <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
+        </div>
       </header>
       <section className="online-layout">
         <aside className="room-panel card">
