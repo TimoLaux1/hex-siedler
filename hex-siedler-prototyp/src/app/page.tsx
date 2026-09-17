@@ -1083,6 +1083,11 @@ export default function Home() {
     setError("");
   }
 
+  function confirmLeaveGame() {
+    if (typeof window === "undefined") return;
+    if (window.confirm("Möchtest du das Spiel wirklich verlassen?")) leaveGame();
+  }
+
   async function createRoom(event: FormEvent) {
     event.preventDefault();
     if (!supabase || !name.trim()) return;
@@ -1433,7 +1438,9 @@ export default function Home() {
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
-          <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
+          {room.status === "waiting"
+            ? <button className="copy-button" onClick={copyInvite}>Einladungslink kopieren</button>
+            : <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>}
         </div>
       </header>
       <section className="online-layout">
@@ -1490,6 +1497,7 @@ export default function Home() {
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
               <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
+              <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
               {error && <span className="setup-error">{error}</span>}
             </div>
           ) : room.status === "finished" ? (
