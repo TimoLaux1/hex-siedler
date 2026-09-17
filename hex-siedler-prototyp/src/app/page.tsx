@@ -1055,6 +1055,7 @@ export default function Home() {
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
+    resumeAttemptedForUser.current = "";
     setRoom(null);
     setPlayers([]);
     setHighScores([]);
@@ -1082,7 +1083,19 @@ export default function Home() {
     event.preventDefault();
     if (!supabase || !name.trim() || code.length !== 6) return;
     setBusy(true); setError("");
-    const { data, error: rpcError } = await supabase.rpc("join_game_room", { p_join_code: code.toUpperCase(), p_player_name: name.trim() });
+
+    const normalizedCode = code.toUpperCase();
+    const { data: resumedData, error: resumeError } = await supabase.rpc("resume_my_game_room", { p_join_code: normalizedCode });
+    const resumedRoom = (Array.isArray(resumedData) ? resumedData[0] : resumedData) as Room | null;
+    if (!resumeError && resumedRoom?.id) {
+      setRoom(resumedRoom);
+      window.localStorage.setItem(`new-katan-last-room-${userId}`, normalizedCode);
+      window.history.replaceState({}, "", `?room=${normalizedCode}`);
+      setBusy(false);
+      return;
+    }
+
+    const { data, error: rpcError } = await supabase.rpc("join_game_room", { p_join_code: normalizedCode, p_player_name: name.trim() });
     if (rpcError) setError(rpcError.message);
     else {
       const result = data?.[0];
@@ -1095,7 +1108,8 @@ export default function Home() {
         else if (!game) setError("Der Spielraum konnte nach dem Beitritt nicht geladen werden.");
         else {
           setRoom(game as Room);
-          window.history.replaceState({}, "", `?room=${code.toUpperCase()}`);
+          window.localStorage.setItem(`new-katan-last-room-${userId}`, normalizedCode);
+          window.history.replaceState({}, "", `?room=${normalizedCode}`);
         }
       }
     }
