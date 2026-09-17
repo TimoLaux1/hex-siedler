@@ -531,6 +531,7 @@ export default function Home() {
   const audioContext = useRef<AudioContext | null>(null);
   const lastPlayedActivity = useRef("");
   const lastPlayedActivityAt = useRef(0);
+  const lastSeenRemoteActivity = useRef("");
   const lastKlausVoiceAt = useRef(0);
 
   const isHost = room?.created_by === userId;
@@ -933,18 +934,32 @@ export default function Home() {
   useEffect(() => {
     const client = supabase;
     if (!roomId || !client) return;
+    const applyRemoteActivity = (next: GameActivity, playSound: boolean) => {
+      if (!next?.message) return;
+      const activityKey = `${next.created_at}|${next.message}`;
+      if (activityKey === lastSeenRemoteActivity.current) return;
+      lastSeenRemoteActivity.current = activityKey;
+      showActivity(next, playSound);
+    };
     const loadActivity = async () => {
       const { data } = await client.from("game_activity").select("message,kind,created_at").eq("game_id", roomId).maybeSingle();
-      if (data?.message) showActivity(data as GameActivity, false);
+      if (data?.message) applyRemoteActivity(data as GameActivity, false);
     };
     void loadActivity();
+    const activityPoll = window.setInterval(async () => {
+      const { data } = await client.from("game_activity").select("message,kind,created_at").eq("game_id", roomId).maybeSingle();
+      if (data?.message) applyRemoteActivity(data as GameActivity, true);
+    }, 1000);
     const channel = client.channel(`activity-${roomId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "game_activity", filter: `game_id=eq.${roomId}` }, (payload) => {
         const next = payload.new as GameActivity;
-        if (next?.message) showActivity(next);
+        if (next?.message) applyRemoteActivity(next, true);
       })
       .subscribe();
-    return () => { client.removeChannel(channel); };
+    return () => {
+      window.clearInterval(activityPoll);
+      client.removeChannel(channel);
+    };
   }, [roomId, soundEnabled]);
 
   useEffect(() => {
@@ -1447,6 +1462,25 @@ export default function Home() {
             : <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>}
         </div>
       </header>
+      {room.status !== "waiting" && me && (
+        <div className="resource-wallet">
+          <p className="eyebrow">Deine Rohstoffe</p>
+          <div className="resource-list">
+            {resourceCards.map(({ key, label }) => (
+              <div
+                className={`resource-card resource-${key}`}
+                key={key}
+                title={`${label}: ${me.resources?.[key] ?? 0}`}
+                aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
+              >
+                <span className="resource-badge"><ResourceIcon kind={key} /></span>
+                <span className="resource-label">{label}</span>
+                <b>{me.resources?.[key] ?? 0}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <section className="online-layout">
         <div className="online-sidebar">
         <aside className="room-panel card">
@@ -1460,25 +1494,6 @@ export default function Home() {
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
-          {room.status !== "waiting" && me && (
-            <div className="resource-wallet">
-              <p className="eyebrow">Deine Rohstoffe</p>
-              <div className="resource-list">
-                {resourceCards.map(({ key, label }) => (
-                  <div
-                    className={`resource-card resource-${key}`}
-                    key={key}
-                    title={`${label}: ${me.resources?.[key] ?? 0}`}
-                    aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
-                  >
-                    <span className="resource-badge"><ResourceIcon kind={key} /></span>
-                    <span className="resource-label">{label}</span>
-                    <b>{me.resources?.[key] ?? 0}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {room.status !== "waiting" && me && (
             <div className="klaus-hand">
               <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>
