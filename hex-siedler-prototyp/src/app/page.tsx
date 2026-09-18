@@ -369,6 +369,14 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   const ownBuildingVertices = new Set(settlements.filter((item) => item.player === myIndex).map((item) => item.vertex));
   const opponentBuildingVertices = new Set(settlements.filter((item) => item.player !== myIndex).map((item) => item.vertex));
   const ownRoadVertices = new Set(roads.filter((item) => item.player === myIndex).flatMap((item) => [item.a, item.b]));
+  // Das Brett wird pro Spiel neu gemischt. Darum darf die Wüste niemals über
+  // eine feste Feldnummer ermittelt werden.
+  const desertVertices = new Set(
+    visibleTerrain.flatMap((tile, tileIndex) => {
+      const isDesert = tile.className === "desert" || tile.name?.toLocaleLowerCase("de-DE") === "wüste";
+      return isDesert ? (topology.tileVertices[tileIndex] ?? []) : [];
+    }),
+  );
   const rolledNumber = state?.dice?.length === 2 ? state.dice[0] + state.dice[1] : null;
   const rollCount = Object.values(state?.dice_stats ?? {}).reduce((total, count) => total + count, 0);
   const tileProduces = (tile: number) => tile !== state?.robber_tile && settlements.some((building) => topology.tileVertices[tile]?.includes(building.vertex));
@@ -436,12 +444,12 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         const settlementSelectable = regularBuildTurn && buildMode === "settlement" && !built && !blockedVertices.has(vertex.id) && ownRoadVertices.has(vertex.id);
         const isSettlement = built?.building === undefined || built?.building === "settlement";
         const citySelectable = Boolean(regularBuildTurn && buildMode === "city" && built && built.player === myIndex && isSettlement);
-        const goldmineSelectable = Boolean(regularBuildTurn && buildMode === "goldmine" && built && built.player === myIndex && isSettlement && topology.tileVertices[9]?.includes(vertex.id));
+        const goldmineSelectable = Boolean(regularBuildTurn && buildMode === "goldmine" && built && built.player === myIndex && isSettlement && desertVertices.has(vertex.id));
         const klausSelectable = klausMode === "sneaky" && !built && ownRoadVertices.has(vertex.id);
         const selectable = setupSelectable || settlementSelectable || citySelectable || goldmineSelectable || klausSelectable;
         if (!built && !selectable) return null;
         const buildingKind = built?.building === "city" ? "city" : built?.building === "goldmine" ? "goldmine" : "settlement";
-        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/></span> : klausSelectable ? "🥸" : "+"}</button>;
+        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-halo"/><i className="building-chimney"/><i className="building-smoke smoke-one"/><i className="building-smoke smoke-two"/><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/></span> : klausSelectable ? "🥸" : "+"}</button>;
       })}
     </div>
   );
