@@ -362,6 +362,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   const ownBuildingVertices = new Set(settlements.filter((item) => item.player === myIndex).map((item) => item.vertex));
   const opponentBuildingVertices = new Set(settlements.filter((item) => item.player !== myIndex).map((item) => item.vertex));
   const ownRoadVertices = new Set(roads.filter((item) => item.player === myIndex).flatMap((item) => [item.a, item.b]));
+  const rolledNumber = state?.dice?.length === 2 ? state.dice[0] + state.dice[1] : null;
   const visibleTileIndices = [...Array.from({ length: terrain.length }, (_, index) => index), ...visibleFish.map((fish) => terrain.length + fish.slot)];
   const visibleVertices = new Set(visibleTileIndices.flatMap((index) => topology.tileVertices[index] ?? []));
   return (
@@ -380,7 +381,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         {visibleFish.map((fish) => {
           const { x, y } = fishCenters[fish.slot];
           const points = hexPoints(x, y);
-          return <g key={`fish-${fish.slot}`} className="svg-tile fish">
+          return <g key={`fish-${fish.slot}`} className={`svg-tile fish ${rolledNumber === fish.number ? "rolled-tile" : ""}`}>
             <polygon points={points} fill="url(#fish-fill)" />
             <polygon className="tile-inset" points={points} />
             <FishArtwork x={x} y={y} />
@@ -391,7 +392,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         {tileCenters.map(({ x, y }, index) => {
           const { name, className, number } = visibleTerrain[index] ?? terrain[index];
           const points = hexPoints(x, y);
-          return <g key={`${name}-${index}`} className={`svg-tile ${className}`}>
+          return <g key={`${name}-${index}`} className={`svg-tile ${className} ${number > 0 && rolledNumber === number ? "rolled-tile" : ""}`}>
             <polygon points={points} fill={`url(#${className}-fill)`} />
             <polygon className="tile-inset" points={points} />
             <TerrainArtwork type={className} x={x} y={y} />
@@ -528,9 +529,13 @@ export default function Home() {
   const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [activity, setActivity] = useState<GameActivity>({ message: "Willkommen bei New Katan.", kind: "info", created_at: "" });
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(true);
   const resumeAttemptedForUser = useRef("");
   const playerTimerInitialized = useRef(new Set<string>());
   const audioContext = useRef<AudioContext | null>(null);
+  const musicGain = useRef<GainNode | null>(null);
+  const musicTimer = useRef<number | null>(null);
+  const musicStep = useRef(0);
   const lastPlayedActivity = useRef("");
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
@@ -738,9 +743,100 @@ export default function Home() {
     if (next) unlockAudio();
   }
 
+  function stopBackgroundMusic() {
+    if (musicTimer.current !== null) {
+      window.clearInterval(musicTimer.current);
+      musicTimer.current = null;
+    }
+    const context = audioContext.current;
+    const gain = musicGain.current;
+    if (context && gain) {
+      gain.gain.cancelScheduledValues(context.currentTime);
+      gain.gain.setValueAtTime(Math.max(.0001, gain.gain.value), context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.0001, context.currentTime + .35);
+      window.setTimeout(() => gain.disconnect(), 420);
+    }
+    musicGain.current = null;
+  }
+
+  function startBackgroundMusic(force = false) {
+    if ((!musicEnabled && !force) || musicTimer.current !== null || typeof window === "undefined") return;
+    const context = unlockAudio();
+    if (!context) return;
+
+    const master = context.createGain();
+    master.gain.setValueAtTime(.0001, context.currentTime);
+    master.gain.exponentialRampToValueAtTime(.052, context.currentTime + 1.2);
+    master.connect(context.destination);
+    musicGain.current = master;
+
+    // Eigene ruhige Folk-Melodie in D-Dorisch, bewusst nicht „Greensleeves“.
+    const melody = [293.66, 349.23, 392, 440, 392, 349.23, 329.63, 293.66, 261.63, 293.66, 349.23, 329.63, 293.66, 261.63, 220, 261.63];
+    const bass = [146.83, 130.81, 116.54, 130.81];
+    const playStep = () => {
+      if (!musicGain.current || context.state === "closed") return;
+      const step = musicStep.current;
+      const start = context.currentTime + .03;
+      const note = context.createOscillator();
+      const noteGain = context.createGain();
+      note.type = "triangle";
+      note.frequency.setValueAtTime(melody[step % melody.length], start);
+      noteGain.gain.setValueAtTime(.0001, start);
+      noteGain.gain.exponentialRampToValueAtTime(.38, start + .08);
+      noteGain.gain.exponentialRampToValueAtTime(.0001, start + .68);
+      note.connect(noteGain).connect(master);
+      note.start(start);
+      note.stop(start + .72);
+
+      if (step % 4 === 0) {
+        const drone = context.createOscillator();
+        const droneGain = context.createGain();
+        drone.type = "sine";
+        drone.frequency.setValueAtTime(bass[Math.floor(step / 4) % bass.length], start);
+        droneGain.gain.setValueAtTime(.0001, start);
+        droneGain.gain.exponentialRampToValueAtTime(.22, start + .18);
+        droneGain.gain.exponentialRampToValueAtTime(.0001, start + 2.65);
+        drone.connect(droneGain).connect(master);
+        drone.start(start);
+        drone.stop(start + 2.7);
+      }
+      musicStep.current = step + 1;
+    };
+    playStep();
+    musicTimer.current = window.setInterval(playStep, 720);
+  }
+
+  function toggleMusic() {
+    const next = !musicEnabled;
+    setMusicEnabled(next);
+    window.localStorage.setItem("new-katan-music", next ? "on" : "off");
+    if (next) {
+      startBackgroundMusic(true);
+    } else {
+      stopBackgroundMusic();
+    }
+  }
+
   useEffect(() => {
     setSoundEnabled(window.localStorage.getItem("new-katan-sound") !== "off");
+    setMusicEnabled(window.localStorage.getItem("new-katan-music") !== "off");
   }, []);
+
+  useEffect(() => {
+    if (!musicEnabled) {
+      stopBackgroundMusic();
+      return;
+    }
+    const beginMusic = () => startBackgroundMusic();
+    window.addEventListener("pointerdown", beginMusic, { capture: true, once: true });
+    window.addEventListener("touchend", beginMusic, { capture: true, once: true });
+    return () => {
+      window.removeEventListener("pointerdown", beginMusic, { capture: true });
+      window.removeEventListener("touchend", beginMusic, { capture: true });
+    };
+  }, [musicEnabled]);
+
+  useEffect(() => () => stopBackgroundMusic(), []);
 
   useEffect(() => {
     if (!soundEnabled) return;
@@ -1494,10 +1590,9 @@ export default function Home() {
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
+          <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
-          {room.status === "waiting"
-            ? <button className="copy-button" data-mobile-label={inviteCopied ? "Kopiert ✓" : "Link"} onClick={() => void copyInvite()}>{inviteCopied ? "Link kopiert ✓" : "Einladungslink kopieren"}</button>
-            : <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>}
+          <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>
         </div>
       </header>
       {room.status !== "waiting" && me && (
@@ -1553,8 +1648,9 @@ export default function Home() {
             <div className="waiting-card">
               <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
               <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
+              <button className="copy-button" data-mobile-label={inviteCopied ? "Kopiert ✓" : "Link kopieren"} type="button" onClick={() => void copyInvite()}>{inviteCopied ? "Link kopiert ✓" : "Einladungslink kopieren"}</button>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
-              <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
+              <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
               {error && <span className="setup-error">{error}</span>}
             </div>
           ) : room.status === "finished" ? (
@@ -1562,7 +1658,7 @@ export default function Home() {
               <span className="victory-crown">♛</span>
               <strong>{players.find((player) => player.player_index === room.state?.winner_player)?.player_name ?? "Ein Spieler"} gewinnt!</strong>
               <span>Das Ziel von {room.victory_target ?? 10} Siegpunkten wurde erreicht.</span>
-              <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
+              <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
             </div>
           ) : room.state?.phase?.startsWith("setup_") ? (
             <div className="waiting-card playing">
@@ -1578,7 +1674,7 @@ export default function Home() {
               </div>
               {isEliminated && <>
                 <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>
-                <button className="leave-game-button" type="button" onClick={leaveGame}>Spiel verlassen</button>
+                <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
               </>}
               <div className={`turn-timer ${activePlayerSeconds <= 60 ? "urgent" : ""} ${playerClockPaused ? "paused" : ""}`}>
                 <div className="turn-timer-track"><span style={{ width: `${Math.max(0, Math.min(100, activePlayerSeconds / 600 * 100))}%` }} /></div>

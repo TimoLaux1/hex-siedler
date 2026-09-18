@@ -154,6 +154,8 @@ button, a { font: inherit; }
 .ocean-decorations { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }.ocean-fish { fill: rgba(20,104,126,.33); stroke: rgba(232,251,247,.4); stroke-width: 1.5; }.ocean-fish circle { fill: #e8f7e8; stroke: none; }.ocean-dolphin { fill: rgba(31,112,135,.3); stroke: rgba(229,251,247,.52); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }.ocean-dolphin circle { fill: #effbf4; stroke: none; }.ocean-bubbles { fill: none; stroke: rgba(235,255,250,.45); stroke-width: 2; }
 .svg-tile polygon:first-of-type { stroke: #f7f2e7; stroke-width: 1.25; stroke-linejoin: round; }
 .svg-tile .tile-inset { fill: none; stroke: rgba(255,255,255,.28); stroke-width: 5; transform: scale(.965); transform-box: fill-box; transform-origin: center; pointer-events: none; }
+.svg-tile.rolled-tile .tile-inset { stroke: #fff3a3; animation: rolled-field-pulse 1s ease-in-out infinite; }
+@keyframes rolled-field-pulse { 50% { stroke: #fff; stroke-width: 10; filter: drop-shadow(0 0 8px #f6c84f) drop-shadow(0 0 14px #fff3a3); } }
 .terrain-art { pointer-events: none; }
 .terrain-art .terrain-back { fill: rgba(24,43,34,.2); }
 .terrain-art .terrain-front { fill: rgba(255,255,255,.13); }
@@ -224,7 +226,8 @@ button, a { font: inherit; }
 .game-activity.activity-klaus { border-color: #d7aaa0; background: #fff1ed; color: #8d4537; }.game-activity.activity-klaus > span { background: #b95743; box-shadow: 0 0 0 4px #b9574324; }
 .game-activity.activity-win { border-color: #e0bb63; background: linear-gradient(110deg,#fff9df,#f3dfaa); color: #79500d; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
-.sound-button { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #d8d2c4; border-radius: 10px; background: white; cursor: pointer; }
+.sound-button,.music-button { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #d8d2c4; border-radius: 10px; background: white; cursor: pointer; }
+.music-button { color: #956d2d; background: linear-gradient(145deg,#fffdf5,#f5ead2); }
 .leave-game-topbar-button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 1px solid #d8d2c4; border-radius: 10px; background: white; color: #7d8581; font-size: 25px; font-weight: 400; line-height: 1; cursor: pointer; }
 .leave-game-topbar-button:hover { border-color: #c9a59d; background: #fff5f2; color: #994d40; }
 @keyframes activity-pulse { 50% { opacity: .48; transform: scale(.75); } }
@@ -248,6 +251,8 @@ button, a { font: inherit; }
 .victory-card > .leave-game-button:hover { background: #914438; }
 .waiting-card:not(.victory-card) > .leave-game-button { width: 100%; min-height: 38px; margin-top: 4px; border: 1px solid #d9dedb; border-radius: 10px; background: transparent; color: #78827e; font-size: 12px; font-weight: 750; cursor: pointer; box-shadow: none; }
 .waiting-card:not(.victory-card) > .leave-game-button:hover { border-color: #bcc5c0; background: #f5f7f6; color: #4f5c57; }
+.waiting-card > .copy-button { width: 100%; min-height: 42px; margin: 8px auto 0; border: 1px solid #9bc1b5; background: #eaf4f0; color: #245f50; box-shadow: none; }
+.waiting-card > .copy-button:hover { border-color: #6ea391; background: #deeee8; }
 
 /* Beide Bereiche der linken Spielleiste bleiben unabhängig scrollbar. */
 .room-panel,
@@ -348,7 +353,7 @@ button, a { font: inherit; }
   .game-activity > span { width: 6px; height: 6px; box-shadow: none; }
   .game-activity strong { font-size: 9px; }
   .topbar-actions { gap: 4px; }
-  .sound-button { width: 29px; height: 29px; border-radius: 8px; font-size: 12px; }
+  .sound-button,.music-button { width: 29px; height: 29px; border-radius: 8px; font-size: 12px; }
   .leave-game-topbar-button { width: 29px; height: 29px; border-radius: 8px; font-size: 20px; }
   .online-topbar .copy-button { padding: 6px 8px; font-size: 0; }
   .online-topbar .copy-button:after { content: attr(data-mobile-label); font-size: 10px; }
