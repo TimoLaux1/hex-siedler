@@ -18,7 +18,7 @@ type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
@@ -97,6 +97,7 @@ function translateUiText(raw: string) {
       [/^(.*) gibt einen Rohstoff ab\.$/, (_, name) => `${name} discards a resource.`],
       [/^(.*) spielt „(.+)“\.$/, (_, name, card) => `${name} plays “${englishUi[card] ?? card}”.`],
       [/^(.*) gewinnt das Spiel!$/, (_, name) => `${name} wins the game!`],
+      [/^(.*) übernimmt die Größte Rittermacht!$/, (_, name) => `${name} claims the Largest Army!`],
       [/^Teile den Code (.+) oder den Einladungslink · Ziel: (\d+) Siegpunkte\.$/, (_, code, points) => `Share code ${code} or the invitation link · Target: ${points} victory points.`],
       [/^Das Ziel von (\d+) Siegpunkten wurde erreicht\.$/, (_, points) => `The target of ${points} victory points has been reached.`],
       [/^Noch (\d+) Rohstoffe?$/, (_, n) => `${n} resources remaining?`],
@@ -725,6 +726,7 @@ export default function Home() {
   const goldmineChooser = room?.state?.goldmine_queue?.[0];
   const isGoldmineChooser = goldmineChooser !== undefined && goldmineChooser === me?.player_index;
   const longestRoadHolder = players.find((player) => player.player_index === room?.state?.longest_road_holder);
+  const largestArmyHolder = players.find((player) => player.player_index === room?.state?.largest_army_holder);
   const myDiscard = room?.state?.discard_queue?.find((entry) => entry.player === me?.player_index);
   const tradeOffer = room?.state?.trade_offer;
   const diceSums = Array.from({ length: 11 }, (_, index) => index + 2);
@@ -1582,14 +1584,25 @@ export default function Home() {
   async function playKlausCard(payload: Record<string, unknown>) {
     if (!supabase || !room || !activeCard || !isMyTurn) return;
     setBusy(true); setError("");
+    const playedCard = activeCard;
+    const previousArmyHolder = room.state?.largest_army_holder;
     const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: activeCard.id, p_payload: payload });
     if (cardError) setError(cardError.message);
     else {
-      setRoom(normalizedRoom(data));
+      let nextRoom = normalizedRoom(data);
+      if (playedCard.card_type === "angry") {
+        const { data: armyData, error: armyError } = await supabase.rpc("refresh_largest_army", { p_game_id: room.id });
+        if (armyError) setError(armyError.message);
+        else if (armyData) nextRoom = normalizedRoom(armyData);
+      }
+      setRoom(nextRoom);
       setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
       setSelectedCard(null);
       setSelectedRobberTile(null);
-      announceActivity("klaus_card", `${me?.player_name ?? name} spielt „${klausCards[activeCard.card_type].title}“.`, "klaus", klausCards[activeCard.card_type].title);
+      const tookLargestArmy = playedCard.card_type === "angry" && nextRoom.state?.largest_army_holder === me?.player_index && previousArmyHolder !== me?.player_index;
+      if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
+      else if (tookLargestArmy) announceActivity("largest_army", `${me?.player_name ?? name} übernimmt die Größte Rittermacht!`, "klaus");
+      else announceActivity("klaus_card", `${me?.player_name ?? name} spielt „${klausCards[playedCard.card_type].title}“.`, "klaus", klausCards[playedCard.card_type].title);
       await loadPlayerData(room.id);
     }
     setBusy(false);
@@ -1746,7 +1759,7 @@ export default function Home() {
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
@@ -1897,6 +1910,7 @@ export default function Home() {
             onKlausTile={selectRobberTile}
           />
           {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
+          {largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
         </section>
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
