@@ -606,28 +606,28 @@ button, a { font: inherit; }
 
 .online-shell::after,
 .lobby-shell::after {
-  content: "";
-  position: fixed;
-  z-index: 901;
-  inset: 7px;
-  pointer-events: none;
-  border-radius: 7px;
-  background:
-    radial-gradient(85px 68px at 0 0,transparent 58%,#638b43 59% 61%,transparent 62%),
-    radial-gradient(135px 82px at 0 0,transparent 68%,#83a64d 69% 71%,transparent 72%),
-    radial-gradient(86px 72px at 100% 0,transparent 59%,#557e41 60% 62%,transparent 63%),
-    radial-gradient(138px 88px at 100% 0,transparent 69%,#7da14b 70% 72%,transparent 73%),
-    radial-gradient(90px 74px at 0 100%,transparent 60%,#557e41 61% 63%,transparent 64%),
-    radial-gradient(145px 90px at 0 100%,transparent 70%,#82a74c 71% 73%,transparent 74%),
-    radial-gradient(90px 74px at 100% 100%,transparent 60%,#638b43 61% 63%,transparent 64%),
-    radial-gradient(145px 90px at 100% 100%,transparent 70%,#86a94e 71% 73%,transparent 74%);
-  filter: drop-shadow(0 1px 1px rgba(40,67,35,.25));
+  display: none;
 }
 
 @media (max-width: 900px) and (orientation: portrait) {
-  .online-shell::after,
-  .lobby-shell::after { display: none; }
+  .frame-vines { display: none; }
 }
+
+/* Vier bewusst unterschiedliche Blattranken – ausschließlich direkt am Holzrahmen. */
+.frame-vines { position: fixed; z-index: 901; inset: 0; overflow: hidden; pointer-events: none; }
+.frame-vines i { position: absolute; display: block; filter: drop-shadow(0 2px 1px rgba(42,70,37,.24)); }
+.vine-top-left { top: 3px; left: 4px; width: 72px; height: 48px; background: radial-gradient(ellipse at 18% 45%,#497b42 0 15%,transparent 16%),radial-gradient(ellipse at 43% 28%,#85a94b 0 18%,transparent 19%),radial-gradient(ellipse at 68% 55%,#679347 0 17%,transparent 18%),linear-gradient(145deg,transparent 47%,#55783c 48% 52%,transparent 53%); transform: rotate(-5deg); }
+.vine-top-right { top: 2px; right: 4px; width: 88px; height: 51px; background: radial-gradient(ellipse at 82% 32%,#b1c85a 0 16%,transparent 17%),radial-gradient(ellipse at 57% 62%,#4e8750 0 20%,transparent 21%),radial-gradient(ellipse at 27% 35%,#79a64b 0 15%,transparent 16%),linear-gradient(35deg,transparent 48%,#587640 49% 52%,transparent 53%); transform: rotate(7deg); }
+.vine-bottom-left { bottom: 3px; left: 5px; width: 92px; height: 55px; background: radial-gradient(ellipse at 16% 70%,#326f50 0 17%,transparent 18%),radial-gradient(ellipse at 43% 42%,#719f4c 0 19%,transparent 20%),radial-gradient(ellipse at 73% 68%,#b2cb58 0 16%,transparent 17%),linear-gradient(42deg,transparent 47%,#506f3b 48% 51%,transparent 52%); transform: rotate(3deg); }
+.vine-bottom-right { right: 4px; bottom: 3px; width: 78px; height: 58px; background: radial-gradient(ellipse at 84% 72%,#447c51 0 18%,transparent 19%),radial-gradient(ellipse at 58% 38%,#a5c354 0 17%,transparent 18%),radial-gradient(ellipse at 26% 66%,#628f46 0 20%,transparent 21%),linear-gradient(135deg,transparent 48%,#54763e 49% 52%,transparent 53%); transform: rotate(-8deg); }
+
+/* Im Spiel sitzt die Sprachwahl sichtbar in der Kopfzeile. */
+.online-topbar .language-switcher { position: static; left: auto; bottom: auto; z-index: auto; flex: 0 0 auto; transform: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.72),0 3px 0 rgba(100,68,38,.12); backdrop-filter: none; }
+
+/* Kein ungenutzter Leerraum oberhalb der linken Spielinformationen. */
+.online-sidebar { display: flex; flex-direction: column; justify-content: flex-start; align-self: stretch; }
+.online-sidebar > .room-panel { flex: 0 0 auto; top: 0; }
+.online-sidebar > .online-control-area { flex: 0 0 auto; }
 
 /* Spieltisch-Layout: Das Brett bleibt Mittelpunkt, Steuerung und Rohstoffe bilden feste Leisten. */
 @media (min-width: 901px) {

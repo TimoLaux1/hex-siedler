@@ -1667,6 +1667,7 @@ export default function Home() {
   if (!room) {
     return (
       <main className="lobby-shell">
+        <div className="frame-vines" aria-hidden="true"><i className="vine-top-left" /><i className="vine-top-right" /><i className="vine-bottom-left" /><i className="vine-bottom-right" /></div>
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
@@ -1706,11 +1707,12 @@ export default function Home() {
 
   return (
     <main className="online-shell">
-      <LanguageSwitcher language={language} onChange={changeLanguage} />
+      <div className="frame-vines" aria-hidden="true"><i className="vine-top-left" /><i className="vine-top-right" /><i className="vine-bottom-left" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
+          <LanguageSwitcher language={language} onChange={changeLanguage} />
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
           <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>
