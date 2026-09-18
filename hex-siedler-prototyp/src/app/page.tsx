@@ -1667,7 +1667,7 @@ export default function Home() {
   if (!room) {
     return (
       <main className="lobby-shell">
-        <div className="frame-vines" aria-hidden="true"><i className="vine-top-left" /><i className="vine-top-right" /><i className="vine-bottom-left" /><i className="vine-bottom-right" /></div>
+        <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-right-middle" /><i className="vine-bottom-right" /></div>
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
@@ -1707,7 +1707,7 @@ export default function Home() {
 
   return (
     <main className="online-shell">
-      <div className="frame-vines" aria-hidden="true"><i className="vine-top-left" /><i className="vine-top-right" /><i className="vine-bottom-left" /><i className="vine-bottom-right" /></div>
+      <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-right-middle" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
