@@ -590,6 +590,45 @@ button, a { font: inherit; }
   .language-switcher { z-index: 6000; bottom: max(24px,env(safe-area-inset-bottom)); }
 }
 
+/* Pflanzen bleiben ausschließlich am äußeren Holzrahmen. */
+.room-panel.card::before,
+.turn-card::before,
+.waiting-card::before,
+.auth-card::before,
+.room-panel.card::after,
+.turn-card::after,
+.waiting-card::after,
+.auth-card::after,
+.online-board-area::before,
+.online-board-area::after,
+.lobby-board::before,
+.lobby-board::after { display: none; }
+
+.online-shell::after,
+.lobby-shell::after {
+  content: "";
+  position: fixed;
+  z-index: 901;
+  inset: 7px;
+  pointer-events: none;
+  border-radius: 7px;
+  background:
+    radial-gradient(85px 68px at 0 0,transparent 58%,#638b43 59% 61%,transparent 62%),
+    radial-gradient(135px 82px at 0 0,transparent 68%,#83a64d 69% 71%,transparent 72%),
+    radial-gradient(86px 72px at 100% 0,transparent 59%,#557e41 60% 62%,transparent 63%),
+    radial-gradient(138px 88px at 100% 0,transparent 69%,#7da14b 70% 72%,transparent 73%),
+    radial-gradient(90px 74px at 0 100%,transparent 60%,#557e41 61% 63%,transparent 64%),
+    radial-gradient(145px 90px at 0 100%,transparent 70%,#82a74c 71% 73%,transparent 74%),
+    radial-gradient(90px 74px at 100% 100%,transparent 60%,#638b43 61% 63%,transparent 64%),
+    radial-gradient(145px 90px at 100% 100%,transparent 70%,#86a94e 71% 73%,transparent 74%);
+  filter: drop-shadow(0 1px 1px rgba(40,67,35,.25));
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .online-shell::after,
+  .lobby-shell::after { display: none; }
+}
+
 /* Spieltisch-Layout: Das Brett bleibt Mittelpunkt, Steuerung und Rohstoffe bilden feste Leisten. */
 @media (min-width: 901px) {
   .lobby-shell {
