@@ -27,6 +27,95 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+type Language = "de" | "en";
+
+const englishUi: Record<string, string> = {
+  "New Katan wird geladen …": "Loading New Katan…",
+  "Willkommen bei New Katan.": "Welcome to New Katan.",
+  "Code eingeben": "Enter code",
+  "Klaus prüft die Gästeliste": "Klaus checks the guest list",
+  "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet.": "Sign in with your email address. Your player name will be created automatically.",
+  "Verifizierungscode": "Verification code", "Prüfe …": "Checking…", "Einloggen": "Sign in",
+  "Andere E-Mail-Adresse": "Use another email address", "E-Mail-Adresse": "Email address", "E-Mail-Adresse eingeben": "Enter email address", "Sende …": "Sending…", "Code senden": "Send code",
+  "Katan ohne Klaus.": "Katan without Klaus.", "Teubi muss draußen bleiben.": "Teubi has to stay outside.", "Eingeloggt als": "Signed in as", "Abmelden": "Sign out",
+  "+ Fisch": "+ Fish", "Zufälliger Rohstoff beim Würfeln": "Random resource when rolling", "Siegpunkte": "Victory points", "Ziel für den Spielsieg": "Victory target",
+  "Neues Spiel erstellen": "Create new game", "oder beitreten": "or join", "SPIELCODE": "GAME CODE", "Beitreten": "Join",
+  "Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.": "Your wins are permanently saved to your player profile.",
+  "Highscore Board": "Leaderboard", "Siege aller Spieler": "Wins by all players", "Noch keine Siege eingetragen.": "No wins recorded yet.",
+  "Deine Rohstoffe": "Your resources", "Spieler": "Players", "Zug beenden": "End turn", "Zuschauer": "Spectator", "Längste Handelsstraße": "Longest trade route",
+  "Warte auf Spieler …": "Waiting for player…", "Deine Klaus-Karten": "Your Klaus cards", "Noch keine Handkarten.": "No cards yet.",
+  "Muss sofort gespielt werden": "Must be played immediately", "Karte spielen": "Play card", "Ab deinem nächsten Zug spielbar": "Playable from your next turn",
+  "Warte auf Mitspieler": "Waiting for players", "Bereit zum Start": "Ready to start", "Kopiert ✓": "Copied ✓", "Link kopieren": "Copy link",
+  "Link kopiert ✓": "Link copied ✓", "Einladungslink kopieren": "Copy invitation link", "Spiel starten": "Start game", "Spiel verlassen": "Leave game",
+  "Siedlung wählen": "Choose settlement", "Angrenzende Straße wählen": "Choose adjacent road", "Du bist am Zug – wähle direkt auf dem Spielfeld.": "It is your turn — choose directly on the board.",
+  "Du bist am Zug": "It is your turn", "Zeit abgelaufen, Klaus dankt. Ciao": "Time is up. Klaus thanks you. Goodbye.", "Der aktive Spieler würfelt einmal.": "The active player rolls once.",
+  "Handelsangebot": "Trade offer", "Annehmen": "Accept", "Ablehnen": "Decline", "Angebot zurückziehen": "Withdraw offer", "Würfeln": "Roll dice",
+  "Welcher Mitspieler verliert einen Siegpunkt?": "Which player loses one victory point?", "Welchen Rohstoff soll Klaus einsammeln?": "Which resource should Klaus collect?",
+  "Wähle auf dem Spielfeld das neue Ritterfeld.": "Choose the knight's new tile on the board.", "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?": "Which affected player should lose a random resource?",
+  "Von welchem betroffenen Spieler möchtest du einen zufälligen Rohstoff ziehen?": "Which affected player do you want to take a random resource from?", "An diesem Feld ist kein Mitspieler betroffen.": "No other player is affected by this tile.",
+  "Ritter hier setzen": "Place knight here", "Anderes Feld": "Different tile", "Wähle auf dem Spielfeld eine deiner Straßen zum Zerstören.": "Choose one of your roads to destroy on the board.",
+  "Wähle einen freien, direkt an dein Straßennetz angeschlossenen Knoten. Die normalen Baukosten werden abgezogen.": "Choose a free intersection directly connected to your road network. The normal building cost applies.",
+  "Abbrechen": "Cancel", "Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen.": "Resources have been distributed. You may perform several actions.",
+  "Straße": "Road", "Siedlung": "Settlement", "Stadt": "City", "Goldmine": "Gold mine", "Klaus rufen": "Call Klaus", "Handeln": "Trade",
+  "Holz": "Wood", "Lehm": "Brick", "Wolle": "Wool", "Getreide": "Grain", "Erz": "Ore", "oder Spieler": "or player", "Vorrat": "Supply", "Spieler 1:1": "Player 1:1",
+  "Mit wem möchtest du handeln?": "Who do you want to trade with?", "1 Rohstoff anbieten": "Offer 1 resource", "Gewünschten Rohstoff wählen": "Choose requested resource",
+  "Diese Runde bereits getauscht": "Already traded this round", "Angebot senden": "Send offer", "Würfelstatistik": "Dice statistics", "Würfe": "rolls",
+  "Räuber hierhin setzen": "Place robber here", "Karten wegen der 7 abgeben": "Discard cards because of the 7", "Warte, bis alle betroffenen Spieler ihre Karten abgegeben haben.": "Wait until all affected players have discarded their cards.",
+  "Goldmine fördert": "Gold mine produces", "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff.": "The 7 activates your gold mine. Choose any resource.",
+  "Goldmine für alle freigeschaltet": "Gold mine unlocked for everyone", "Alle Spieler können sie ab jetzt – unabhängig von ihren eigenen Siegpunkten – aus einer Siedlung an der Wüste entwickeln. Bei einer 7 fördert sie einen frei wählbaren Rohstoff.": "All players can now upgrade a settlement next to the desert into a gold mine, regardless of their own victory points. When a 7 is rolled, it produces a resource of their choice.",
+  "Kosten": "Cost", "Verstanden": "Got it", "Fischgrund": "Fishing ground", "Gebirge": "Mountains", "Weide": "Pasture", "Feld": "Fields", "Wald": "Forest", "Wüste": "Desert",
+  "Enttäuschter Klaus": "Disappointed Klaus", "Ein Mitspieler verliert 1 Siegpunkt.": "Another player loses 1 victory point.", "Böser Klaus": "Angry Klaus", "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.": "Moves the knight and steals a random resource.",
+  "Stolzer Klaus": "Proud Klaus", "Nimmt einen gewählten Rohstoff von allen Mitspielern.": "Takes one chosen resource from every other player.", "Blöder Klaus": "Silly Klaus", "Zerstört sofort eine eigene Straße.": "Immediately destroys one of your own roads.",
+  "Sneaky Klaus": "Sneaky Klaus", "Erlaubt eine Siedlung mit nur einer Straße Abstand.": "Allows a settlement only one road away.",
+  "Musik ausschalten": "Turn music off", "Musik einschalten": "Turn music on", "Ton ausschalten": "Turn sound off", "Ton einschalten": "Turn sound on",
+  "New Katan installieren": "Install New Katan", "Tippe in Safari unten auf": "In Safari, tap", "Teilen": "Share", "und danach auf": "and then", "„Zum Home-Bildschirm“": "‘Add to Home Screen’",
+  "Zum Homebildschirm hinzufügen?": "Add to Home Screen?", "Starte New Katan künftig direkt wie eine App.": "Launch New Katan directly like an app.", "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab.": "Add New Katan to your Home Screen for quick access.", "Hinzufügen": "Add", "Vollbild": "Fullscreen"
+};
+
+function translateUiText(raw: string) {
+  const core = raw.trim();
+  if (!core) return raw;
+  let translated = englishUi[core];
+  if (!translated) {
+    const rules: Array<[RegExp, (...parts: string[]) => string]> = [
+      [/^Runde (\d+)$/, (_, n) => `Round ${n}`],
+      [/^(.*) ist am Zug\.$/, (_, name) => `${name} is taking their turn.`],
+      [/^(.*) beginnt die Aufbauphase\.$/, (_, name) => `${name} begins the setup phase.`],
+      [/^(.*) würfelt(?: eine)? (\d+)\.$/, (_, name, n) => `${name} rolls a ${n}.`],
+      [/^(.*) baut eine Straße\.$/, (_, name) => `${name} builds a road.`],
+      [/^(.*) baut eine Siedlung\.$/, (_, name) => `${name} builds a settlement.`],
+      [/^(.*) baut eine Stadt\.$/, (_, name) => `${name} builds a city.`],
+      [/^(.*) baut eine Goldmine\.$/, (_, name) => `${name} builds a gold mine.`],
+      [/^(.*) ruft Klaus\.$/, (_, name) => `${name} calls Klaus.`],
+      [/^(.*) versetzt den Ritter\.$/, (_, name) => `${name} moves the knight.`],
+      [/^(.*) beendet den Zug\.$/, (_, name) => `${name} ends their turn.`],
+      [/^(.*) wählt einen Goldminen-Rohstoff\.$/, (_, name) => `${name} chooses a gold-mine resource.`],
+      [/^(.*) handelt mit dem Vorrat\.$/, (_, name) => `${name} trades with the supply.`],
+      [/^(.*) bietet einen Handel an\.$/, (_, name) => `${name} makes a trade offer.`],
+      [/^(.*) nimmt den Handel an\.$/, (_, name) => `${name} accepts the trade.`],
+      [/^(.*) lehnt den Handel ab\.$/, (_, name) => `${name} declines the trade.`],
+      [/^(.*) gibt einen Rohstoff ab\.$/, (_, name) => `${name} discards a resource.`],
+      [/^(.*) spielt „(.+)“\.$/, (_, name, card) => `${name} plays “${englishUi[card] ?? card}”.`],
+      [/^(.*) gewinnt das Spiel!$/, (_, name) => `${name} wins the game!`],
+      [/^Teile den Code (.+) oder den Einladungslink · Ziel: (\d+) Siegpunkte\.$/, (_, code, points) => `Share code ${code} or the invitation link · Target: ${points} victory points.`],
+      [/^Das Ziel von (\d+) Siegpunkten wurde erreicht\.$/, (_, points) => `The target of ${points} victory points has been reached.`],
+      [/^Noch (\d+) Rohstoffe?$/, (_, n) => `${n} resources remaining?`],
+      [/^(\d+) Würfe$/, (_, n) => `${n} rolls`],
+      [/^Noch (\d+) Sekunden – danach wird zufällig abgegeben\.$/, (_, n) => `${n} seconds left — then cards will be discarded at random.`],
+    ];
+    for (const [pattern, replace] of rules) {
+      const match = core.match(pattern);
+      if (match) { translated = replace(...match); break; }
+    }
+  }
+  if (!translated) return raw;
+  return raw.replace(core, translated);
+}
+
+function LanguageSwitcher({ language, onChange }: { language: Language; onChange: (language: Language) => void }) {
+  return <div className="language-switcher" aria-label="Language"><button className={language === "de" ? "active" : ""} onClick={() => onChange("de")} type="button">DE</button><button className={language === "en" ? "active" : ""} onClick={() => onChange("en")} type="button">EN</button></div>;
+}
+
 const klausCards: Record<KlausKind, { title: string; face: string; description: string; tone: string }> = {
   disappointed: { title: "Enttäuschter Klaus", face: "😞", description: "Ein Mitspieler verliert 1 Siegpunkt.", tone: "blue" },
   angry: { title: "Böser Klaus", face: "😠", description: "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.", tone: "red" },
@@ -516,6 +605,7 @@ function formatClock(seconds: number) {
 }
 
 export default function Home() {
+  const [language, setLanguage] = useState<Language>("de");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -559,6 +649,53 @@ export default function Home() {
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
   const lastKlausVoiceAt = useRef(0);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("new-katan-language");
+    const detected: Language = saved === "de" || saved === "en" ? saved : navigator.language.toLowerCase().startsWith("de") ? "de" : "en";
+    setLanguage(detected);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = language === "en" ? "New Katan – Strategy Game" : "New Katan – Strategiespiel";
+    if (language !== "en") return;
+
+    const translateNode = (root: Node) => {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes: Text[] = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+      if (root.nodeType === Node.TEXT_NODE) nodes.unshift(root as Text);
+      nodes.forEach((node) => {
+        const parent = node.parentElement;
+        if (!parent || parent.closest("script,style")) return;
+        const next = translateUiText(node.nodeValue ?? "");
+        if (next !== node.nodeValue) node.nodeValue = next;
+      });
+      if (root instanceof Element) {
+        [root, ...Array.from(root.querySelectorAll("[placeholder],[title],[aria-label],[data-mobile-label]"))].forEach((element) => {
+          ["placeholder", "title", "aria-label", "data-mobile-label"].forEach((attribute) => {
+            const value = element.getAttribute(attribute);
+            if (value) element.setAttribute(attribute, translateUiText(value));
+          });
+        });
+      }
+    };
+
+    translateNode(document.body);
+    const observer = new MutationObserver((mutations) => mutations.forEach((mutation) => {
+      if (mutation.type === "characterData") translateNode(mutation.target);
+      mutation.addedNodes.forEach(translateNode);
+    }));
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [language]);
+
+  function changeLanguage(nextLanguage: Language) {
+    window.localStorage.setItem("new-katan-language", nextLanguage);
+    if (nextLanguage === language) return;
+    window.location.reload();
+  }
 
   const isHost = room?.created_by === userId;
   const me = players.find((player) => player.user_id === userId);
@@ -1495,12 +1632,13 @@ export default function Home() {
   }
 
   if (!authReady) {
-    return <main className="auth-shell"><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
+    return <main className="auth-shell"><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
   }
 
   if (!userId) {
     return (
       <main className="auth-shell">
+        <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="auth-card">
           <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
           <div className="auth-klaus">🧔🏻‍♂️</div>
@@ -1529,6 +1667,7 @@ export default function Home() {
   if (!room) {
     return (
       <main className="lobby-shell">
+        <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
           <h1>
@@ -1567,6 +1706,7 @@ export default function Home() {
 
   return (
     <main className="online-shell">
+      <LanguageSwitcher language={language} onChange={changeLanguage} />
       <header className="online-topbar">
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>

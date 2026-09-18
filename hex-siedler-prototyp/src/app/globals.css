@@ -224,6 +224,9 @@ button, a { font: inherit; }
 @keyframes klaus-tile-pulse { 50% { stroke-width: 5; fill: rgba(216,146,49,.19); } }
 
 .online-shell { min-height: 100vh; background: #f7f2e7; }.online-topbar { height: 72px; display: grid; grid-template-columns: auto minmax(180px,1fr) auto; align-items: center; gap: 22px; padding: 0 4vw; background: white; border-bottom: 1px solid #ddd8cd; }
+.language-switcher { position: fixed; z-index: 1000; left: 50%; bottom: max(12px,env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 3px; border: 1px solid #d8d2c4; border-radius: 999px; background: rgba(255,255,255,.94); box-shadow: 0 5px 18px #263b3426; transform: translateX(-50%); backdrop-filter: blur(8px); }
+.language-switcher button { min-width: 38px; height: 30px; border: 0; border-radius: 999px; background: transparent; color: #7b8581; font-size: 11px; font-weight: 900; letter-spacing: .08em; cursor: pointer; }
+.language-switcher button.active { background: #276f5c; color: white; box-shadow: 0 2px 7px #1f6b5733; }
 .room-code { padding: 9px 15px; border-radius: 999px; background: #e4f1ec; font-size: 13px; }.room-code strong { letter-spacing: .16em; color: #1f6b57; }
 .copy-button { border: 1px solid #d8d2c4; background: white; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
 .game-activity { min-width: 0; max-width: 680px; justify-self: center; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 9px 16px; border: 1px solid #c9ddd6; border-radius: 999px; background: linear-gradient(110deg,#f3faf7,#e6f2ee); color: #315f53; box-shadow: 0 3px 12px rgba(35,83,70,.08); }
