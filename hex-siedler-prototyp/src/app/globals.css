@@ -618,25 +618,6 @@ button, a { font: inherit; }
 .frame-vines i { position: absolute; display: block; filter: drop-shadow(0 2px 1px rgba(42,70,37,.24)); }
 .vine-top-right { top: 2px; right: 4px; width: 88px; height: 51px; background: radial-gradient(ellipse at 82% 32%,#b1c85a 0 16%,transparent 17%),radial-gradient(ellipse at 57% 62%,#4e8750 0 20%,transparent 21%),radial-gradient(ellipse at 27% 35%,#79a64b 0 15%,transparent 16%),linear-gradient(35deg,transparent 48%,#587640 49% 52%,transparent 53%); transform: rotate(7deg); }
 .vine-bottom-right { right: 4px; bottom: 3px; width: 78px; height: 58px; background: radial-gradient(ellipse at 84% 72%,#447c51 0 18%,transparent 19%),radial-gradient(ellipse at 58% 38%,#a5c354 0 17%,transparent 18%),radial-gradient(ellipse at 26% 66%,#628f46 0 20%,transparent 21%),linear-gradient(135deg,transparent 48%,#54763e 49% 52%,transparent 53%); transform: rotate(-8deg); }
-.vine-right-middle {
-  top: 35%;
-  right: -8px;
-  width: 72px;
-  height: 250px;
-  background:
-    radial-gradient(ellipse 25px 43px at 73% 10%,#8fbe25 0 68%,transparent 71%),
-    radial-gradient(ellipse 30px 49px at 42% 22%,#69a92e 0 67%,transparent 70%),
-    radial-gradient(ellipse 25px 44px at 77% 32%,#4f922f 0 68%,transparent 71%),
-    radial-gradient(ellipse 29px 49px at 37% 43%,#7fbd27 0 67%,transparent 70%),
-    radial-gradient(ellipse 27px 46px at 75% 54%,#3f8739 0 68%,transparent 71%),
-    radial-gradient(ellipse 28px 47px at 39% 65%,#6cad31 0 67%,transparent 70%),
-    radial-gradient(ellipse 25px 43px at 73% 76%,#8fc72e 0 68%,transparent 71%),
-    radial-gradient(ellipse 28px 46px at 44% 89%,#4e9637 0 68%,transparent 71%),
-    linear-gradient(92deg,transparent 47%,#547b35 48% 54%,transparent 55%);
-  transform: rotate(3deg);
-  transform-origin: center;
-  opacity: .94;
-}
 
 /* Im Spiel sitzt die Sprachwahl sichtbar in der Kopfzeile. */
 .online-topbar .language-switcher { position: static; left: auto; bottom: auto; z-index: auto; flex: 0 0 auto; transform: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.72),0 3px 0 rgba(100,68,38,.12); backdrop-filter: none; }
