@@ -320,6 +320,13 @@ const resourceCards: { key: ResourceKind; label: string }[] = [
   { key: "ore", label: "Erz" },
 ];
 
+const backgroundTracks = [
+  "/audio/greensleeves-acoustic.mp3",
+  "/audio/greensleeves-celtic.mp3",
+  "/audio/greensleeves-pan-flute.mp3",
+  "/audio/greensleeves-fantasia.mp3",
+];
+
 function ResourceIcon({ kind }: { kind: ResourceKind }) {
   if (kind === "wood") {
     return <svg viewBox="0 0 32 32" aria-hidden="true"><path className="icon-fill" d="M6 9h19v14H6z"/><ellipse className="icon-light" cx="25" cy="16" rx="5" ry="7"/><path className="icon-line" d="M25 12v8m-3-4h6M8 12h13M8 20h13"/></svg>;
@@ -363,6 +370,8 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   const opponentBuildingVertices = new Set(settlements.filter((item) => item.player !== myIndex).map((item) => item.vertex));
   const ownRoadVertices = new Set(roads.filter((item) => item.player === myIndex).flatMap((item) => [item.a, item.b]));
   const rolledNumber = state?.dice?.length === 2 ? state.dice[0] + state.dice[1] : null;
+  const rollCount = Object.values(state?.dice_stats ?? {}).reduce((total, count) => total + count, 0);
+  const tileProduces = (tile: number) => tile !== state?.robber_tile && settlements.some((building) => topology.tileVertices[tile]?.includes(building.vertex));
   const visibleTileIndices = [...Array.from({ length: terrain.length }, (_, index) => index), ...visibleFish.map((fish) => terrain.length + fish.slot)];
   const visibleVertices = new Set(visibleTileIndices.flatMap((index) => topology.tileVertices[index] ?? []));
   return (
@@ -381,7 +390,9 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         {visibleFish.map((fish) => {
           const { x, y } = fishCenters[fish.slot];
           const points = hexPoints(x, y);
-          return <g key={`fish-${fish.slot}`} className={`svg-tile fish ${rolledNumber === fish.number ? "rolled-tile" : ""}`}>
+          const tileIndex = terrain.length + fish.slot;
+          const produces = rolledNumber === fish.number && tileProduces(tileIndex);
+          return <g key={`fish-${fish.slot}-roll-${rollCount}`} className={`svg-tile fish ${produces ? "rolled-tile" : ""}`}>
             <polygon points={points} fill="url(#fish-fill)" />
             <polygon className="tile-inset" points={points} />
             <FishArtwork x={x} y={y} />
@@ -392,7 +403,8 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         {tileCenters.map(({ x, y }, index) => {
           const { name, className, number } = visibleTerrain[index] ?? terrain[index];
           const points = hexPoints(x, y);
-          return <g key={`${name}-${index}`} className={`svg-tile ${className} ${number > 0 && rolledNumber === number ? "rolled-tile" : ""}`}>
+          const produces = number > 0 && rolledNumber === number && tileProduces(index);
+          return <g key={`${name}-${index}-roll-${rollCount}`} className={`svg-tile ${className} ${produces ? "rolled-tile" : ""}`}>
             <polygon points={points} fill={`url(#${className}-fill)`} />
             <polygon className="tile-inset" points={points} />
             <TerrainArtwork type={className} x={x} y={y} />
@@ -533,9 +545,8 @@ export default function Home() {
   const resumeAttemptedForUser = useRef("");
   const playerTimerInitialized = useRef(new Set<string>());
   const audioContext = useRef<AudioContext | null>(null);
-  const musicGain = useRef<GainNode | null>(null);
-  const musicTimer = useRef<number | null>(null);
-  const musicStep = useRef(0);
+  const musicPlayer = useRef<HTMLAudioElement | null>(null);
+  const musicTrack = useRef(0);
   const lastPlayedActivity = useRef("");
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
@@ -744,66 +755,28 @@ export default function Home() {
   }
 
   function stopBackgroundMusic() {
-    if (musicTimer.current !== null) {
-      window.clearInterval(musicTimer.current);
-      musicTimer.current = null;
-    }
-    const context = audioContext.current;
-    const gain = musicGain.current;
-    if (context && gain) {
-      gain.gain.cancelScheduledValues(context.currentTime);
-      gain.gain.setValueAtTime(Math.max(.0001, gain.gain.value), context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(.0001, context.currentTime + .35);
-      window.setTimeout(() => gain.disconnect(), 420);
-    }
-    musicGain.current = null;
+    musicPlayer.current?.pause();
   }
 
   function startBackgroundMusic(force = false) {
-    if ((!musicEnabled && !force) || musicTimer.current !== null || typeof window === "undefined") return;
-    const context = unlockAudio();
-    if (!context) return;
-
-    const master = context.createGain();
-    master.gain.setValueAtTime(.0001, context.currentTime);
-    master.gain.exponentialRampToValueAtTime(.052, context.currentTime + 1.2);
-    master.connect(context.destination);
-    musicGain.current = master;
-
-    // Eigene ruhige Folk-Melodie in D-Dorisch, bewusst nicht „Greensleeves“.
-    const melody = [293.66, 349.23, 392, 440, 392, 349.23, 329.63, 293.66, 261.63, 293.66, 349.23, 329.63, 293.66, 261.63, 220, 261.63];
-    const bass = [146.83, 130.81, 116.54, 130.81];
-    const playStep = () => {
-      if (!musicGain.current || context.state === "closed") return;
-      const step = musicStep.current;
-      const start = context.currentTime + .03;
-      const note = context.createOscillator();
-      const noteGain = context.createGain();
-      note.type = "triangle";
-      note.frequency.setValueAtTime(melody[step % melody.length], start);
-      noteGain.gain.setValueAtTime(.0001, start);
-      noteGain.gain.exponentialRampToValueAtTime(.38, start + .08);
-      noteGain.gain.exponentialRampToValueAtTime(.0001, start + .68);
-      note.connect(noteGain).connect(master);
-      note.start(start);
-      note.stop(start + .72);
-
-      if (step % 4 === 0) {
-        const drone = context.createOscillator();
-        const droneGain = context.createGain();
-        drone.type = "sine";
-        drone.frequency.setValueAtTime(bass[Math.floor(step / 4) % bass.length], start);
-        droneGain.gain.setValueAtTime(.0001, start);
-        droneGain.gain.exponentialRampToValueAtTime(.22, start + .18);
-        droneGain.gain.exponentialRampToValueAtTime(.0001, start + 2.65);
-        drone.connect(droneGain).connect(master);
-        drone.start(start);
-        drone.stop(start + 2.7);
-      }
-      musicStep.current = step + 1;
-    };
-    playStep();
-    musicTimer.current = window.setInterval(playStep, 720);
+    if ((!musicEnabled && !force) || typeof window === "undefined") return;
+    let player = musicPlayer.current;
+    if (!player) {
+      player = new Audio(backgroundTracks[musicTrack.current]);
+      player.preload = "auto";
+      player.volume = .18;
+      const advanceTrack = () => {
+        musicTrack.current = (musicTrack.current + 1) % backgroundTracks.length;
+        if (!musicPlayer.current) return;
+        musicPlayer.current.src = backgroundTracks[musicTrack.current];
+        musicPlayer.current.load();
+        void musicPlayer.current.play().catch(() => undefined);
+      };
+      player.onended = advanceTrack;
+      player.onerror = () => window.setTimeout(advanceTrack, 400);
+      musicPlayer.current = player;
+    }
+    void player.play().catch(() => undefined);
   }
 
   function toggleMusic() {
