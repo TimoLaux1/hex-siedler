@@ -57,6 +57,7 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 .board-fit-stage { position: relative; flex: none; }
 .board-fit-stage > .full-board { position: absolute !important; inset: 0 auto auto 0 !important; top: 0 !important; left: 0 !important; margin: 0 !important; transform: scale(var(--board-fit-scale)) !important; transform-origin: top left !important; }
 .lobby-board > .board-fit,.online-board-area > .board-fit { align-self: stretch; justify-self: stretch; }
+.online-board-area > .board-fit { position: absolute; inset: 6px; width: auto; height: auto; }
 button, a { font: inherit; }
 .game-shell { min-height: 100vh; background: radial-gradient(circle at 50% 30%, #fffdf7 0 22%, transparent 55%), var(--paper); }
 .topbar { height: 76px; padding: 0 4vw; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.74); }
@@ -250,10 +251,7 @@ button, a { font: inherit; }
 .fox-tail { fill: #d7793b; }
 .fox-chest,.fox-muzzle { fill: #f5e6c8; stroke: #64321f; stroke-width: 1; }
 .fox-eye { fill: #18201d; }
-.fox-leg { fill: none; stroke: #64321f; stroke-width: 3; stroke-linecap: round; transform-origin: top; animation: fox-step .55s ease-in-out infinite alternate; }
-.fox-leg-two { animation-delay: -.55s; }
 @keyframes fox-bob { 50% { transform: translateY(-1.5px); } }
-@keyframes fox-step { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
 @keyframes goldmine-glow { 50% { filter: drop-shadow(0 3px 2px #18231f88) drop-shadow(0 0 9px #ffd54f) brightness(1.25); } }
 @keyframes goldmine-halo { 50% { opacity: .65; transform: scale(1.18); } }
 @keyframes goldmine-smoke { 0% { opacity: 0; transform: translate(0,2px) scale(.55); } 25% { opacity: .75; } 100% { opacity: 0; transform: translate(6px,-25px) scale(1.55); } }

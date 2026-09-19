@@ -461,7 +461,7 @@ function BoardFit({ children }: { children: ReactNode }) {
     if (!frame) return;
     const update = () => {
       const { width, height } = frame.getBoundingClientRect();
-      const padding = Math.min(32, Math.max(12, Math.min(width, height) * .04));
+      const padding = Math.min(12, Math.max(4, Math.min(width, height) * .012));
       setScale(Math.max(.2, Math.min(1.55, (width - padding * 2) / 610, (height - padding * 2) / 544)));
     };
     update();
@@ -662,7 +662,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
             <path id={routeId} d={routePath} fill="none" stroke="transparent" />
             <g className="road-carriage-vehicle" style={{ color: colors[carriageRoute.player] }}>
               <ellipse className="carriage-shadow" cx="0" cy="7" rx="18" ry="4" />
-              <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4M-17 3l-2 9m7-9 1 9"/></g>
+              <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4"/></g>
               <path className="carriage-shaft" d="M-9 1H2"/>
               <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
               <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
@@ -688,8 +688,6 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
               <path className="fox-ear" d="m-18-13 2-10 6 9m2 1 6-8 1 11"/>
               <path className="fox-muzzle" d="m-19-5-8 4 10 2Z"/>
               <circle className="fox-eye" cx="-14" cy="-9" r="1.2"/>
-              <path className="fox-leg fox-leg-one" d="M-6 6-10 14m16-8 4 8"/>
-              <path className="fox-leg fox-leg-two" d="M-1 6 2 14m-10-8-3 8"/>
               <animateMotion dur="42s" begin="0s" fill="freeze" rotate="auto-reverse"><mpath href={`#${pathId}`}/></animateMotion>
             </g>
           </g>;
@@ -1922,7 +1920,6 @@ export default function Home() {
         <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
-          <LanguageSwitcher language={language} onChange={changeLanguage} />
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
           <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>
