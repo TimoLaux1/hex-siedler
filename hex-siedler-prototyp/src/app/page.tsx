@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
@@ -453,6 +453,28 @@ function KlausCardView({ kind, compact = false }: { kind: KlausKind; compact?: b
   </div>;
 }
 
+function BoardFit({ children }: { children: ReactNode }) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(.8);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const update = () => {
+      const { width, height } = frame.getBoundingClientRect();
+      const padding = Math.min(32, Math.max(12, Math.min(width, height) * .04));
+      setScale(Math.max(.2, Math.min(1.55, (width - padding * 2) / 610, (height - padding * 2) / 544)));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(frame);
+    window.addEventListener("resize", update);
+    return () => { observer.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+  return <div className="board-fit" ref={frameRef}>
+    <div className="board-fit-stage" style={{ width: 610 * scale, height: 544 * scale, "--board-fit-scale": scale } as CSSProperties}>{children}</div>
+  </div>;
+}
+
 function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile, onFoxBite }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void; onFoxBite?: () => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
@@ -611,17 +633,14 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
             <TerrainArtwork type={className} x={x} y={y} />
             <text className="svg-name" x={x} y={y + 37}>{name}</text>
             {number > 0 && <g className={`svg-token ${number === 6 || number === 8 ? "hot" : ""}`}><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{number}</text></g>}
-            {(robberPreviewTile ?? state?.robber_tile ?? 9) === index && room?.status !== "waiting" && <g className="robber-marker" transform={`translate(${x + 30} ${y - 27})`} aria-label="Räuber">
+            {room && (robberPreviewTile ?? state?.robber_tile ?? 9) === index && room.status !== "waiting" && <g className="robber-marker" transform={`translate(${x + 16} ${y - 13})`} aria-label="Räuber">
               <g className="robber-walk">
+                <animateTransform attributeName="transform" type="translate" values="-7 1;-7 1;7 1;7 1;-7 1" keyTimes="0;.2857;.5;.7857;1" dur="70s" repeatCount="indefinite"/>
                 <ellipse className="robber-shadow" cx="1" cy="15" rx="16" ry="4"/>
                 <ellipse className="robber-sack" cx="10" cy="-1" rx="11" ry="14" transform="rotate(-24 10 -1)"/>
-                <path className="robber-sack-knot" d="M3-12 8-17l5 6"/>
                 <path className="robber-cloak" d="M-9-5Q-3-14 5-8L10 12H-11Z"/>
                 <circle className="robber-head" cx="-5" cy="-14" r="6"/>
                 <path className="robber-hood" d="M-13-15Q-7-26 2-18L1-10Q-7-14-13-9Z"/>
-                <path className="robber-arm" d="M-2-5 8 3"/>
-                <path className="robber-leg leg-one" d="M-5 10-10 18"/>
-                <path className="robber-leg leg-two" d="M3 10 7 18"/>
               </g>
             </g>}
             {room && klausMode === "robber" && <circle className="klaus-tile-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(index)} />}
@@ -1889,7 +1908,7 @@ export default function Home() {
           <small>Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.</small>
           <HighScoreBoard scores={highScores} currentName={name} />
         </section>
-        <div className="lobby-board"><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></div>
+        <div className="lobby-board"><BoardFit><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></BoardFit></div>
         <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
@@ -2077,7 +2096,7 @@ export default function Home() {
         </section>
         </div>
         <section className="online-board-area">
-          <FullBoard
+          <BoardFit><FullBoard
             room={room}
             myIndex={me?.player_index}
             buildMode={buildMode}
@@ -2090,7 +2109,7 @@ export default function Home() {
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={selectRobberTile}
             onFoxBite={speakRobberOuch}
-          />
+          /></BoardFit>
           {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
           {largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
         </section>
