@@ -819,6 +819,9 @@ export default function Home() {
   const [myCards, setMyCards] = useState<KlausCard[]>([]);
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
   const [resourceCounts, setResourceCounts] = useState<Record<number, number>>({});
+  const [resourceGains, setResourceGains] = useState<Partial<Record<ResourceKind, { amount: number; nonce: number }>>>({});
+  const previousResources = useRef<{ gameId: string; values: Resources } | null>(null);
+  const resourceGainTimers = useRef<Partial<Record<ResourceKind, ReturnType<typeof setTimeout>>>>({});
   const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
   const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
@@ -901,6 +904,47 @@ export default function Home() {
   const isEliminated = me?.player_index !== undefined && eliminatedPlayers.includes(me.player_index);
   const isMyTurn = !isEliminated && me?.player_index === room?.state?.active_player;
   const myResources = me?.resources ?? { wood: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
+  useEffect(() => {
+    if (!room?.id || !me?.resources) {
+      previousResources.current = null;
+      setResourceGains({});
+      return;
+    }
+    const current: Resources = {
+      wood: Number(me.resources.wood ?? 0),
+      brick: Number(me.resources.brick ?? 0),
+      wool: Number(me.resources.wool ?? 0),
+      grain: Number(me.resources.grain ?? 0),
+      ore: Number(me.resources.ore ?? 0),
+    };
+    const previous = previousResources.current;
+    previousResources.current = { gameId: room.id, values: current };
+    if (!previous || previous.gameId !== room.id) return;
+
+    const gains: Partial<Record<ResourceKind, { amount: number; nonce: number }>> = {};
+    resourceCards.forEach(({ key }) => {
+      const amount = current[key] - previous.values[key];
+      if (amount <= 0) return;
+      const nonce = Date.now() + resourceCards.findIndex((resource) => resource.key === key);
+      gains[key] = { amount, nonce };
+      const oldTimer = resourceGainTimers.current[key];
+      if (oldTimer) clearTimeout(oldTimer);
+      resourceGainTimers.current[key] = setTimeout(() => {
+        setResourceGains((active) => {
+          if (active[key]?.nonce !== nonce) return active;
+          const next = { ...active };
+          delete next[key];
+          return next;
+        });
+        delete resourceGainTimers.current[key];
+      }, 2000);
+    });
+    if (Object.keys(gains).length) setResourceGains((active) => ({ ...active, ...gains }));
+  }, [room?.id, me?.resources?.wood, me?.resources?.brick, me?.resources?.wool, me?.resources?.grain, me?.resources?.ore]);
+
+  useEffect(() => () => {
+    Object.values(resourceGainTimers.current).forEach((timer) => timer && clearTimeout(timer));
+  }, []);
   const canBuildRoad = myResources.wood >= 1 && myResources.brick >= 1;
   const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const canBuildCity = myResources.ore >= 3 && myResources.grain >= 2;
@@ -1953,18 +1997,21 @@ export default function Home() {
         <div className="resource-wallet">
           <p className="eyebrow">Deine Rohstoffe</p>
           <div className="resource-list">
-            {resourceCards.map(({ key, label }) => (
+            {resourceCards.map(({ key, label }) => {
+              const gain = resourceGains[key];
+              return (
               <div
-                className={`resource-card resource-${key}`}
-                key={key}
+                className={`resource-card resource-${key} ${gain ? "gaining" : ""}`}
+                key={`${key}-${gain?.nonce ?? 0}`}
                 title={`${label}: ${me.resources?.[key] ?? 0}`}
                 aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
               >
                 <span className="resource-badge"><ResourceIcon kind={key} /></span>
                 <span className="resource-label">{label}</span>
                 <b>{me.resources?.[key] ?? 0}</b>
+                {gain && <span className="resource-gain">+{gain.amount}</span>}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -1972,7 +2019,6 @@ export default function Home() {
         <div className="online-sidebar">
         <aside className="room-panel card">
           {room.status === "playing" && <button className="end-button room-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
-          <p className="eyebrow">Spieler · {players.length}/4{room.status !== "waiting" ? ` · Ziel: ${room.victory_target ?? 10} SP` : ""}</p>
           {players.map((player) => (
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
