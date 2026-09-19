@@ -232,17 +232,30 @@ button, a { font: inherit; }
 .carriage-roof { fill: #55402c; stroke: #fff7e3; stroke-width: 1; }
 .carriage-wheel { fill: #3d3024; stroke: #d3ae6c; stroke-width: 1.5; }
 .robber-marker { pointer-events: none; filter: drop-shadow(0 2px 3px #17211d99); }
-.robber-walk { animation: robber-creep 3.8s ease-in-out infinite; transform-origin: center bottom; }
-.robber-shadow { fill: #1118; animation: robber-shadow-step .8s ease-in-out infinite; }
+.robber-walk { animation: robber-creep 70s linear infinite; transform-origin: center bottom; }
+.robber-shadow { fill: #1118; }
 .robber-sack { fill: #5b5142; stroke: #161a18; stroke-width: 2; }
 .robber-sack-knot,.robber-arm,.robber-leg { fill: none; stroke: #111715; stroke-width: 4; stroke-linecap: round; }
 .robber-cloak,.robber-hood { fill: #141a18; stroke: #eef1e8; stroke-width: .7; }
 .robber-marker .robber-head { fill: #b99a76; stroke: #151a18; stroke-width: 1; }
-.robber-leg { transform-origin: top; animation: robber-leg-step .8s ease-in-out infinite alternate; }
-.robber-leg.leg-two { animation-delay: -.8s; }
-@keyframes robber-creep { 0%,100% { transform: translate(-5px,1px) rotate(-4deg); } 50% { transform: translate(5px,-1px) rotate(3deg); } }
-@keyframes robber-leg-step { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
-@keyframes robber-shadow-step { 50% { transform: scaleX(.82); opacity: .65; } }
+.robber-leg.leg-one { transform: rotate(-9deg); transform-origin: top; }
+.robber-leg.leg-two { transform: rotate(9deg); transform-origin: top; }
+@keyframes robber-creep {
+  0%,28.57% { transform: translate(-15px,1px) rotate(-4deg); }
+  50%,78.57% { transform: translate(15px,1px) rotate(3deg); }
+  100% { transform: translate(-15px,1px) rotate(-4deg); }
+}
+.board-fox { pointer-events: none; filter: drop-shadow(0 3px 3px #28332866); }
+.fox-runner { animation: fox-bob .9s ease-in-out infinite; transform-origin: center; }
+.fox-shadow { fill: #17211d35; }
+.fox-tail,.fox-body,.fox-head,.fox-ear { fill: #c8642f; stroke: #64321f; stroke-width: 1.4; stroke-linejoin: round; }
+.fox-tail { fill: #d7793b; }
+.fox-chest,.fox-muzzle { fill: #f5e6c8; stroke: #64321f; stroke-width: 1; }
+.fox-eye { fill: #18201d; }
+.fox-leg { fill: none; stroke: #64321f; stroke-width: 3; stroke-linecap: round; transform-origin: top; animation: fox-step .55s ease-in-out infinite alternate; }
+.fox-leg-two { animation-delay: -.55s; }
+@keyframes fox-bob { 50% { transform: translateY(-1.5px); } }
+@keyframes fox-step { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
 @keyframes goldmine-glow { 50% { filter: drop-shadow(0 3px 2px #18231f88) drop-shadow(0 0 9px #ffd54f) brightness(1.25); } }
 @keyframes goldmine-halo { 50% { opacity: .65; transform: scale(1.18); } }
 @keyframes goldmine-smoke { 0% { opacity: 0; transform: translate(0,2px) scale(.55); } 25% { opacity: .75; } 100% { opacity: 0; transform: translate(6px,-25px) scale(1.55); } }

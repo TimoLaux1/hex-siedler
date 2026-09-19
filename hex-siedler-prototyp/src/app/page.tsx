@@ -23,6 +23,7 @@ type Room = { id: string; join_code: string; status: string; created_by: string;
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
 type CarriageRoute = { vertices: number[]; player: number; run: number };
+type FoxRun = { row: number[]; run: number; reverse: boolean };
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -452,13 +453,18 @@ function KlausCardView({ kind, compact = false }: { kind: KlausKind; compact?: b
   </div>;
 }
 
-function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
+function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile, onFoxBite }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void; onFoxBite?: () => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const visibleTerrain = room?.board_tiles ?? previewTiles ?? terrain;
   const settlements = state?.settlements ?? [];
   const roads = state?.roads ?? [];
   const [carriageRoute, setCarriageRoute] = useState<CarriageRoute | null>(null);
+  const [foxRun, setFoxRun] = useState<FoxRun | null>(null);
+  const robberTileRef = useRef(robberPreviewTile ?? state?.robber_tile ?? 9);
+  const foxBiteRef = useRef(onFoxBite);
+  robberTileRef.current = robberPreviewTile ?? state?.robber_tile ?? 9;
+  foxBiteRef.current = onFoxBite;
   const carriageCandidates = useMemo(() => {
     const cities = settlements.filter((building) => building.building === "city");
     const candidates: Array<{ vertices: number[]; player: number }> = [];
@@ -515,12 +521,37 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           if (stopped) return;
           setCarriageRoute(null);
           schedule();
-        }, 22000);
+        }, 50000);
       }, delay);
     };
     schedule(true);
     return () => { stopped = true; if (showTimer) clearTimeout(showTimer); if (hideTimer) clearTimeout(hideTimer); };
   }, [room?.id, room?.status, carriageCandidates]);
+
+  useEffect(() => {
+    if (!room || room.status !== "playing") { setFoxRun(null); return; }
+    const boardRows = [[0,1,2],[3,4,5,6],[7,8,9,10,11],[12,13,14,15],[16,17,18]];
+    let biteTimer: ReturnType<typeof setTimeout> | undefined;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const startFox = () => {
+      const row = boardRows[Math.floor(Math.random() * boardRows.length)];
+      const reverse = Math.random() < .5;
+      setFoxRun({ row, reverse, run: Date.now() });
+      const robberPosition = row.indexOf(robberTileRef.current);
+      if (robberPosition >= 0) {
+        const firstX = tileCenters[row[0]].x;
+        const lastX = tileCenters[row[row.length - 1]].x;
+        const startX = reverse ? lastX + 82 : firstX - 82;
+        const endX = reverse ? firstX - 82 : lastX + 82;
+        const robberX = tileCenters[row[robberPosition]].x;
+        const biteDelay = 42000 * (Math.abs(robberX - startX) / Math.abs(endX - startX));
+        biteTimer = setTimeout(() => foxBiteRef.current?.(), biteDelay);
+      }
+      hideTimer = setTimeout(() => setFoxRun(null), 43000);
+    };
+    const interval = setInterval(startFox, 5 * 60 * 1000);
+    return () => { clearInterval(interval); if (biteTimer) clearTimeout(biteTimer); if (hideTimer) clearTimeout(hideTimer); };
+  }, [room?.id, room?.status]);
   const step = state?.setup_step ?? 0;
   const currentPlayer = state?.setup_order?.[step];
   const mySetupTurn = myIndex !== undefined && currentPlayer === myIndex;
@@ -617,7 +648,30 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
               <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
               <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
               <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
-              <animateMotion dur="20s" begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
+              <animateMotion dur="48s" begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
+            </g>
+          </g>;
+        })()}
+        {foxRun && (() => {
+          const first = tileCenters[foxRun.row[0]];
+          const last = tileCenters[foxRun.row[foxRun.row.length - 1]];
+          const startX = foxRun.reverse ? last.x + 82 : first.x - 82;
+          const endX = foxRun.reverse ? first.x - 82 : last.x + 82;
+          const pathId = `fox-route-${foxRun.run}`;
+          return <g className="board-fox" aria-hidden="true">
+            <path id={pathId} d={`M${startX} ${first.y} L${endX} ${first.y}`} fill="none" stroke="transparent"/>
+            <g className="fox-runner">
+              <ellipse className="fox-shadow" cx="0" cy="8" rx="16" ry="4"/>
+              <path className="fox-tail" d="M8 0Q24-15 29-3Q23 10 10 7Z"/>
+              <ellipse className="fox-body" cx="0" cy="0" rx="13" ry="8"/>
+              <path className="fox-chest" d="M-8-5Q-14 1-8 7L-2 3Z"/>
+              <circle className="fox-head" cx="-12" cy="-7" r="8"/>
+              <path className="fox-ear" d="m-18-13 2-10 6 9m2 1 6-8 1 11"/>
+              <path className="fox-muzzle" d="m-19-5-8 4 10 2Z"/>
+              <circle className="fox-eye" cx="-14" cy="-9" r="1.2"/>
+              <path className="fox-leg fox-leg-one" d="M-6 6-10 14m16-8 4 8"/>
+              <path className="fox-leg fox-leg-two" d="M-1 6 2 14m-10-8-3 8"/>
+              <animateMotion dur="42s" begin="0s" fill="freeze" rotate="auto-reverse"><mpath href={`#${pathId}`}/></animateMotion>
             </g>
           </g>;
         })()}
@@ -895,6 +949,19 @@ export default function Home() {
     call.rate = .62;
     call.pitch = .72;
     call.volume = .9;
+    window.speechSynthesis.speak(call);
+  }
+
+  function speakRobberOuch() {
+    if (!soundEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const call = new SpeechSynthesisUtterance("AUA!");
+    const germanVoice = window.speechSynthesis.getVoices().find((voice) => voice.lang.toLocaleLowerCase().startsWith("de"));
+    if (germanVoice) call.voice = germanVoice;
+    call.lang = "de-DE";
+    call.rate = .72;
+    call.pitch = .62;
+    call.volume = 1;
     window.speechSynthesis.speak(call);
   }
 
@@ -2022,6 +2089,7 @@ export default function Home() {
             onKlausVertex={(vertex) => void playKlausCard({ vertex: vertex.id })}
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={selectRobberTile}
+            onFoxBite={speakRobberOuch}
           />
           {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
           {largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
