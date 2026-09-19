@@ -475,6 +475,27 @@ function BoardFit({ children }: { children: ReactNode }) {
   </div>;
 }
 
+function SeaVisitor() {
+  const [visitor, setVisitor] = useState<{ id: number; kind: "fish" | "whale"; left: number; top: number; flip: boolean } | null>(null);
+  useEffect(() => {
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const showVisitor = () => {
+      const verticalSide = Math.random() < .72;
+      const left = verticalSide ? (Math.random() < .5 ? 4 + Math.random() * 13 : 83 + Math.random() * 12) : 20 + Math.random() * 60;
+      const top = verticalSide ? 14 + Math.random() * 70 : (Math.random() < .5 ? 5 + Math.random() * 10 : 85 + Math.random() * 9);
+      setVisitor({ id: Date.now(), kind: Math.random() < .65 ? "fish" : "whale", left, top, flip: Math.random() < .5 });
+      hideTimer = setTimeout(() => setVisitor(null), 10500);
+    };
+    const firstTimer = setTimeout(showVisitor, 12000);
+    const interval = setInterval(showVisitor, 30000);
+    return () => { clearTimeout(firstTimer); if (hideTimer) clearTimeout(hideTimer); clearInterval(interval); };
+  }, []);
+  if (!visitor) return null;
+  return <div key={visitor.id} className={`sea-visitor sea-${visitor.kind} ${visitor.flip ? "sea-flip" : ""}`} style={{ left: `${visitor.left}%`, top: `${visitor.top}%` }} aria-hidden="true">
+    {visitor.kind === "fish" ? <svg viewBox="0 0 90 48"><path d="M18 24C32 7 59 7 72 24 59 41 32 41 18 24Z"/><path d="M19 24 3 9v30Z"/><circle cx="61" cy="20" r="2.5"/></svg> : <svg viewBox="0 0 150 70"><path d="M20 39C38 12 95 8 125 31 118 55 78 64 43 55 31 52 24 47 20 39Z"/><path d="M24 39 5 23l5 25Z"/><path d="M111 24q15-22 29-8-10 2-13 13Z"/><path className="whale-spout" d="M104 16q-4-12 3-16m2 16q5-11 13-11"/><circle cx="109" cy="34" r="2.7"/></svg>}
+  </div>;
+}
+
 function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile, onFoxBite }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void; onFoxBite?: () => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
@@ -798,6 +819,7 @@ export default function Home() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [myCards, setMyCards] = useState<KlausCard[]>([]);
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
+  const [resourceCounts, setResourceCounts] = useState<Record<number, number>>({});
   const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
   const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
@@ -1332,12 +1354,14 @@ export default function Home() {
       return;
     }
     setPlayers((data as Player[]) ?? []);
-    const [{ data: handData }, { data: countData }] = await Promise.all([
+    const [{ data: handData }, { data: countData }, { data: resourceCountData }] = await Promise.all([
       client.rpc("get_my_klaus_cards", { p_game_id: gameId }),
       client.rpc("get_game_card_counts", { p_game_id: gameId }),
+      client.rpc("get_game_resource_counts", { p_game_id: gameId }),
     ]);
     setMyCards((handData as KlausCard[]) ?? []);
     setCardCounts(Object.fromEntries(((countData as { player_index: number; card_count: number }[]) ?? []).map((item) => [item.player_index, item.card_count])));
+    setResourceCounts(Object.fromEntries(((resourceCountData as { player_index: number; resource_count: number }[]) ?? []).map((item) => [item.player_index, item.resource_count])));
   }
 
   useEffect(() => {
@@ -1495,6 +1519,7 @@ export default function Home() {
     setPlayers([]);
     setMyCards([]);
     setCardCounts({});
+    setResourceCounts({});
     setSelectedCard(null);
     setSelectedRobberTile(null);
     setTradeMode(null);
@@ -1947,13 +1972,13 @@ export default function Home() {
       <section className="online-layout">
         <div className="online-sidebar">
         <aside className="room-panel card">
+          {room.status === "playing" && <button className="end-button room-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
           <p className="eyebrow">Spieler · {players.length}/4{room.status !== "waiting" ? ` · Ziel: ${room.victory_target ?? 10} SP` : ""}</p>
-          {room.status !== "waiting" && room.state?.phase === "build" && <button className="end-button room-end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
           {players.map((player) => (
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · <span className={`player-resource-count ${(resourceCounts[player.player_index] ?? 0) >= 8 ? "danger" : ""}`}>{resourceCounts[player.player_index] ?? 0}</span> · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
@@ -2053,19 +2078,6 @@ export default function Home() {
                     {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || hasBankTradedThisRound || !tradeGive || !tradeWant}>{hasBankTradedThisRound ? "Diese Runde bereits getauscht" : `${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
                   </div>}
                 </>}
-                <div className="dice-statistics">
-                  <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
-                  <div className="dice-chart">
-                    {diceSums.map((sum) => {
-                      const count = diceStats[String(sum)] ?? 0;
-                      return <div className={`dice-column ${sum === 6 || sum === 8 ? "hot" : ""}`} key={sum} title={`${sum}: ${count}× gewürfelt`}>
-                        <b>{count}</b>
-                        <span style={{ height: `${count === 0 ? 2 : Math.max(12, count / highestDiceCount * 100)}%` }} />
-                        <small>{sum}</small>
-                      </div>;
-                    })}
-                  </div>
-                </div>
               </>}
               {room.state?.phase === "robber" && <div className="robber-action-panel">
                 {selectedRobberTile === null ? <span className="turn-note">Eine 7 wurde gewürfelt. {isMyTurn ? "Versetze den Räuber auf ein anderes Feld. Danach ist dein Zug beendet." : `${activePlayer?.player_name ?? "Der aktive Spieler"} versetzt den Räuber und setzt anschließend aus.`}</span> : <>
@@ -2091,8 +2103,22 @@ export default function Home() {
             </div>
           )}
         </section>
+        {room.status !== "waiting" && <div className="dice-statistics sidebar-dice-statistics">
+          <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
+          <div className="dice-chart">
+            {diceSums.map((sum) => {
+              const count = diceStats[String(sum)] ?? 0;
+              return <div className={`dice-column ${sum === 6 || sum === 8 ? "hot" : ""}`} key={sum} title={`${sum}: ${count}× gewürfelt`}>
+                <b>{count}</b>
+                <span style={{ height: `${count === 0 ? 2 : Math.max(12, count / highestDiceCount * 100)}%` }} />
+                <small>{sum}</small>
+              </div>;
+            })}
+          </div>
+        </div>}
         </div>
         <section className="online-board-area">
+          <SeaVisitor />
           <BoardFit><FullBoard
             room={room}
             myIndex={me?.player_index}
