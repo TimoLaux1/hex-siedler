@@ -13,7 +13,7 @@ type BoardTile = { name: string; className: string; symbol: string; number: numb
 type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
 type DiscardEntry = { player: number; remaining: number };
 type HighScore = { rank: number; display_name: string; wins: number };
-type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky";
+type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky" | "desert" | "rich";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
@@ -21,7 +21,8 @@ type GameActivity = { message: string; kind: ActivityKind; created_at: string };
 type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
-type KlausMapMode = "robber" | "destroy_road" | "sneaky" | null;
+type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
+type CarriageRoute = { vertices: number[]; player: number; run: number };
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -67,6 +68,10 @@ const englishUi: Record<string, string> = {
   "Enttäuschter Klaus": "Disappointed Klaus", "Ein Mitspieler verliert 1 Siegpunkt.": "Another player loses 1 victory point.", "Böser Klaus": "Angry Klaus", "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.": "Moves the knight and steals a random resource.",
   "Stolzer Klaus": "Proud Klaus", "Nimmt einen gewählten Rohstoff von allen Mitspielern.": "Takes one chosen resource from every other player.", "Blöder Klaus": "Silly Klaus", "Zerstört sofort eine eigene Straße.": "Immediately destroys one of your own roads.",
   "Sneaky Klaus": "Sneaky Klaus", "Erlaubt eine Siedlung mit nur einer Straße Abstand.": "Allows a settlement only one road away.",
+  "Wüster Klaus": "Desert Klaus", "Verwandelt ein unbebautes Rohstofffeld dauerhaft in eine Wüste.": "Permanently turns an undeveloped resource tile into desert.",
+  "Reicher Klaus": "Rich Klaus", "Erhöht deinen Vorrat dauerhaft um 2 Straßen und 1 Siedlung.": "Permanently increases your supply by 2 roads and 1 settlement.",
+  "Wähle ein Rohstofffeld, an dem noch niemand gebaut hat.": "Choose a resource tile where nobody has built yet.",
+  "Vorrat dauerhaft erweitern": "Permanently expand supply",
   "Musik ausschalten": "Turn music off", "Musik einschalten": "Turn music on", "Ton ausschalten": "Turn sound off", "Ton einschalten": "Turn sound on",
   "New Katan installieren": "Install New Katan", "Tippe in Safari unten auf": "In Safari, tap", "Teilen": "Share", "und danach auf": "and then", "„Zum Home-Bildschirm“": "‘Add to Home Screen’",
   "Zum Homebildschirm hinzufügen?": "Add to Home Screen?", "Starte New Katan künftig direkt wie eine App.": "Launch New Katan directly like an app.", "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab.": "Add New Katan to your Home Screen for quick access.", "Hinzufügen": "Add", "Vollbild": "Fullscreen"
@@ -102,6 +107,7 @@ function translateUiText(raw: string) {
       [/^Das Ziel von (\d+) Siegpunkten wurde erreicht\.$/, (_, points) => `The target of ${points} victory points has been reached.`],
       [/^Noch (\d+) Rohstoffe?$/, (_, n) => `${n} resources remaining?`],
       [/^(\d+) Würfe$/, (_, n) => `${n} rolls`],
+      [/^Spieler · (\d+)\/4 · Ziel: (\d+) SP$/, (_, count, points) => `Players · ${count}/4 · Target: ${points} VP`],
       [/^Noch (\d+) Sekunden – danach wird zufällig abgegeben\.$/, (_, n) => `${n} seconds left — then cards will be discarded at random.`],
     ];
     for (const [pattern, replace] of rules) {
@@ -123,6 +129,8 @@ const klausCards: Record<KlausKind, { title: string; face: string; description: 
   proud: { title: "Stolzer Klaus", face: "😌", description: "Nimmt einen gewählten Rohstoff von allen Mitspielern.", tone: "gold" },
   stupid: { title: "Blöder Klaus", face: "🤪", description: "Zerstört sofort eine eigene Straße.", tone: "violet" },
   sneaky: { title: "Sneaky Klaus", face: "🥸", description: "Erlaubt eine Siedlung mit nur einer Straße Abstand.", tone: "green" },
+  desert: { title: "Wüster Klaus", face: "🏜️", description: "Verwandelt ein unbebautes Rohstofffeld dauerhaft in eine Wüste.", tone: "sand" },
+  rich: { title: "Reicher Klaus", face: "🤑", description: "Erhöht deinen Vorrat dauerhaft um 2 Straßen und 1 Siedlung.", tone: "emerald" },
 };
 
 const terrainCatalog: Omit<BoardTile, "number">[] = [
@@ -450,6 +458,69 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
   const visibleTerrain = room?.board_tiles ?? previewTiles ?? terrain;
   const settlements = state?.settlements ?? [];
   const roads = state?.roads ?? [];
+  const [carriageRoute, setCarriageRoute] = useState<CarriageRoute | null>(null);
+  const carriageCandidates = useMemo(() => {
+    const cities = settlements.filter((building) => building.building === "city");
+    const candidates: Array<{ vertices: number[]; player: number }> = [];
+    for (const player of new Set(cities.map((city) => city.player))) {
+      const playerCities = cities.filter((city) => city.player === player);
+      const playerRoads = roads.filter((road) => road.player === player);
+      const blocked = new Set(settlements.filter((building) => building.player !== player).map((building) => building.vertex));
+      const network = new Map<number, number[]>();
+      playerRoads.forEach((road) => {
+        network.set(road.a, [...(network.get(road.a) ?? []), road.b]);
+        network.set(road.b, [...(network.get(road.b) ?? []), road.a]);
+      });
+      for (let first = 0; first < playerCities.length; first += 1) {
+        for (let second = first + 1; second < playerCities.length; second += 1) {
+          const start = playerCities[first].vertex;
+          const destination = playerCities[second].vertex;
+          const queue: number[][] = [[start]];
+          const visited = new Set([start]);
+          let route: number[] | null = null;
+          while (queue.length && !route) {
+            const path = queue.shift()!;
+            const current = path[path.length - 1];
+            for (const next of network.get(current) ?? []) {
+              if (visited.has(next) || (blocked.has(next) && next !== destination)) continue;
+              const nextPath = [...path, next];
+              if (next === destination) { route = nextPath; break; }
+              visited.add(next);
+              queue.push(nextPath);
+            }
+          }
+          if (route && route.length - 1 >= 4) candidates.push({ vertices: route, player });
+        }
+      }
+    }
+    return candidates;
+  }, [roads, settlements]);
+
+  useEffect(() => {
+    if (!room || room.status !== "playing" || carriageCandidates.length === 0) {
+      setCarriageRoute(null);
+      return;
+    }
+    let stopped = false;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    let showTimer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (first = false) => {
+      const delay = first ? 9000 + Math.random() * 8000 : 30000 + Math.random() * 45000;
+      showTimer = setTimeout(() => {
+        if (stopped) return;
+        const candidate = carriageCandidates[Math.floor(Math.random() * carriageCandidates.length)];
+        const direction = Math.random() < .5 ? candidate.vertices : [...candidate.vertices].reverse();
+        setCarriageRoute({ vertices: direction, player: candidate.player, run: Date.now() });
+        hideTimer = setTimeout(() => {
+          if (stopped) return;
+          setCarriageRoute(null);
+          schedule();
+        }, 22000);
+      }, delay);
+    };
+    schedule(true);
+    return () => { stopped = true; if (showTimer) clearTimeout(showTimer); if (hideTimer) clearTimeout(hideTimer); };
+  }, [room?.id, room?.status, carriageCandidates]);
   const step = state?.setup_step ?? 0;
   const currentPlayer = state?.setup_order?.[step];
   const mySetupTurn = myIndex !== undefined && currentPlayer === myIndex;
@@ -499,7 +570,8 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           </g>;
         })}
         {tileCenters.map(({ x, y }, index) => {
-          const { name, className, number } = visibleTerrain[index] ?? terrain[index];
+          const tile = visibleTerrain[index] ?? terrain[index];
+          const { name, className, number } = tile;
           const points = hexPoints(x, y);
           const produces = number > 0 && rolledNumber === number && tileProduces(index);
           return <g key={`${name}-${index}-roll-${rollCount}`} className={`svg-tile ${className} ${produces ? "rolled-tile" : ""}`}>
@@ -508,8 +580,21 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
             <TerrainArtwork type={className} x={x} y={y} />
             <text className="svg-name" x={x} y={y + 37}>{name}</text>
             {number > 0 && <g className={`svg-token ${number === 6 || number === 8 ? "hot" : ""}`}><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{number}</text></g>}
-            {(robberPreviewTile ?? state?.robber_tile ?? 9) === index && room?.status !== "waiting" && <g className="robber-marker"><circle cx={x + 34} cy={y - 30} r="13"/><text x={x + 34} y={y - 25}>♞</text></g>}
+            {(robberPreviewTile ?? state?.robber_tile ?? 9) === index && room?.status !== "waiting" && <g className="robber-marker" transform={`translate(${x + 30} ${y - 27})`} aria-label="Räuber">
+              <g className="robber-walk">
+                <ellipse className="robber-shadow" cx="1" cy="15" rx="16" ry="4"/>
+                <ellipse className="robber-sack" cx="10" cy="-1" rx="11" ry="14" transform="rotate(-24 10 -1)"/>
+                <path className="robber-sack-knot" d="M3-12 8-17l5 6"/>
+                <path className="robber-cloak" d="M-9-5Q-3-14 5-8L10 12H-11Z"/>
+                <circle className="robber-head" cx="-5" cy="-14" r="6"/>
+                <path className="robber-hood" d="M-13-15Q-7-26 2-18L1-10Q-7-14-13-9Z"/>
+                <path className="robber-arm" d="M-2-5 8 3"/>
+                <path className="robber-leg leg-one" d="M-5 10-10 18"/>
+                <path className="robber-leg leg-two" d="M3 10 7 18"/>
+              </g>
+            </g>}
             {room && klausMode === "robber" && <circle className="klaus-tile-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(index)} />}
+            {room && klausMode === "desert" && tile.resource !== "none" && !settlements.some((building) => topology.tileVertices[index]?.includes(building.vertex)) && <circle className="klaus-tile-target klaus-desert-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(index)} />}
           </g>;
         })}
         {harbors.map((harbor) => <g className="harbor" key={`harbor-${harbor.id}`} transform={`translate(${harbor.x} ${harbor.y})`}>
@@ -517,6 +602,25 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           <text className="harbor-anchor" y="-2">⚓</text>
           <text className="harbor-rate" y="12">3:1</text>
         </g>)}
+        {carriageRoute && (() => {
+          const routeId = `carriage-route-${carriageRoute.run}`;
+          const routePath = carriageRoute.vertices.map((vertexId, index) => {
+            const vertex = topology.vertices[vertexId];
+            return `${index === 0 ? "M" : "L"}${vertex.x} ${vertex.y}`;
+          }).join(" ");
+          return <g className="road-carriage" aria-hidden="true">
+            <path id={routeId} d={routePath} fill="none" stroke="transparent" />
+            <g className="road-carriage-vehicle" style={{ color: colors[carriageRoute.player] }}>
+              <ellipse className="carriage-shadow" cx="0" cy="7" rx="18" ry="4" />
+              <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4M-17 3l-2 9m7-9 1 9"/></g>
+              <path className="carriage-shaft" d="M-9 1H2"/>
+              <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
+              <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
+              <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
+              <animateMotion dur="20s" begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
+            </g>
+          </g>;
+        })()}
       </svg>
       {room && topology.edges.filter((edge) => visibleVertices.has(edge.a) && visibleVertices.has(edge.b)).map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
@@ -539,7 +643,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         const selectable = setupSelectable || settlementSelectable || citySelectable || goldmineSelectable || klausSelectable;
         if (!built && !selectable) return null;
         const buildingKind = built?.building === "city" ? "city" : built?.building === "goldmine" ? "goldmine" : "settlement";
-        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-halo"/><i className="building-chimney"/><i className="building-smoke smoke-one"/><i className="building-smoke smoke-two"/><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/></span> : klausSelectable ? "🥸" : "+"}</button>;
+        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-halo"/><i className="building-chimney"/><i className="building-smoke smoke-one"/><i className="building-smoke smoke-two"/><i className="building-flagpole"/><i className="building-flag"/><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/></span> : klausSelectable ? "🥸" : "+"}</button>;
       })}
     </div>
   );
@@ -721,6 +825,8 @@ export default function Home() {
       ? "destroy_road"
       : activeCard?.card_type === "sneaky"
         ? "sneaky"
+        : activeCard?.card_type === "desert"
+          ? "desert"
         : null;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
   const goldmineChooser = room?.state?.goldmine_queue?.[0];
@@ -1466,6 +1572,10 @@ export default function Home() {
   }
 
   function selectRobberTile(tile: number) {
+    if (activeCard?.card_type === "desert") {
+      void playKlausCard({ tile });
+      return;
+    }
     const victims = robberVictimsForTile(tile);
     if (victims.length > 0) {
       setSelectedRobberTile(tile);
@@ -1572,7 +1682,8 @@ export default function Home() {
     else {
       const card = (Array.isArray(data) ? data[0] : data) as KlausCard;
       if (card) {
-        setMyCards((current) => [...current, card]);
+        const boughtCard = { ...card, bought_round: room.state?.round ?? 1 };
+        setMyCards((current) => [...current, boughtCard]);
         if (card.must_play) setSelectedCard(card);
         announceActivity("klaus", `${me?.player_name ?? name} ruft Klaus.`, "klaus");
         await loadPlayerData(room.id);
@@ -1753,7 +1864,7 @@ export default function Home() {
       <section className="online-layout">
         <div className="online-sidebar">
         <aside className="room-panel card">
-          <p className="eyebrow">Spieler · {players.length}/4</p>
+          <p className="eyebrow">Spieler · {players.length}/4{room.status !== "waiting" ? ` · Ziel: ${room.victory_target ?? 10} SP` : ""}</p>
           {room.status !== "waiting" && room.state?.phase === "build" && <button className="end-button room-end-button" onClick={endTurn} disabled={!isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
           {players.map((player) => (
             <div className="room-player" key={player.user_id}>
@@ -1807,6 +1918,7 @@ export default function Home() {
               <div className="turn-heading">
                 <span>Runde {room.state?.round ?? 1}</span>
                 <strong>{isMyTurn ? "Du bist am Zug" : `${activePlayer?.player_name ?? "Mitspieler"} ist am Zug`}</strong>
+                <em className="victory-target-chip">Ziel: {room.victory_target ?? 10} SP</em>
               </div>
               {isEliminated && <>
                 <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>
@@ -1836,6 +1948,8 @@ export default function Home() {
                     {activeCard.card_type === "angry" && selectedRobberTile !== null && <><span>{robberVictims.length ? "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?" : "An diesem Feld ist kein Mitspieler betroffen."}</span><div className="choice-grid">{robberVictims.map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ tile: selectedRobberTile, target_player: player.player_index })}>{player.player_name}</button>)}{robberVictims.length === 0 && <button onClick={() => void playKlausCard({ tile: selectedRobberTile })}>Ritter hier setzen</button>}<button onClick={() => setSelectedRobberTile(null)}>Anderes Feld</button></div></>}
                     {activeCard.card_type === "stupid" && <span>Wähle auf dem Spielfeld eine deiner Straßen zum Zerstören.</span>}
                     {activeCard.card_type === "sneaky" && <span>Wähle einen freien, direkt an dein Straßennetz angeschlossenen Knoten. Die normalen Baukosten werden abgezogen.</span>}
+                    {activeCard.card_type === "desert" && <span>Wähle ein Rohstofffeld, an dem noch niemand gebaut hat.</span>}
+                    {activeCard.card_type === "rich" && <button onClick={() => void playKlausCard({})}>Vorrat dauerhaft erweitern</button>}
                     {!activeCard.must_play && <button className="cancel-card" onClick={() => { setSelectedCard(null); setSelectedRobberTile(null); }}>Abbrechen</button>}
                   </div>
                 ) : <>

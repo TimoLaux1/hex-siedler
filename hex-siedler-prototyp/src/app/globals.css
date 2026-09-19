@@ -47,6 +47,10 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
     pointer-events: none;
   }
 }
+
+/* Zusätzliche Klaus-Kartenfarben müssen nach dem Basiskartenstil stehen. */
+.klaus-card.klaus-sand { --card-color:#a97939; }
+.klaus-card.klaus-emerald { --card-color:#28715d; }
 button, a { font: inherit; }
 .game-shell { min-height: 100vh; background: radial-gradient(circle at 50% 30%, #fffdf7 0 22%, transparent 55%), var(--paper); }
 .topbar { height: 76px; padding: 0 4vw; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.74); }
@@ -211,6 +215,34 @@ button, a { font: inherit; }
 .building-goldmine .building-chimney { display: block !important; z-index: -1; right: 6px; top: 5px; width: 8px; height: 20px; border: 2px solid rgba(255,255,255,.55); border-radius: 2px 2px 0 0; background: #51433b; }
 .building-goldmine .building-smoke { display: block !important; z-index: -2; right: 7px; top: 1px; width: 8px; height: 8px; border-radius: 50%; background: rgba(92,103,99,.65); filter: blur(.5px); animation: goldmine-smoke 2.2s ease-out infinite; }
 .building-goldmine .building-smoke.smoke-two { right: 3px; animation-delay: -1.1s; }
+.building-settlement .building-chimney { display: block !important; z-index: -1; right: 6px; top: 7px; width: 7px; height: 17px; border: 2px solid rgba(255,255,255,.55); border-radius: 2px 2px 0 0; background: #51433b; }
+.building-settlement .building-smoke { display: block !important; z-index: -2; right: 7px; top: 3px; width: 7px; height: 7px; border-radius: 50%; background: rgba(92,103,99,.6); filter: blur(.5px); animation: goldmine-smoke 2.2s ease-out infinite; }
+.building-settlement .building-smoke.smoke-two { right: 3px; animation-delay: -1.1s; }
+.building-flagpole,.building-flag { display: none; }
+.building-city .building-flagpole { display: block; z-index: -1; left: 20px; top: -8px; width: 2px; height: 20px; border-radius: 2px; background: #51433b; }
+.building-city .building-flag { display: block; left: 22px; top: -7px; width: 14px; height: 9px; border-radius: 1px 4px 4px 1px; background: currentColor; box-shadow: inset 0 0 0 1px #fff7; transform-origin: left center; animation: city-flag-wave 1.2s ease-in-out infinite; }
+@keyframes city-flag-wave { 0%,100% { transform: skewY(-4deg) scaleX(1); } 50% { transform: skewY(7deg) scaleX(.78); } }
+.victory-target-chip { justify-self: center; padding: 4px 9px; border: 1px solid #d9b66f; border-radius: 999px; background: #fff7df; color: #81591f; font-size: 10px; font-style: normal; font-weight: 900; letter-spacing: .04em; }
+.road-carriage { pointer-events: none; }
+.road-carriage-vehicle { filter: drop-shadow(0 3px 3px #17211d66); }
+.carriage-shadow { fill: #17211d35; }
+.carriage-horse { fill: #765336; stroke: #49321f; stroke-width: 1.6; stroke-linecap: round; }
+.carriage-shaft { fill: none; stroke: #66513a; stroke-width: 2; }
+.carriage-body { fill: currentColor; stroke: #fff7e3; stroke-width: 1.5; }
+.carriage-roof { fill: #55402c; stroke: #fff7e3; stroke-width: 1; }
+.carriage-wheel { fill: #3d3024; stroke: #d3ae6c; stroke-width: 1.5; }
+.robber-marker { pointer-events: none; filter: drop-shadow(0 2px 3px #17211d99); }
+.robber-walk { animation: robber-creep 3.8s ease-in-out infinite; transform-origin: center bottom; }
+.robber-shadow { fill: #1118; animation: robber-shadow-step .8s ease-in-out infinite; }
+.robber-sack { fill: #5b5142; stroke: #161a18; stroke-width: 2; }
+.robber-sack-knot,.robber-arm,.robber-leg { fill: none; stroke: #111715; stroke-width: 4; stroke-linecap: round; }
+.robber-cloak,.robber-hood { fill: #141a18; stroke: #eef1e8; stroke-width: .7; }
+.robber-marker .robber-head { fill: #b99a76; stroke: #151a18; stroke-width: 1; }
+.robber-leg { transform-origin: top; animation: robber-leg-step .8s ease-in-out infinite alternate; }
+.robber-leg.leg-two { animation-delay: -.8s; }
+@keyframes robber-creep { 0%,100% { transform: translate(-5px,1px) rotate(-4deg); } 50% { transform: translate(5px,-1px) rotate(3deg); } }
+@keyframes robber-leg-step { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
+@keyframes robber-shadow-step { 50% { transform: scaleX(.82); opacity: .65; } }
 @keyframes goldmine-glow { 50% { filter: drop-shadow(0 3px 2px #18231f88) drop-shadow(0 0 9px #ffd54f) brightness(1.25); } }
 @keyframes goldmine-halo { 50% { opacity: .65; transform: scale(1.18); } }
 @keyframes goldmine-smoke { 0% { opacity: 0; transform: translate(0,2px) scale(.55); } 25% { opacity: .75; } 100% { opacity: 0; transform: translate(6px,-25px) scale(1.55); } }
@@ -222,6 +254,9 @@ button, a { font: inherit; }
 .setup-error { color: #a43f2f !important; font-weight: 800; }
 @keyframes setup-pulse { 50% { filter: brightness(1.25); box-shadow: 0 0 0 5px rgba(216,146,49,.2),0 2px 8px #15221e66; } }
 @keyframes klaus-tile-pulse { 50% { stroke-width: 5; fill: rgba(216,146,49,.19); } }
+.klaus-sand { --card-color:#a97939; }
+.klaus-emerald { --card-color:#28715d; }
+.klaus-desert-target { fill: rgba(210,160,55,.2); stroke: #ffe09a; }
 
 .online-shell { min-height: 100vh; background: #f7f2e7; }.online-topbar { height: 72px; display: grid; grid-template-columns: auto minmax(180px,1fr) auto; align-items: center; gap: 22px; padding: 0 4vw; background: white; border-bottom: 1px solid #ddd8cd; }
 .language-switcher { position: fixed; z-index: 1000; left: 50%; bottom: max(12px,env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 3px; border: 1px solid #d8d2c4; border-radius: 999px; background: rgba(255,255,255,.94); box-shadow: 0 5px 18px #263b3426; transform: translateX(-50%); backdrop-filter: blur(8px); }
