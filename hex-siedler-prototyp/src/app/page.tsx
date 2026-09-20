@@ -2139,8 +2139,8 @@ export default function Home() {
       <header className="online-topbar">
         <div className="game-command-stack">
           <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
-          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
           {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
+          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         </div>
         <div className="topbar-actions">
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>

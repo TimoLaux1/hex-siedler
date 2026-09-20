@@ -185,6 +185,43 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
   .online-shell > .online-topbar ~ .resource-wallet { top: 45%; right: 4px; }
 }
 
+/* v41: Mobile Kommandos ohne schwebende Karte direkt in der linken Leiste. */
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar .game-command-stack {
+    top: 0;
+    left: 0;
+    width: clamp(230px,32vw,420px);
+    gap: 5px;
+    padding: 7px 10px 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .online-shell > .online-topbar .game-command-stack .brand {
+    min-height: 24px;
+    padding: 0;
+  }
+  .online-shell > .online-topbar .game-command-stack .topbar-end-button {
+    min-height: 28px;
+    width: 100%;
+    margin: 0;
+  }
+  .online-shell > .online-topbar .game-command-stack .game-activity {
+    min-height: 28px;
+    margin: 0;
+    border-radius: 8px;
+  }
+  .online-shell .online-sidebar { padding-top: 100px; }
+
+  /* Oberhalb der Audio-/Verlassen-Schaltflächen bleiben. */
+  .online-shell > .online-topbar ~ .resource-wallet {
+    top: 29%;
+    right: 4px;
+  }
+}
+
 /* v40: Logo, Status und Zugende bilden links einen festen Kommandoblock. */
 .online-shell > .online-topbar .game-command-stack {
   position: fixed;
