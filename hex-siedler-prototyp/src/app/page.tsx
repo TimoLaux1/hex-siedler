@@ -2137,11 +2137,11 @@ export default function Home() {
       <OrientationPrompt />
       <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
-        <div className="topbar-left">
+        <div className="game-command-stack">
           <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
+          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
           {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
         </div>
-        <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>

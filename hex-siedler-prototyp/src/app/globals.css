@@ -178,6 +178,113 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
   .online-shell > .bot-debug-panel { top: 84px; right: 65px; }
   .mobile-fullscreen-button { right: max(68px,calc(env(safe-area-inset-right) + 62px)); }
 }
+
+/* v40 muss als letzte Regel die Rohstoffbox in der rechten Leiste halten. */
+.online-shell > .online-topbar ~ .resource-wallet { top: 46%; right: 7px; }
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar ~ .resource-wallet { top: 45%; right: 4px; }
+}
+
+/* v40: Logo, Status und Zugende bilden links einen festen Kommandoblock. */
+.online-shell > .online-topbar .game-command-stack {
+  position: fixed;
+  z-index: 925;
+  top: 7px;
+  left: 7px;
+  width: calc(clamp(280px,22vw,330px) - 14px);
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 2px solid rgba(123,72,41,.78);
+  border-radius: 15px;
+  background: rgba(255,253,244,.96);
+  box-shadow: 0 7px 20px rgba(62,39,23,.2),inset 0 0 0 2px rgba(255,255,255,.75);
+  backdrop-filter: blur(9px);
+}
+.online-shell > .online-topbar .game-command-stack .brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 4px;
+  background: transparent;
+  box-shadow: none;
+  color: #173c34;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .13em;
+  white-space: nowrap;
+}
+.online-shell > .online-topbar .game-command-stack .brand-mark { color: #cf9132; font-size: 25px; }
+.online-shell > .online-topbar .game-command-stack .game-activity {
+  position: static;
+  width: 100%;
+  max-width: none;
+  min-height: 34px;
+  justify-self: stretch;
+  padding: 7px 10px;
+  border-width: 1px;
+}
+.online-shell > .online-topbar .game-command-stack .game-activity strong {
+  font-size: 10px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.2;
+}
+.online-shell > .online-topbar .game-command-stack .topbar-end-button {
+  width: 100%;
+  min-height: 35px;
+  padding: 7px 10px;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.online-shell .online-sidebar { padding-top: 145px; }
+
+/* Die Rohstoffe sitzen innerhalb der rechten Holzleiste. */
+.online-shell > .resource-wallet {
+  z-index: 930;
+  top: 46%;
+  right: 7px;
+  width: 57px;
+  padding: 4px;
+  border-radius: 15px;
+}
+.online-shell > .resource-wallet .resource-list { gap: 4px; }
+.online-shell > .resource-wallet .resource-card {
+  width: 47px;
+  min-height: 34px;
+  grid-template-columns: 25px 15px;
+  gap: 1px;
+  padding: 3px 2px;
+  border-radius: 9px;
+}
+.online-shell > .resource-wallet .resource-badge { width: 25px; height: 25px; border-radius: 7px; }
+.online-shell > .resource-wallet .resource-badge svg { width: 19px; height: 19px; }
+.online-shell > .resource-wallet .resource-card b { font-size: 13px; }
+
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar .game-command-stack {
+    top: 5px;
+    left: max(5px,env(safe-area-inset-left));
+    width: calc(max(230px,32vw) - 10px);
+    gap: 4px;
+    padding: 5px 7px;
+    border-radius: 11px;
+  }
+  .online-shell > .online-topbar .game-command-stack .brand { gap: 5px; font-size: 9px; }
+  .online-shell > .online-topbar .game-command-stack .brand-mark { font-size: 19px; }
+  .online-shell > .online-topbar .game-command-stack .game-activity { min-height: 27px; padding: 4px 7px; }
+  .online-shell > .online-topbar .game-command-stack .game-activity strong { font-size: 8px; }
+  .online-shell > .online-topbar .game-command-stack .topbar-end-button { min-height: 27px; padding: 4px 7px; font-size: 8px; }
+  .online-shell .online-sidebar { padding-top: 103px; }
+  .online-shell > .resource-wallet { top: 45%; right: 4px; width: 50px; padding: 3px; border-radius: 12px; }
+  .online-shell > .resource-wallet .resource-list { gap: 3px; }
+  .online-shell > .resource-wallet .resource-card { width: 42px; min-height: 29px; grid-template-columns: 22px 14px; padding: 2px; }
+  .online-shell > .resource-wallet .resource-badge { width: 22px; height: 22px; }
+  .online-shell > .resource-wallet .resource-badge svg { width: 17px; height: 17px; }
+  .online-shell > .resource-wallet .resource-card b { font-size: 11px; }
+}
 @media (max-width: 900px) and (orientation: portrait) {
   body::before {
     content: "↻\A\A Bitte ins Querformat drehen";
@@ -1418,4 +1525,10 @@ button, a { font: inherit; }
   .online-shell > .bot-debug-toggle { top: 45px; right: 65px; }
   .online-shell > .bot-debug-panel { top: 84px; right: 65px; }
   .mobile-fullscreen-button { right: max(68px,calc(env(safe-area-inset-right) + 62px)); }
+}
+
+/* v40 finale Position innerhalb der rechten Holzleiste. */
+.online-shell > .online-topbar ~ .resource-wallet { top: 46%; right: 7px; }
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar ~ .resource-wallet { top: 45%; right: 4px; }
 }
