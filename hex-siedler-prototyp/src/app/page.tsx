@@ -2137,11 +2137,6 @@ export default function Home() {
       <OrientationPrompt />
       <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
-        <div className="game-command-stack">
-          <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
-          {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
-          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
-        </div>
         <div className="topbar-actions">
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
           <button className="sound-button" type="button" onClick={toggleSound} aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"} title={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}>{soundEnabled ? "🔊" : "🔇"}</button>
@@ -2185,6 +2180,13 @@ export default function Home() {
       )}
       <section className="online-layout">
         <div className="online-sidebar">
+        <div className="game-command-stack sidebar-command-stack">
+          <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
+          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
+          {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
+        </div>
+        <section className="sidebar-game-section">
+        <p className="eyebrow sidebar-section-title">Spielsteuerung</p>
         <aside className="room-panel card">
           {players.map((player) => (
             <div className={`room-player ${player.is_bot ? "bot-player" : ""}`} key={player.user_id ?? `bot-${player.player_index}`}>
@@ -2197,21 +2199,6 @@ export default function Home() {
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => isHost && botCount < 2
             ? <button className="empty-player add-bot-button" type="button" key={index} onClick={() => void addBot()} disabled={busy}>+ Bot hinzufügen</button>
             : <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
-          {room.status !== "waiting" && me && (
-            <div className="klaus-hand">
-              <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>
-              {myCards.length === 0 ? <span className="empty-hand">Noch keine Handkarten.</span> : (
-                <div className="klaus-hand-list">
-                  {myCards.map((card) => {
-                    const playableThisTurn = card.must_play || card.bought_round === undefined || card.bought_round < (room.state?.round ?? 1);
-                    return <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event) || !playableThisTurn}>
-                    <KlausCardView kind={card.card_type} compact />
-                    <span>{card.must_play ? "Muss sofort gespielt werden" : playableThisTurn ? "Karte spielen" : "Ab deinem nächsten Zug spielbar"}</span>
-                  </button>;})}
-                </div>
-              )}
-            </div>
-          )}
         </aside>
         <section className="online-control-area">
           {room.status === "waiting" ? (
@@ -2318,6 +2305,22 @@ export default function Home() {
             </div>
           )}
         </section>
+        </section>
+        {room.status !== "waiting" && me && (
+          <section className="klaus-hand sidebar-klaus-hand">
+            <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>
+            {myCards.length === 0 ? <span className="empty-hand">Noch keine Handkarten.</span> : (
+              <div className="klaus-hand-list">
+                {myCards.map((card) => {
+                  const playableThisTurn = card.must_play || card.bought_round === undefined || card.bought_round < (room.state?.round ?? 1);
+                  return <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event) || !playableThisTurn}>
+                  <KlausCardView kind={card.card_type} compact />
+                  <span>{card.must_play ? "Muss sofort gespielt werden" : playableThisTurn ? "Karte spielen" : "Ab deinem nächsten Zug spielbar"}</span>
+                </button>;})}
+              </div>
+            )}
+          </section>
+        )}
         {room.status !== "waiting" && <div className="dice-statistics sidebar-dice-statistics">
           <div className="dice-statistics-heading"><strong>Würfelstatistik</strong><span>{totalRolls} Würfe</span></div>
           <div className="dice-chart">
