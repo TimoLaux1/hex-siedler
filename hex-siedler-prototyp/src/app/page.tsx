@@ -65,7 +65,7 @@ const englishUi: Record<string, string> = {
   "Räuber hierhin setzen": "Place robber here", "Karten wegen der 7 abgeben": "Discard cards because of the 7", "Warte, bis alle betroffenen Spieler ihre Karten abgegeben haben.": "Wait until all affected players have discarded their cards.",
   "Goldmine fördert": "Gold mine produces", "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff.": "The 7 activates your gold mine. Choose any resource.",
   "Goldmine für alle freigeschaltet": "Gold mine unlocked for everyone", "Alle Spieler können sie ab jetzt – unabhängig von ihren eigenen Siegpunkten – aus einer Siedlung an der Wüste entwickeln. Bei einer 7 fördert sie einen frei wählbaren Rohstoff.": "All players can now upgrade a settlement next to the desert into a gold mine, regardless of their own victory points. When a 7 is rolled, it produces a resource of their choice.",
-  "Kosten": "Cost", "Verstanden": "Got it", "Fischgrund": "Fishing ground", "Gebirge": "Mountains", "Weide": "Pasture", "Feld": "Fields", "Wald": "Forest", "Wüste": "Desert",
+  "Kosten": "Cost", "Verstanden": "Got it", "Fisch": "Fish", "Gebirge": "Mountains", "Weide": "Pasture", "Feld": "Fields", "Wald": "Forest", "Wüste": "Desert",
   "Enttäuschter Klaus": "Disappointed Klaus", "Ein Mitspieler verliert 1 Siegpunkt.": "Another player loses 1 victory point.", "Böser Klaus": "Angry Klaus", "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.": "Moves the knight and steals a random resource.",
   "Stolzer Klaus": "Proud Klaus", "Nimmt einen gewählten Rohstoff von allen Mitspielern.": "Takes one chosen resource from every other player.", "Blöder Klaus": "Silly Klaus", "Zerstört sofort eine eigene Straße.": "Immediately destroys one of your own roads.",
   "Sneaky Klaus": "Sneaky Klaus", "Erlaubt eine Siedlung mit nur einer Straße Abstand.": "Allows a settlement only one road away.",
@@ -638,7 +638,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
             <polygon points={points} fill="url(#fish-fill)" />
             <polygon className="tile-inset" points={points} />
             <FishArtwork x={x} y={y} />
-            <text className="svg-name" x={x} y={y + 37}>Fischgrund</text>
+            <text className="svg-name" x={x} y={y + 37}>Fisch</text>
             <g className="svg-token"><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{fish.number}</text></g>
           </g>;
         })}
@@ -734,7 +734,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
         const selectable = setupSelectable || settlementSelectable || citySelectable || goldmineSelectable || klausSelectable;
         if (!built && !selectable) return null;
         const buildingKind = built?.building === "city" ? "city" : built?.building === "goldmine" ? "goldmine" : "settlement";
-        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-halo"/><i className="building-chimney"/><i className="building-smoke smoke-one"/><i className="building-smoke smoke-two"/><i className="building-flagpole"/><i className="building-flag"/><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/></span> : klausSelectable ? "🥸" : "+"}</button>;
+        return <button key={`vertex-${vertex.id}`} className={`setup-vertex ${selectable ? "selectable" : ""} ${built ? "built" : ""} ${built?.building === "city" ? "city" : ""} ${built?.building === "goldmine" || goldmineSelectable ? "goldmine" : ""} ${klausSelectable ? "klaus-sneaky" : ""}`} style={{ left: vertex.x, top: vertex.y, color: built ? colors[built.player] : undefined }} onClick={() => klausSelectable ? onKlausVertex?.(vertex) : selectable && onVertex?.(vertex)} aria-label={klausSelectable ? "Sneaky-Siedlung setzen" : citySelectable ? "Zur Stadt ausbauen" : goldmineSelectable ? "Zur Goldmine ausbauen" : "Siedlung setzen"}>{built ? <span className={`building-piece building-${buildingKind}`} aria-hidden="true"><i className="building-halo"/><i className="building-chimney"/><i className="building-smoke smoke-one"/><i className="building-smoke smoke-two"/><i className="building-flagpole"/><i className="building-flag"/><i className="building-roof"/><i className="building-body"/><i className="building-door"/><i className="building-window"/><i className="city-hut-roof"/><i className="city-hut-body"/><i className="city-hut-door"/></span> : klausSelectable ? "🥸" : "+"}</button>;
       })}
     </div>
   );

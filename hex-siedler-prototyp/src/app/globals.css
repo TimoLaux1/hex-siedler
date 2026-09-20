@@ -216,6 +216,10 @@ button, a { font: inherit; }
 .building-city .building-body { left: 10px; top: 12px; width: 22px; height: 29px; border: 2px solid #fff9; border-top: 0; border-radius: 0 0 4px 4px; background: currentColor; }
 .building-city .building-door { left: 17px; top: 29px; width: 8px; height: 12px; }
 .building-city .building-window { left: 18px; top: 17px; width: 6px; height: 7px; box-shadow: 0 0 5px #fff1a5; }
+.city-hut-roof,.city-hut-body,.city-hut-door { display: none !important; }
+.building-city .city-hut-roof { display: block !important; z-index: 1; left: -2px; top: 21px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 9px solid currentColor; filter: brightness(.9); }
+.building-city .city-hut-body { display: block !important; z-index: 1; left: 1px; top: 30px; width: 14px; height: 11px; border: 1.5px solid #fff9; border-top: 0; border-radius: 0 0 3px 3px; background: currentColor; filter: brightness(.9); }
+.building-city .city-hut-door { display: block !important; z-index: 2; left: 6px; top: 34px; width: 5px; height: 7px; border-radius: 2px 2px 0 0; background: #263c35cc; }
 .building-goldmine { animation: goldmine-glow 1.7s ease-in-out infinite; }
 .building-goldmine .building-roof { left: 2px; top: 3px; width: 38px; height: 35px; border: 2px solid rgba(255,255,255,.72); border-radius: 4px 4px 2px 2px; background: currentColor; clip-path: polygon(50% 0,100% 100%,0 100%); }
 .building-goldmine .building-body { left: 5px; top: 25px; width: 32px; height: 14px; border: 2px solid rgba(255,255,255,.7); border-top: 0; border-radius: 0 0 5px 5px; background: color-mix(in srgb,currentColor 82%,#7a5622); clip-path: polygon(9% 0,91% 0,100% 100%,0 100%); }
