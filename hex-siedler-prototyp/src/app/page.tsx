@@ -1376,6 +1376,13 @@ export default function Home() {
     setResourceCounts(Object.fromEntries(((resourceCountData as { player_index: number; resource_count: number }[]) ?? []).map((item) => [item.player_index, item.resource_count])));
   }
 
+  const botRunnerStateKey = room ? [
+    players.find((player) => player.player_index === room.state?.active_player && player.is_bot)?.player_index ?? "human",
+    players.find((player) => player.player_index === room.state?.trade_offer?.to && player.is_bot)?.player_index ?? "no-trade-target",
+    players.find((player) => player.player_index === room.state?.trade_offer?.from && player.is_bot)?.player_index ?? "no-bot-offer",
+    room.state?.discard_queue?.some((entry) => players.some((player) => player.player_index === entry.player && player.is_bot)) ? "bot-discard" : "no-bot-discard",
+  ].join(":") : "no-room";
+
   useEffect(() => {
     if (!supabase || !room?.id || room.status !== "playing" || botActionPending.current) return;
     const activeBot = players.find((player) => player.player_index === room.state?.active_player && player.is_bot);
@@ -1401,7 +1408,15 @@ export default function Home() {
       }
     }, botDelay);
     return () => window.clearTimeout(timer);
-  }, [room?.id, room?.status, room?.version, players]);
+  // Nicht von `players` als Array abhängen: Die regelmäßig neu geladene Liste
+  // besitzt jedes Mal eine neue Referenz und würde den 3-Sekunden-Timer sonst
+  // fortlaufend abbrechen, bevor der Bot handeln kann.
+  }, [
+    room?.id,
+    room?.status,
+    room?.version,
+    botRunnerStateKey,
+  ]);
 
   async function addBot() {
     if (!supabase || !room || !isHost || botCount >= 2) return;
