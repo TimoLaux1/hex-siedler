@@ -39,7 +39,7 @@ const englishUi: Record<string, string> = {
   "Melde dich mit deiner E-Mail-Adresse an. Dein Spielername wird automatisch daraus gebildet.": "Sign in with your email address. Your player name will be created automatically.",
   "Verifizierungscode": "Verification code", "Prüfe …": "Checking…", "Einloggen": "Sign in",
   "Andere E-Mail-Adresse": "Use another email address", "E-Mail-Adresse": "Email address", "E-Mail-Adresse eingeben": "Enter email address", "Sende …": "Sending…", "Code senden": "Send code",
-  "Katan ohne Klaus.": "Katan without Klaus.", "Teubi muss draußen bleiben.": "Teubi has to stay outside.", "Eingeloggt als": "Signed in as", "Abmelden": "Sign out",
+  "Eingeloggt als": "Signed in as", "Abmelden": "Sign out",
   "+ Fisch": "+ Fish", "Zufälliger Rohstoff beim Würfeln": "Random resource when rolling", "Siegpunkte": "Victory points", "Ziel für den Spielsieg": "Victory target",
   "Neues Spiel erstellen": "Create new game", "oder beitreten": "or join", "SPIELCODE": "GAME CODE", "Beitreten": "Join",
   "Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.": "Your wins are permanently saved to your player profile.",
@@ -992,7 +992,7 @@ export default function Home() {
   const bankTradeRate = hasHarbor ? 3 : 4;
   const hasBankTradedThisRound = me?.last_bank_trade_round === (room?.state?.round ?? 1);
   const robberVictimsForTile = (tile: number) => players.filter((player) =>
-    player.player_index !== me?.player_index && (room?.state?.settlements ?? []).some((settlement) =>
+    player.player_index !== me?.player_index && (resourceCounts[player.player_index] ?? 0) > 0 && (room?.state?.settlements ?? []).some((settlement) =>
       settlement.player === player.player_index && topology.tileVertices[tile]?.includes(settlement.vertex)
     )
   );
@@ -1729,7 +1729,15 @@ export default function Home() {
       return;
     }
     const victims = robberVictimsForTile(tile);
-    if (victims.length > 0) {
+    if (victims.length === 1) {
+      if (activeCard?.card_type === "angry") {
+        void playKlausCard({ tile, target_player: victims[0].player_index });
+      } else {
+        void moveRobber(victims[0].player_index, tile);
+      }
+      return;
+    }
+    if (victims.length > 1) {
       setSelectedRobberTile(tile);
       return;
     }
@@ -1947,12 +1955,6 @@ export default function Home() {
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="lobby-card">
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
-          <h1>
-            <span className="lobby-title-main">Katan ohne Klaus.</span>
-            <span className="lobby-sign-hanger" aria-label="Teubi muss draußen bleiben.">
-              <span className="lobby-title-line">Teubi muss draußen bleiben.</span>
-            </span>
-          </h1>
           <div className="lobby-account"><span><small>Eingeloggt als</small><strong>{name}</strong></span><button type="button" onClick={() => void signOut()}>Abmelden</button></div>
           <div className="lobby-options-grid">
             <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>

@@ -217,12 +217,12 @@ button, a { font: inherit; }
 .building-city .building-door { left: 17px; top: 29px; width: 8px; height: 12px; }
 .building-city .building-window { left: 18px; top: 17px; width: 6px; height: 7px; box-shadow: 0 0 5px #fff1a5; }
 .building-goldmine { animation: goldmine-glow 1.7s ease-in-out infinite; }
-.building-goldmine .building-window { background: #fff; box-shadow: 0 0 8px 4px #ffe678; }
+.building-goldmine .building-roof { left: 2px; top: 3px; width: 38px; height: 35px; border: 2px solid rgba(255,255,255,.72); border-radius: 4px 4px 2px 2px; background: currentColor; clip-path: polygon(50% 0,100% 100%,0 100%); }
+.building-goldmine .building-body { left: 5px; top: 25px; width: 32px; height: 14px; border: 2px solid rgba(255,255,255,.7); border-top: 0; border-radius: 0 0 5px 5px; background: color-mix(in srgb,currentColor 82%,#7a5622); clip-path: polygon(9% 0,91% 0,100% 100%,0 100%); }
+.building-goldmine .building-door { left: 16px; top: 21px; width: 11px; height: 18px; border: 1px solid #fff8; border-radius: 7px 7px 1px 1px; background: #42351f; clip-path: polygon(50% 0,100% 100%,0 100%); }
+.building-goldmine .building-window { left: 19px; top: 27px; width: 5px; height: 6px; border: 0; border-radius: 50%; background: #fff7b0; box-shadow: 0 0 9px 5px #ffe678; }
 .building-halo,.building-chimney,.building-smoke { display: none !important; }
 .building-goldmine .building-halo { display: block !important; left: 1px; bottom: 1px; width: 40px; height: 17px; border-radius: 50%; background: rgba(255,215,76,.42); filter: blur(7px); animation: goldmine-halo 1.7s ease-in-out infinite; }
-.building-goldmine .building-chimney { display: block !important; z-index: -1; right: 6px; top: 5px; width: 8px; height: 20px; border: 2px solid rgba(255,255,255,.55); border-radius: 2px 2px 0 0; background: #51433b; }
-.building-goldmine .building-smoke { display: block !important; z-index: -2; right: 7px; top: 1px; width: 8px; height: 8px; border-radius: 50%; background: rgba(92,103,99,.65); filter: blur(.5px); animation: goldmine-smoke 2.2s ease-out infinite; }
-.building-goldmine .building-smoke.smoke-two { right: 3px; animation-delay: -1.1s; }
 .building-settlement .building-chimney { display: block !important; z-index: -1; right: 6px; top: 7px; width: 7px; height: 17px; border: 2px solid rgba(255,255,255,.55); border-radius: 2px 2px 0 0; background: #51433b; }
 .building-settlement .building-smoke { display: block !important; z-index: -2; right: 7px; top: 3px; width: 7px; height: 7px; border-radius: 50%; background: rgba(92,103,99,.6); filter: blur(.5px); animation: goldmine-smoke 2.2s ease-out infinite; }
 .building-settlement .building-smoke.smoke-two { right: 3px; animation-delay: -1.1s; }
@@ -272,6 +272,7 @@ button, a { font: inherit; }
 .language-switcher { position: fixed; z-index: 1000; left: 50%; bottom: max(12px,env(safe-area-inset-bottom)); display: flex; gap: 2px; padding: 3px; border: 1px solid #d8d2c4; border-radius: 999px; background: rgba(255,255,255,.94); box-shadow: 0 5px 18px #263b3426; transform: translateX(-50%); backdrop-filter: blur(8px); }
 .language-switcher button { min-width: 38px; height: 30px; border: 0; border-radius: 999px; background: transparent; color: #7b8581; font-size: 11px; font-weight: 900; letter-spacing: .08em; cursor: pointer; }
 .language-switcher button.active { background: #276f5c; color: white; box-shadow: 0 2px 7px #1f6b5733; }
+.lobby-shell > .language-switcher { left: auto; right: clamp(18px,2vw,34px); top: clamp(16px,2vh,28px); bottom: auto; transform: none; }
 .room-code { padding: 9px 15px; border-radius: 999px; background: #e4f1ec; font-size: 13px; }.room-code strong { letter-spacing: .16em; color: #1f6b57; }
 .copy-button { border: 1px solid #d8d2c4; background: white; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
 .game-activity { min-width: 0; max-width: 680px; justify-self: center; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 9px 16px; border: 1px solid #c9ddd6; border-radius: 999px; background: linear-gradient(110deg,#f3faf7,#e6f2ee); color: #315f53; box-shadow: 0 3px 12px rgba(35,83,70,.08); }
