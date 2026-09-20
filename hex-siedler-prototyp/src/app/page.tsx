@@ -1376,47 +1376,26 @@ export default function Home() {
     setResourceCounts(Object.fromEntries(((resourceCountData as { player_index: number; resource_count: number }[]) ?? []).map((item) => [item.player_index, item.resource_count])));
   }
 
-  const botRunnerStateKey = room ? [
-    players.find((player) => player.player_index === room.state?.active_player && player.is_bot)?.player_index ?? "human",
-    players.find((player) => player.player_index === room.state?.trade_offer?.to && player.is_bot)?.player_index ?? "no-trade-target",
-    players.find((player) => player.player_index === room.state?.trade_offer?.from && player.is_bot)?.player_index ?? "no-bot-offer",
-    room.state?.discard_queue?.some((entry) => players.some((player) => player.player_index === entry.player && player.is_bot)) ? "bot-discard" : "no-bot-discard",
-  ].join(":") : "no-room";
-
   useEffect(() => {
-    if (!supabase || !room?.id || room.status !== "playing" || botActionPending.current) return;
-    const activeBot = players.find((player) => player.player_index === room.state?.active_player && player.is_bot);
-    const tradeBot = room.state?.trade_offer ? players.find((player) => player.player_index === room.state?.trade_offer?.to && player.is_bot) : undefined;
-    const offerBot = room.state?.trade_offer ? players.find((player) => player.player_index === room.state?.trade_offer?.from && player.is_bot) : undefined;
-    const discardBot = room.state?.discard_queue?.some((entry) => players.some((player) => player.player_index === entry.player && player.is_bot));
-    // Fremde Angebote blockieren keinen Bot-Runner. Eigene Bot-Angebote werden
-    // exakt zum serverseitigen Ablaufzeitpunkt nach spätestens 30 Sekunden fortgesetzt.
-    if (room.state?.trade_offer && !tradeBot && !offerBot) return;
-    if (!activeBot && !tradeBot && !discardBot) return;
-    const offerDeadline = offerBot && room.state?.trade_expires_at ? new Date(room.state.trade_expires_at).getTime() : 0;
-    const botDelay = offerBot ? Math.max(250, offerDeadline - Date.now() + 100) : 3000;
-    const timer = window.setTimeout(async () => {
+    if (!supabase || !room?.id || room.status !== "playing" || !isHost) return;
+    const gameId = room.id;
+    // Der Host stößt den Bot robust alle drei Sekunden an. Die RPC selbst
+    // verändert das Spiel nur, wenn tatsächlich eine Bot-Aktion ansteht.
+    const runBotTick = async () => {
       if (!supabase || botActionPending.current) return;
       botActionPending.current = true;
       try {
-        const { data, error: botError } = await supabase.rpc("run_game_bot", { p_game_id: room.id });
+        const { data, error: botError } = await supabase.rpc("run_game_bot", { p_game_id: gameId });
         if (botError) setError(botError.message);
         else if (data) setRoom(normalizedRoom(data));
-        await loadPlayerData(room.id);
+        await loadPlayerData(gameId);
       } finally {
         botActionPending.current = false;
       }
-    }, botDelay);
-    return () => window.clearTimeout(timer);
-  // Nicht von `players` als Array abhängen: Die regelmäßig neu geladene Liste
-  // besitzt jedes Mal eine neue Referenz und würde den 3-Sekunden-Timer sonst
-  // fortlaufend abbrechen, bevor der Bot handeln kann.
-  }, [
-    room?.id,
-    room?.status,
-    room?.version,
-    botRunnerStateKey,
-  ]);
+    };
+    const timer = window.setInterval(runBotTick, 3000);
+    return () => window.clearInterval(timer);
+  }, [room?.id, room?.status, isHost]);
 
   async function addBot() {
     if (!supabase || !room || !isHost || botCount >= 2) return;
@@ -1664,7 +1643,7 @@ export default function Home() {
   async function startGame() {
     if (!supabase || !room || players.length < 2) return;
     setError("");
-    const { data, error: setupError } = await supabase.rpc("start_game_setup", { p_game_id: room.id });
+    const { data, error: setupError } = await supabase.rpc("start_game_setup_random", { p_game_id: room.id });
     if (setupError) {
       setError(setupError.message);
       return;
