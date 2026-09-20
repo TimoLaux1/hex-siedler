@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
 type ResourceKind = keyof Resources;
-type Player = { user_id: string; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number };
+type Player = { user_id: string | null; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number; is_bot?: boolean };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" | "goldmine" };
 type Road = { edge: number; a: number; b: number; player: number };
 type FishTile = { slot: number; number: number };
@@ -18,7 +18,7 @@ type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
@@ -829,6 +829,7 @@ export default function Home() {
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
   const lastKlausVoiceAt = useRef(0);
+  const botActionPending = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("new-katan-language");
@@ -884,6 +885,7 @@ export default function Home() {
   const isEliminated = me?.player_index !== undefined && eliminatedPlayers.includes(me.player_index);
   const isMyTurn = !isEliminated && me?.player_index === room?.state?.active_player;
   const myResources = me?.resources ?? { wood: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
+  const botCount = players.filter((player) => player.is_bot).length;
   useEffect(() => {
     if (!room?.id || !me?.resources) {
       previousResources.current = null;
@@ -1358,7 +1360,7 @@ export default function Home() {
   async function loadPlayerData(gameId: string) {
     const client = supabase;
     if (!client) return;
-    const { data, error: playersError } = await client.rpc("get_game_players_with_cards", { p_game_id: gameId });
+    const { data, error: playersError } = await client.rpc("get_game_players_with_bots", { p_game_id: gameId });
     if (playersError) {
       setError(playersError.message);
       return;
@@ -1372,6 +1374,51 @@ export default function Home() {
     setMyCards((handData as KlausCard[]) ?? []);
     setCardCounts(Object.fromEntries(((countData as { player_index: number; card_count: number }[]) ?? []).map((item) => [item.player_index, item.card_count])));
     setResourceCounts(Object.fromEntries(((resourceCountData as { player_index: number; resource_count: number }[]) ?? []).map((item) => [item.player_index, item.resource_count])));
+  }
+
+  useEffect(() => {
+    if (!supabase || !room?.id || room.status !== "playing" || botActionPending.current) return;
+    const activeBot = players.find((player) => player.player_index === room.state?.active_player && player.is_bot);
+    const tradeBot = room.state?.trade_offer ? players.find((player) => player.player_index === room.state?.trade_offer?.to && player.is_bot) : undefined;
+    const offerBot = room.state?.trade_offer ? players.find((player) => player.player_index === room.state?.trade_offer?.from && player.is_bot) : undefined;
+    const discardBot = room.state?.discard_queue?.some((entry) => players.some((player) => player.player_index === entry.player && player.is_bot));
+    // Fremde Angebote blockieren keinen Bot-Runner. Eigene Bot-Angebote werden
+    // exakt zum serverseitigen Ablaufzeitpunkt nach spätestens 30 Sekunden fortgesetzt.
+    if (room.state?.trade_offer && !tradeBot && !offerBot) return;
+    if (!activeBot && !tradeBot && !discardBot) return;
+    const offerDeadline = offerBot && room.state?.trade_expires_at ? new Date(room.state.trade_expires_at).getTime() : 0;
+    const botDelay = offerBot ? Math.max(250, offerDeadline - Date.now() + 100) : 950 + Math.random() * 850;
+    const timer = window.setTimeout(async () => {
+      if (!supabase || botActionPending.current) return;
+      botActionPending.current = true;
+      try {
+        const { data, error: botError } = await supabase.rpc("run_game_bot", { p_game_id: room.id });
+        if (botError) setError(botError.message);
+        else if (data) setRoom(normalizedRoom(data));
+        await loadPlayerData(room.id);
+      } finally {
+        botActionPending.current = false;
+      }
+    }, botDelay);
+    return () => window.clearTimeout(timer);
+  }, [room?.id, room?.status, room?.version, players]);
+
+  async function addBot() {
+    if (!supabase || !room || !isHost || botCount >= 2) return;
+    setBusy(true); setError("");
+    const { data, error: botError } = await supabase.rpc("add_game_bot", { p_game_id: room.id });
+    if (botError) setError(botError.message); else if (data) setRoom(normalizedRoom(data));
+    await loadPlayerData(room.id);
+    setBusy(false);
+  }
+
+  async function removeBot(playerIndex: number) {
+    if (!supabase || !room || !isHost) return;
+    setBusy(true); setError("");
+    const { data, error: botError } = await supabase.rpc("remove_game_bot", { p_game_id: room.id, p_player_index: playerIndex });
+    if (botError) setError(botError.message); else if (data) setRoom(normalizedRoom(data));
+    await loadPlayerData(room.id);
+    setBusy(false);
   }
 
   useEffect(() => {
@@ -1997,13 +2044,16 @@ export default function Home() {
         <div className="online-sidebar">
         <aside className="room-panel card">
           {players.map((player) => (
-            <div className="room-player" key={player.user_id}>
+            <div className={`room-player ${player.is_bot ? "bot-player" : ""}`} key={player.user_id ?? `bot-${player.player_index}`}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
-              <strong>{player.player_name}{player.user_id === userId ? " (Du)" : ""}</strong>
+              <strong>{player.player_name}{player.is_bot ? " 🤖" : player.user_id === userId ? " (Du)" : ""}</strong>
+              {room.status === "waiting" && player.is_bot && isHost && <button className="remove-bot-button" type="button" onClick={() => void removeBot(player.player_index)} disabled={busy} aria-label={`${player.player_name} entfernen`}>×</button>}
               <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · <span className={`player-resource-count ${(resourceCounts[player.player_index] ?? 0) >= 8 ? "danger" : ""}`}>{resourceCounts[player.player_index] ?? 0}</span> · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
-          {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
+          {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => isHost && botCount < 2
+            ? <button className="empty-player add-bot-button" type="button" key={index} onClick={() => void addBot()} disabled={busy}>+ Bot hinzufügen</button>
+            : <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
           {room.status !== "waiting" && me && (
             <div className="klaus-hand">
               <p className="eyebrow">Deine Klaus-Karten · {myCards.length}</p>

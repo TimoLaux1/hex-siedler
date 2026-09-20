@@ -299,6 +299,7 @@ button, a { font: inherit; }
 @keyframes activity-pulse { 50% { opacity: .48; transform: scale(.75); } }
 .online-layout { min-height: calc(100vh - 72px); display: grid; grid-template-columns: 230px minmax(0,1fr); gap: clamp(18px,2.5vw,40px); padding: 18px clamp(76px,5vw,96px) 24px 3vw; align-items: start; }
 .room-panel { position: sticky; top: 90px; padding: 20px; }.room-player { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; }.room-player > span { width: 36px; height: 36px; border-radius: 10px; color: white; display: grid; place-items: center; font-weight: 900; }.room-player small { color: #89918e; }
+.add-bot-button { width: 100%; color: #397762; font-weight: 850; cursor: pointer; transition: border-color .18s,background .18s; }.add-bot-button:hover { border-color: #79aa99; background: #edf7f3; }.remove-bot-button { width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid #dfc8c0; border-radius: 8px; background: #fff8f5; color: #a45849; font-size: 18px; cursor: pointer; }.bot-player > strong { color: #3d6f60; }
 .room-player .road-vp { display: block; margin-top: 3px; color: #a56b18; font-size: 8px; font-weight: 900; white-space: nowrap; }
 .room-player .army-vp { display: block; margin-top: 3px; color: #765979; font-size: 8px; font-weight: 900; white-space: nowrap; }
 .player-resource-count { color: #4d5b57; font-size: inherit; font-weight: 900; font-variant-numeric: tabular-nums; }
