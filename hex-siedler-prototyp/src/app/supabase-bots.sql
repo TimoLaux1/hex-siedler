@@ -160,16 +160,16 @@ end; $$;
 create or replace function public.bot_vertex_score(p_game_id uuid,p_player integer,p_vertex integer)
 returns numeric language plpgsql security definer set search_path=public
 as $$
-declare g public.games; tile_index integer; tile jsonb; fish jsonb; resource_name text;
+declare g public.games; tile_index integer; tile jsonb; fish jsonb; bot_resource_name text;
   number_value integer; score numeric:=0; new_resources text[]:='{}'; owned_resources text[]:='{}'; land_count integer:=0;
   has_first_settlement boolean:=false;
 begin
   select * into g from public.games where id=p_game_id;
   for tile_index in select unnest(tile_indices) from public.board_vertex_tiles where vertex_id=p_vertex loop
-    tile:=g.board_tiles->tile_index; resource_name:=public.board_tile_resource(tile);
+    tile:=g.board_tiles->tile_index; bot_resource_name:=public.board_tile_resource(tile);
     number_value:=coalesce((tile->>'number')::integer,0);
     score:=score+case number_value when 6 then 5 when 8 then 5 when 5 then 4 when 9 then 4 when 4 then 3 when 10 then 3 when 3 then 2 when 11 then 2 when 2 then .3 when 12 then .3 else 0 end;
-    if resource_name in ('wood','brick','wool','grain','ore') then land_count:=land_count+1; new_resources:=array_append(new_resources,resource_name); end if;
+    if bot_resource_name in ('wood','brick','wool','grain','ore') then land_count:=land_count+1; new_resources:=array_append(new_resources,bot_resource_name); end if;
   end loop;
   select coalesce(array_agg(distinct public.board_tile_resource(g.board_tiles->tile_id)) filter(where public.board_tile_resource(g.board_tiles->tile_id)<>'none'),'{}')
   into owned_resources
@@ -351,7 +351,7 @@ as $$
 declare
   g public.games; bot public.game_players; phase text; bot_index integer; chosen_vertex integer; chosen_edge integer;
   latest_vertex integer; setup_step integer; setup_total integer; next_index integer; die1 integer; die2 integer; rolled integer;
-  placed jsonb; tile_index integer; resource_name text; multiplier integer; fish jsonb; reward integer;
+  placed jsonb; tile_index integer; bot_resource_name text; multiplier integer; fish jsonb; reward integer;
   total_cards integer; discard_entry jsonb; discard_resource text; trade jsonb; accept_trade boolean; discard_queue jsonb:='[]'::jsonb;
   have_resource text; need_resource text; target_index integer; current_round integer; action_done boolean:=false;
   own_city_count integer; own_settlement_count integer; own_road_count integer; road_limit integer; settlement_limit integer;
@@ -520,13 +520,13 @@ begin
         multiplier:=case when placed->>'building'='city' then 2 else 1 end;
         for tile_index in select unnest(tile_indices) from public.board_vertex_tiles where vertex_id=(placed->>'vertex')::integer loop
           if tile_index<>coalesce((g.state->>'robber_tile')::integer,9) and (g.board_tiles->tile_index->>'number')::integer=rolled then
-            resource_name:=public.board_tile_resource(g.board_tiles->tile_index);
-            if resource_name in ('wood','brick','wool','grain','ore') then update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb(coalesce((resources->>resource_name)::integer,0)+multiplier),true) where game_id=p_game_id and player_index=(placed->>'player')::integer; end if;
+            bot_resource_name:=public.board_tile_resource(g.board_tiles->tile_index);
+            if bot_resource_name in ('wood','brick','wool','grain','ore') then update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+multiplier),true) where game_id=p_game_id and player_index=(placed->>'player')::integer; end if;
           end if;
         end loop;
         for fish in select value from jsonb_array_elements(coalesce(g.fish_tiles,'[]'::jsonb)) loop
           if (fish->>'number')::integer=rolled and exists(select 1 from public.board_vertex_fish_slots where vertex_id=(placed->>'vertex')::integer and fish_slot=(fish->>'slot')::integer) then
-            for reward in 1..multiplier loop resource_name:=(array['wood','brick','wool','grain','ore'])[floor(random()*5+1)::integer]; update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb(coalesce((resources->>resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=(placed->>'player')::integer; end loop;
+            for reward in 1..multiplier loop bot_resource_name:=(array['wood','brick','wool','grain','ore'])[floor(random()*5+1)::integer]; update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=(placed->>'player')::integer; end loop;
           end if;
         end loop;
       end loop;
@@ -568,10 +568,10 @@ begin
         )
       order by random() limit 1;
     end if;
-    select key into resource_name from jsonb_each_text((select resources from public.game_players where game_id=p_game_id and player_index=target_index)) where value::integer>0 order by random() limit 1;
-    if resource_name is not null then
-      update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb((resources->>resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
-      update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb(coalesce((resources->>resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
+    select key into bot_resource_name from jsonb_each_text((select resources from public.game_players where game_id=p_game_id and player_index=target_index)) where value::integer>0 order by random() limit 1;
+    if bot_resource_name is not null then
+      update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb((resources->>bot_resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
+      update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
     end if;
     update public.game_players set knight_points=coalesce(knight_points,0)+1
     where game_id=p_game_id and player_index=bot_index;
@@ -612,11 +612,11 @@ begin
             )
           order by random() limit 1;
         end if;
-        select key into resource_name from jsonb_each_text((select resources from public.game_players where game_id=p_game_id and player_index=target_index))
+        select key into bot_resource_name from jsonb_each_text((select resources from public.game_players where game_id=p_game_id and player_index=target_index))
         where value::integer>0 order by random() limit 1;
-        if resource_name is not null then
-          update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb((resources->>resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
-          update public.game_players set resources=jsonb_set(resources,array[resource_name],to_jsonb(coalesce((resources->>resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
+        if bot_resource_name is not null then
+          update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb((resources->>bot_resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
+          update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
         end if;
         update public.game_players set knight_points=coalesce(knight_points,0)+1 where game_id=p_game_id and player_index=bot_index;
         update public.games set state=state||jsonb_build_object('robber_tile',tile_index),version=version+1 where id=p_game_id returning * into g;

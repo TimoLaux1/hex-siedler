@@ -136,6 +136,48 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
     100% { transform: rotate(-90deg) scale(.92); }
   }
 }
+
+/* v39 finale Kaskade: muss nach allen bisherigen Desktop-/Mobilregeln stehen. */
+.online-shell > .online-topbar {
+  position: fixed; z-index: 920; inset: 0 0 0 auto;
+  width: 72px; height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 10px; padding: max(12px,env(safe-area-inset-top)) 8px max(12px,env(safe-area-inset-bottom));
+  border: 0; border-left: 5px solid #7b4829;
+}
+.online-shell > .online-topbar .topbar-left,
+.online-shell > .online-topbar .topbar-actions {
+  width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.online-shell > .online-topbar .topbar-actions { margin-top: auto; }
+.online-shell > .online-topbar .brand { padding: 0; background: transparent; box-shadow: none; font-size: 0; }
+.online-shell > .online-topbar .brand-mark { font-size: 31px; }
+.online-shell > .online-topbar .game-activity {
+  position: fixed; top: 12px; right: 84px;
+  width: min(340px,calc(100vw - 110px)); max-width: none; min-height: 38px;
+}
+.online-shell > .online-layout { height: 100dvh; min-height: 100dvh; padding-top: 0; padding-right: 72px; }
+.online-shell > .resource-wallet { right: 80px; }
+.online-shell > .bot-debug-toggle { top: 58px; right: 82px; }
+.online-shell > .bot-debug-panel { top: 98px; right: 82px; }
+
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar { width: 58px; height: 100dvh; gap: 5px; padding: max(6px,env(safe-area-inset-top)) 5px max(6px,env(safe-area-inset-bottom)); }
+  .online-shell > .online-topbar .topbar-left,
+  .online-shell > .online-topbar .topbar-actions { gap: 4px; padding: 5px 3px; }
+  .online-shell > .online-topbar .brand-mark { font-size: 24px; }
+  .online-shell > .online-topbar .topbar-end-button { width: 40px; min-height: 38px; padding: 4px; font-size: 7px; white-space: normal; }
+  .online-shell > .online-topbar .music-button,
+  .online-shell > .online-topbar .sound-button,
+  .online-shell > .online-topbar .leave-game-topbar-button { width: 36px; height: 36px; }
+  .online-shell > .online-topbar .game-activity { top: max(7px,env(safe-area-inset-top)); right: max(66px,calc(env(safe-area-inset-right) + 62px)); width: min(280px,calc(66vw - 84px)); min-height: 31px; padding: 5px 9px; }
+  .online-shell > .online-topbar .game-activity strong { font-size: 9px; }
+  .online-shell > .online-layout { height: 100dvh; min-height: 100dvh; padding: 0 58px 0 0; }
+  .online-shell > .resource-wallet { right: 64px; }
+  .online-shell > .bot-debug-toggle { top: 45px; right: 65px; }
+  .online-shell > .bot-debug-panel { top: 84px; right: 65px; }
+  .mobile-fullscreen-button { right: max(68px,calc(env(safe-area-inset-right) + 62px)); }
+}
 @media (max-width: 900px) and (orientation: portrait) {
   body::before {
     content: "↻\A\A Bitte ins Querformat drehen";
@@ -841,6 +883,109 @@ button, a { font: inherit; }
   .frame-vines { display: none; }
 }
 
+/* v39: Im Spiel wird die bisherige horizontale Kopfzeile zur kompakten
+   Werkzeugleiste am rechten Rand. BoardFit nutzt dadurch die volle Hoehe. */
+.online-shell > .online-topbar {
+  position: fixed;
+  z-index: 920;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: 72px;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: max(12px,env(safe-area-inset-top)) 8px max(12px,env(safe-area-inset-bottom));
+  border: 0;
+  border-left: 5px solid #7b4829;
+  background:
+    linear-gradient(180deg,transparent,rgba(255,255,255,.42) 15%,transparent 37%),
+    repeating-linear-gradient(91deg,#b8753f 0 8px,#c98b50 9px 15px,#9b5b31 16px 18px);
+  box-shadow: inset 2px 0 #dfaa6f,-5px 0 16px rgba(70,43,26,.2);
+}
+
+.online-shell > .online-topbar .topbar-left,
+.online-shell > .online-topbar .topbar-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 5px;
+  border-radius: 13px;
+  background: rgba(255,253,244,.9);
+  box-shadow: 0 3px 9px rgba(62,39,23,.13);
+}
+
+.online-shell > .online-topbar .topbar-actions { margin-top: auto; }
+.online-shell > .online-topbar .brand { padding: 0; background: transparent; box-shadow: none; font-size: 0; }
+.online-shell > .online-topbar .brand-mark { font-size: 31px; line-height: 1; }
+.online-shell > .online-topbar .topbar-end-button {
+  width: 46px;
+  min-height: 46px;
+  padding: 5px;
+  white-space: normal;
+  font-size: 8px;
+  line-height: 1.05;
+}
+.online-shell > .online-topbar .music-button,
+.online-shell > .online-topbar .sound-button,
+.online-shell > .online-topbar .leave-game-topbar-button { width: 42px; height: 42px; flex: 0 0 auto; }
+
+/* Die laufende Meldung bleibt gut lesbar, schwebt aber ueber dem Wasser und
+   nimmt dem Spielfeld keinen festen Platz mehr weg. */
+.online-shell > .online-topbar .game-activity {
+  position: fixed;
+  z-index: 921;
+  top: 12px;
+  right: 84px;
+  width: min(340px,calc(100vw - 110px));
+  max-width: none;
+  min-height: 38px;
+  padding: 8px 13px;
+  border-width: 2px;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px #fff9,0 4px 12px rgba(65,43,25,.16);
+}
+.online-shell > .online-topbar .game-activity strong { font-size: 11px; }
+
+.online-shell > .online-layout {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding-right: 72px;
+}
+.online-shell > .resource-wallet { right: 80px; }
+.online-shell > .bot-debug-toggle { top: 58px; right: 82px; }
+.online-shell > .bot-debug-panel { top: 98px; right: 82px; }
+
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar { width: 58px; gap: 5px; padding-inline: 5px; }
+  .online-shell > .online-topbar .topbar-left,
+  .online-shell > .online-topbar .topbar-actions { gap: 4px; padding: 5px 3px; }
+  .online-shell > .online-topbar .brand-mark { font-size: 24px; }
+  .online-shell > .online-topbar .topbar-end-button { width: 40px; min-height: 38px; font-size: 7px; }
+  .online-shell > .online-topbar .music-button,
+  .online-shell > .online-topbar .sound-button,
+  .online-shell > .online-topbar .leave-game-topbar-button { width: 36px; height: 36px; }
+  .online-shell > .online-topbar .game-activity {
+    top: max(7px,env(safe-area-inset-top));
+    right: max(66px,calc(env(safe-area-inset-right) + 62px));
+    width: min(280px,calc(66vw - 84px));
+    min-height: 31px;
+    padding: 5px 9px;
+  }
+  .online-shell > .online-topbar .game-activity strong { font-size: 9px; }
+  .online-shell > .online-layout { height: 100dvh; min-height: 100dvh; padding-right: 58px; }
+  .online-shell > .resource-wallet { right: 64px; }
+  .online-shell > .bot-debug-toggle { top: 45px; right: 65px; }
+  .online-shell > .bot-debug-panel { top: 84px; right: 65px; }
+  .mobile-fullscreen-button { right: max(68px,calc(env(safe-area-inset-right) + 62px)); }
+}
+
 /* Vier bewusst unterschiedliche Blattranken – ausschließlich direkt am Holzrahmen. */
 .frame-vines { position: fixed; z-index: 901; inset: 0; overflow: hidden; pointer-events: none; }
 .frame-vines i { position: absolute; display: block; filter: drop-shadow(0 2px 1px rgba(42,70,37,.24)); }
@@ -1236,4 +1381,41 @@ button, a { font: inherit; }
     margin-bottom: 5px;
     font-size: 7px;
   }
+}
+
+/* v39 finale Kaskade – rechte Werkzeugleiste im laufenden Spiel. */
+.online-shell > .online-topbar {
+  position: fixed; z-index: 920; inset: 0 0 0 auto;
+  width: 72px; height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 10px; padding: max(12px,env(safe-area-inset-top)) 8px max(12px,env(safe-area-inset-bottom));
+  border: 0; border-left: 5px solid #7b4829;
+}
+.online-shell > .online-topbar .topbar-left,
+.online-shell > .online-topbar .topbar-actions { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.online-shell > .online-topbar .topbar-actions { margin-top: auto; }
+.online-shell > .online-topbar .brand { padding: 0; background: transparent; box-shadow: none; font-size: 0; }
+.online-shell > .online-topbar .brand-mark { font-size: 31px; }
+.online-shell > .online-topbar .game-activity { position: fixed; top: 12px; right: 84px; width: min(340px,calc(100vw - 110px)); max-width: none; min-height: 38px; }
+.online-shell > .online-layout { height: 100dvh; min-height: 100dvh; padding-top: 0; padding-right: 72px; }
+.online-shell > .resource-wallet { right: 80px; }
+.online-shell > .bot-debug-toggle { top: 58px; right: 82px; }
+.online-shell > .bot-debug-panel { top: 98px; right: 82px; }
+
+@media (orientation: landscape) and (max-height: 700px) {
+  .online-shell > .online-topbar { width: 58px; height: 100dvh; gap: 5px; padding: max(6px,env(safe-area-inset-top)) 5px max(6px,env(safe-area-inset-bottom)); }
+  .online-shell > .online-topbar .topbar-left,
+  .online-shell > .online-topbar .topbar-actions { gap: 4px; padding: 5px 3px; }
+  .online-shell > .online-topbar .brand-mark { font-size: 24px; }
+  .online-shell > .online-topbar .topbar-end-button { width: 40px; min-height: 38px; padding: 4px; font-size: 7px; white-space: normal; }
+  .online-shell > .online-topbar .music-button,
+  .online-shell > .online-topbar .sound-button,
+  .online-shell > .online-topbar .leave-game-topbar-button { width: 36px; height: 36px; }
+  .online-shell > .online-topbar .game-activity { top: max(7px,env(safe-area-inset-top)); right: max(66px,calc(env(safe-area-inset-right) + 62px)); width: min(280px,calc(66vw - 84px)); min-height: 31px; padding: 5px 9px; }
+  .online-shell > .online-topbar .game-activity strong { font-size: 9px; }
+  .online-shell > .online-layout { height: 100dvh; min-height: 100dvh; padding: 0 58px 0 0; }
+  .online-shell > .resource-wallet { right: 64px; }
+  .online-shell > .bot-debug-toggle { top: 45px; right: 65px; }
+  .online-shell > .bot-debug-panel { top: 84px; right: 65px; }
+  .mobile-fullscreen-button { right: max(68px,calc(env(safe-area-inset-right) + 62px)); }
 }
