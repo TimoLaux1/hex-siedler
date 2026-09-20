@@ -2183,7 +2183,19 @@ export default function Home() {
         <div className="game-command-stack sidebar-command-stack">
           <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
           <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
-          {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
+          {room.status === "playing" && (
+            <button
+              className={`end-button topbar-end-button ${room.state?.phase === "turn" ? "roll-action" : ""}`}
+              onClick={room.state?.phase === "turn" ? rollDice : endTurn}
+              disabled={
+                !isMyTurn || busy || isEliminated ||
+                (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
+                (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
+              }
+            >
+              {room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
+            </button>
+          )}
         </div>
         <section className="sidebar-game-section">
         <p className="eyebrow sidebar-section-title">Spielsteuerung</p>
@@ -2247,7 +2259,6 @@ export default function Home() {
                 {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={isEliminated || busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={isEliminated || busy}>Ablehnen</button></div>}
                 {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={isEliminated || busy}>Angebot zurückziehen</button>}
               </div>}
-              {room.state?.phase === "turn" && !isEliminated && <button onClick={rollDice} disabled={!isMyTurn || busy}>Würfeln</button>}
               {room.state?.phase === "build" && <>
                 {activeCard ? (
                   <div className="klaus-action-panel">

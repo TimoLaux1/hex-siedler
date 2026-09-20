@@ -660,6 +660,7 @@ button, a { font: inherit; }
 .topbar-left { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .topbar-left .brand { flex: 0 0 auto; }
 .topbar-end-button { min-height: 40px; padding: 9px 17px; border: 1px solid #b77920; border-radius: 10px; background: #d89231; color: white; font-size: 12px; font-weight: 900; white-space: nowrap; cursor: pointer; box-shadow: inset 0 0 0 1px #fff5,0 3px 0 #9c641c55,0 6px 13px #53352520; }
+.topbar-end-button.roll-action { border-color: #175e4c; background: #24765f; box-shadow: inset 0 0 0 1px #fff5,0 3px 0 #124b3d55,0 6px 13px #173f3526; }
 .topbar-end-button:disabled { opacity: .42; cursor: not-allowed; }
 .sound-button,.music-button { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #d8d2c4; border-radius: 10px; background: white; cursor: pointer; }
 .music-button { color: #956d2d; background: linear-gradient(145deg,#fffdf5,#f5ead2); }
@@ -1725,7 +1726,9 @@ button, a { font: inherit; }
   font-size: 10px;
 }
 .online-shell .sidebar-game-section {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
   padding: 12px 10px 14px;
@@ -1733,10 +1736,13 @@ button, a { font: inherit; }
   background: transparent;
 }
 .online-shell .sidebar-section-title {
+  order: 0;
   margin: 0 4px 8px;
   text-align: center;
 }
 .online-shell .sidebar-game-section .room-panel {
+  order: 2;
+  flex: 0 0 auto;
   grid-column: auto;
   display: block;
   width: 100%;
@@ -1754,6 +1760,8 @@ button, a { font: inherit; }
   box-shadow: none;
 }
 .online-shell .sidebar-game-section .online-control-area {
+  order: 1;
+  flex: 0 0 auto;
   grid-column: auto;
   position: static;
   width: 100%;
