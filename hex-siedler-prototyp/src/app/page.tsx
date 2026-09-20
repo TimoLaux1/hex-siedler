@@ -1377,7 +1377,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (!supabase || !room?.id || room.status !== "playing" || !isHost) return;
+    if (!supabase || !room?.id || room.status !== "playing") return;
     const gameId = room.id;
     // Der Host stößt den Bot robust alle drei Sekunden an. Die RPC selbst
     // verändert das Spiel nur, wenn tatsächlich eine Bot-Aktion ansteht.
@@ -1395,7 +1395,7 @@ export default function Home() {
     };
     const timer = window.setInterval(runBotTick, 3000);
     return () => window.clearInterval(timer);
-  }, [room?.id, room?.status, isHost]);
+  }, [room?.id, room?.status]);
 
   async function addBot() {
     if (!supabase || !room || !isHost || botCount >= 2) return;
