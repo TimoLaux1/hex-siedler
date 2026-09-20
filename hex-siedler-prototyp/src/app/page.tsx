@@ -785,6 +785,26 @@ function MobileFullscreenButton({ onClick }: { onClick: () => void }) {
   return <button className="mobile-fullscreen-button" type="button" onClick={onClick} aria-label="Vollbild öffnen">⛶ <span>Vollbild</span></button>;
 }
 
+function OrientationPrompt() {
+  return (
+    <aside className="orientation-overlay" role="status" aria-label="Smartphone ins Querformat drehen">
+      <div className="orientation-card">
+        <div className="orientation-brand"><span>⬡</span><b>NEW KATAN</b></div>
+        <div className="orientation-illustration" aria-hidden="true">
+          <i className="orientation-arrow">↻</i>
+          <i className="orientation-phone"><span>⬡</span><span>⬡</span><span>⬡</span></i>
+        </div>
+        <div className="orientation-copy">
+          <span className="orientation-kicker">BEREIT ZUM SPIELEN</span>
+          <strong>Smartphone drehen</strong>
+          <p>Wechsle ins Querformat, damit du das gesamte Spielfeld und alle Bedienelemente siehst.</p>
+        </div>
+        <small>Die Ansicht öffnet sich anschließend automatisch.</small>
+      </div>
+    </aside>
+  );
+}
+
 function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentName: string }) {
   const winningScores = scores.filter((score) => score.wins > 0);
   return (
@@ -1456,7 +1476,7 @@ export default function Home() {
       botActionPending.current = true;
       setBotDiagnostic(`Bot-RPC wird aufgerufen · ${new Date().toLocaleTimeString("de-DE")}`);
       try {
-        const { data, error: botError } = await supabase.rpc("run_game_bot", { p_game_id: gameId });
+        const { data, error: botError } = await supabase.rpc("run_game_bot_until_human", { p_game_id: gameId });
         if (botError) {
           const diagnostic = `Bot-RPC Fehler: ${botError.message}`;
           setBotDiagnostic(diagnostic);
@@ -2043,12 +2063,13 @@ export default function Home() {
   }
 
   if (!authReady) {
-    return <main className="auth-shell"><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
+    return <main className="auth-shell"><OrientationPrompt /><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
   }
 
   if (!userId) {
     return (
       <main className="auth-shell">
+        <OrientationPrompt />
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="auth-card">
           <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
@@ -2078,6 +2099,7 @@ export default function Home() {
   if (!room) {
     return (
       <main className="lobby-shell">
+        <OrientationPrompt />
         <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-bottom-right" /></div>
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="lobby-card">
@@ -2112,6 +2134,7 @@ export default function Home() {
 
   return (
     <main className="online-shell">
+      <OrientationPrompt />
       <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
         <div className="topbar-left">
@@ -2193,7 +2216,7 @@ export default function Home() {
         <section className="online-control-area">
           {room.status === "waiting" ? (
             <div className="waiting-card">
-              <strong>{players.length < 2 ? "Warte auf Mitspieler" : "Bereit zum Start"}</strong>
+              {players.length >= 2 && <strong>Bereit zum Start</strong>}
               <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
               <button className="copy-button" data-mobile-label={inviteCopied ? "Kopiert ✓" : "Link kopieren"} type="button" onClick={() => void copyInvite()}>{inviteCopied ? "Link kopiert ✓" : "Einladungslink kopieren"}</button>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}

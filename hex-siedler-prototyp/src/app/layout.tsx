@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "New Katan – Strategiespiel",
   description: "Ein eigenständiger Prototyp für ein webbasiertes Hex-Strategiespiel.",
-  manifest: "/manifest.webmanifest?v=2",
+  manifest: "/manifest.webmanifest?v=3",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -23,10 +23,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/new-katan-icon-192-v2.png", sizes: "192x192", type: "image/png" },
-      { url: "/new-katan-icon-512-v2.png", sizes: "512x512", type: "image/png" },
+      { url: "/new-katan-icon-192-v3.png", sizes: "192x192", type: "image/png" },
+      { url: "/new-katan-icon-512-v3.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/new-katan-apple-v2.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/new-katan-apple-v3.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

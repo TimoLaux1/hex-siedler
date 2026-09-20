@@ -3,6 +3,139 @@
 :root { --ink: #20302d; --paper: #f7f2e7; --green: #1f6b57; --line: #d8d2c4; }
 * { box-sizing: border-box; }
 body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+.orientation-overlay { display: none; }
+
+@media (max-width: 900px) and (orientation: portrait) {
+  body::before,
+  body::after { display: none !important; }
+
+  .orientation-overlay {
+    position: fixed;
+    z-index: 10000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    min-height: 100svh;
+    padding: max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 18% 12%,rgba(255,255,255,.34) 0 2px,transparent 3px),
+      radial-gradient(circle at 83% 76%,rgba(255,255,255,.22) 0 3px,transparent 4px),
+      linear-gradient(155deg,#9dd5db 0%,#78b9c5 100%);
+  }
+
+  .orientation-overlay::before,
+  .orientation-overlay::after {
+    content: "";
+    position: absolute;
+    width: 180px;
+    height: 118px;
+    opacity: .9;
+    background:
+      radial-gradient(ellipse at 75% 20%,#b8d65d 0 18%,transparent 19%),
+      radial-gradient(ellipse at 52% 43%,#6ea04a 0 22%,transparent 23%),
+      radial-gradient(ellipse at 27% 64%,#397a50 0 20%,transparent 21%);
+    pointer-events: none;
+  }
+  .orientation-overlay::before { top: -44px; left: -55px; transform: rotate(18deg); }
+  .orientation-overlay::after { right: -60px; bottom: -42px; transform: rotate(-18deg); }
+
+  .orientation-card {
+    position: relative;
+    width: min(390px,100%);
+    min-height: min(610px,calc(100svh - 44px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 38px 28px 30px;
+    overflow: hidden;
+    border: 9px solid #74401f;
+    border-radius: 30px;
+    background:
+      repeating-linear-gradient(1deg,rgba(117,78,36,.055) 0 2px,transparent 2px 18px),
+      linear-gradient(145deg,#fffdf4,#f4ead1);
+    color: #29483f;
+    text-align: center;
+    box-shadow: inset 0 0 0 4px #dba367,inset 0 0 0 7px #95582d,0 24px 58px rgba(28,67,66,.32);
+  }
+
+  .orientation-brand {
+    position: absolute;
+    top: 27px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 18px;
+    font-weight: 950;
+    letter-spacing: .14em;
+  }
+  .orientation-brand span { color: #c88d2c; font-size: 26px; }
+
+  .orientation-illustration {
+    position: relative;
+    width: 170px;
+    height: 150px;
+    margin-top: 26px;
+    display: grid;
+    place-items: center;
+  }
+  .orientation-phone {
+    position: relative;
+    width: 70px;
+    height: 118px;
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    place-items: center;
+    padding: 22px 10px 14px;
+    border: 5px solid #315b55;
+    border-radius: 15px;
+    background: linear-gradient(145deg,#a9d3d1,#79b6bb);
+    box-shadow: inset 0 0 0 3px #f7f0d9,0 12px 24px rgba(29,65,61,.22);
+    transform: rotate(-90deg);
+    animation: phone-turn 2.8s ease-in-out infinite;
+  }
+  .orientation-phone::before {
+    content: "";
+    position: absolute;
+    top: 7px;
+    width: 24px;
+    height: 4px;
+    border-radius: 9px;
+    background: #315b55;
+  }
+  .orientation-phone span { color: #f1c151; font-size: 22px; line-height: 1; text-shadow: 0 2px #38675f; }
+  .orientation-phone span:last-child { grid-column: 1 / 3; }
+  .orientation-arrow {
+    position: absolute;
+    right: 4px;
+    top: 10px;
+    color: #c58b2f;
+    font-size: 44px;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .orientation-copy { max-width: 295px; }
+  .orientation-kicker {
+    display: block;
+    margin-bottom: 8px;
+    color: #b67e27;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .19em;
+  }
+  .orientation-copy strong { display: block; font-size: clamp(25px,7vw,31px); line-height: 1.08; }
+  .orientation-copy p { margin: 13px 0 0; color: #536861; font-size: 15px; font-weight: 650; line-height: 1.5; }
+  .orientation-card > small { color: #7c837c; font-size: 11px; font-weight: 700; }
+
+  @keyframes phone-turn {
+    0%,18% { transform: rotate(0deg) scale(.92); }
+    42%,82% { transform: rotate(-90deg) scale(1); }
+    100% { transform: rotate(-90deg) scale(.92); }
+  }
+}
 @media (max-width: 900px) and (orientation: portrait) {
   body::before {
     content: "↻\A\A Bitte ins Querformat drehen";
