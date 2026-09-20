@@ -610,7 +610,7 @@ button, a { font: inherit; }
 .building-city .building-flag { display: block; left: 22px; top: -7px; width: 14px; height: 9px; border-radius: 1px 4px 4px 1px; background: currentColor; box-shadow: inset 0 0 0 1px #fff7; transform-origin: left center; animation: city-flag-wave 1.2s ease-in-out infinite; }
 @keyframes city-flag-wave { 0%,100% { transform: skewY(-4deg) scaleX(1); } 50% { transform: skewY(7deg) scaleX(.78); } }
 .victory-target-chip { justify-self: center; padding: 4px 9px; border: 1px solid #d9b66f; border-radius: 999px; background: #fff7df; color: #81591f; font-size: 10px; font-style: normal; font-weight: 900; letter-spacing: .04em; }
-.road-carriage-html { position: absolute; z-index: 8; width: 34px; height: 25px; overflow: visible; pointer-events: none; color: #111; filter: drop-shadow(0 3px 3px #17211d66); transform-origin: center; will-change: left,top,transform; }
+.road-carriage-html { position: absolute; z-index: 30; width: 34px; height: 25px; overflow: visible; pointer-events: none; color: #111; filter: drop-shadow(0 3px 3px #17211d66); transform-origin: center; will-change: left,top,transform; }
 .carriage-shadow { fill: #17211d35; }
 .carriage-horse { fill: #111; stroke: #050505; stroke-width: 1.6; stroke-linecap: round; }
 .carriage-shaft { fill: none; stroke: #111; stroke-width: 2; }
@@ -1889,4 +1889,40 @@ body:has(.online-shell) {
   justify-content: stretch;
   gap: 7px;
   padding: 12px !important;
+}
+
+/* v45: Keine künstliche Höhe zwischen Überschrift, Spielern und Steuerung. */
+.online-shell .sidebar-game-section {
+  height: auto !important;
+  min-height: 0 !important;
+  justify-content: flex-start !important;
+  align-content: flex-start !important;
+}
+.online-shell .sidebar-game-section .room-panel {
+  position: static !important;
+  flex: none !important;
+  align-self: stretch !important;
+  block-size: fit-content !important;
+  min-block-size: 0 !important;
+  max-block-size: none !important;
+  overflow: visible !important;
+}
+.online-shell .sidebar-game-section .room-player,
+.online-shell .sidebar-game-section .empty-player {
+  flex: none !important;
+  margin: 0 !important;
+}
+.online-shell .sidebar-game-section .online-control-area {
+  flex: none !important;
+  align-self: stretch !important;
+  block-size: fit-content !important;
+  min-block-size: 0 !important;
+}
+
+@media (orientation: landscape) and (max-width: 1400px) and (max-height: 850px) {
+  .online-shell {
+    inset-block: 4px;
+    inset-inline-start: max(6px, env(safe-area-inset-left));
+    inset-inline-end: max(6px, env(safe-area-inset-right));
+  }
 }
