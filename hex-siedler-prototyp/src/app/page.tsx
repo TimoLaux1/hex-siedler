@@ -521,6 +521,31 @@ function SeaVisitor() {
   </div>;
 }
 
+function SwimmingFishLayer() {
+  const swimmers = [
+    { left: "8%", top: "18%", size: 34, motion: 1, flip: false },
+    { left: "88%", top: "15%", size: 25, motion: 2, flip: true },
+    { left: "13%", top: "43%", size: 23, motion: 3, flip: false },
+    { left: "91%", top: "39%", size: 31, motion: 4, flip: true },
+    { left: "7%", top: "72%", size: 28, motion: 2, flip: false },
+    { left: "87%", top: "76%", size: 22, motion: 3, flip: true },
+    { left: "24%", top: "88%", size: 19, motion: 4, flip: false },
+    { left: "76%", top: "89%", size: 27, motion: 1, flip: true },
+  ];
+  return <div className="swimming-fish-layer" aria-hidden="true">
+    {swimmers.map((fish, index) => <svg
+      className={`water-swimmer fish-motion-${fish.motion} ${fish.flip ? "water-swimmer-flip" : ""}`}
+      key={index}
+      viewBox="0 0 64 34"
+      style={{ left: fish.left, top: fish.top, width: fish.size }}
+    >
+      <path d="M13 17C22 5 43 5 53 17 43 29 22 29 13 17Z" />
+      <path d="M14 17 2 6v22Z" />
+      <circle cx="45" cy="14" r="1.7" />
+    </svg>)}
+  </div>;
+}
+
 function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
@@ -2116,6 +2141,7 @@ export default function Home() {
         </div>
         <section className="online-board-area">
           <SeaVisitor />
+          <SwimmingFishLayer />
           <BoardFit><FullBoard
             room={room}
             myIndex={me?.player_index}
