@@ -22,8 +22,7 @@ type GameState = { round?: number; phase?: string; setup_step?: number; setup_or
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
-type CarriageRoute = { vertices: number[]; player: number; run: number };
-type FoxRun = { row: number[]; run: number; reverse: boolean };
+type CarriageRoute = { vertices: number[]; player: number; run: number; duration: number };
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -297,6 +296,31 @@ function calculateLongestRoad(playerIndex: number, roads: Road[], settlements: S
   return Math.max(...Array.from(connected.keys(), (vertex) => walk(vertex, new Set<number>(), false)));
 }
 
+function calculateLongestRoadPath(playerIndex: number, roads: Road[], settlements: Settlement[]) {
+  const playerRoads = roads.filter((road) => road.player === playerIndex);
+  if (playerRoads.length === 0) return [] as number[];
+  const blockedVertices = new Set(settlements.filter((building) => building.player !== playerIndex).map((building) => building.vertex));
+  const connected = new Map<number, Road[]>();
+  playerRoads.forEach((road) => {
+    connected.set(road.a, [...(connected.get(road.a) ?? []), road]);
+    connected.set(road.b, [...(connected.get(road.b) ?? []), road]);
+  });
+  let longest: number[] = [];
+  const walk = (vertex: number, usedEdges: Set<number>, path: number[], started: boolean) => {
+    if (path.length > longest.length) longest = path;
+    if (started && blockedVertices.has(vertex)) return;
+    for (const road of connected.get(vertex) ?? []) {
+      if (usedEdges.has(road.edge)) continue;
+      const nextUsed = new Set(usedEdges);
+      nextUsed.add(road.edge);
+      const nextVertex = road.a === vertex ? road.b : road.a;
+      walk(nextVertex, nextUsed, [...path, nextVertex], true);
+    }
+  };
+  connected.forEach((_, vertex) => walk(vertex, new Set<number>(), [vertex], false));
+  return longest;
+}
+
 const topology = createBoardTopology([...tileCenters, ...fishCenters]);
 
 function TerrainArtwork({ type, x, y }: { type: string; x: number; y: number }) {
@@ -359,10 +383,12 @@ function FishArtwork({ x, y }: { x: number; y: number }) {
 }
 
 function OceanDecorations() {
-  const fish = (x: number, y: number, scale = 1, flip = false) => <g className="ocean-fish" transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
-    <path d="M-18 0C-8-13 11-13 23 0 11 13-8 13-18 0Z" />
-    <path d="m-17 0-14-11v22Z" />
-    <circle cx="15" cy="-2" r="2" />
+  const fish = (x: number, y: number, scale = 1, flip = false, motion = 1) => <g transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
+    <g className={`ocean-fish ocean-fish-swimmer fish-motion-${motion}`}>
+      <path d="M-18 0C-8-13 11-13 23 0 11 13-8 13-18 0Z" />
+      <path d="m-17 0-14-11v22Z" />
+      <circle cx="15" cy="-2" r="2" />
+    </g>
   </g>;
   const dolphin = (x: number, y: number, scale = 1, flip = false) => <g className="ocean-dolphin" transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
     <path d="M-36 9C-17-17 17-22 42-5 27-5 22 2 12 9 0 18-15 18-28 14l-13 10 4-15Z" />
@@ -370,11 +396,11 @@ function OceanDecorations() {
     <circle cx="29" cy="-7" r="1.8" />
   </g>;
   return <svg className="ocean-decorations" viewBox="0 0 610 544" aria-hidden="true">
-    {fish(-72, 98, .78)}{fish(-118, 145, .48)}{fish(-88, 195, .58, true)}
-    {fish(686, 92, .65, true)}{fish(724, 142, .46, true)}{fish(692, 205, .52)}
-    {fish(-98, 455, .62)}{fish(701, 462, .7, true)}
-    {fish(105, -78, .55)}{fish(505, -92, .48, true)}
-    {fish(118, 637, .55, true)}{fish(495, 648, .62)}
+    {fish(-72, 98, .78, false, 1)}{fish(-118, 145, .48, false, 3)}{fish(-88, 195, .58, true, 2)}
+    {fish(686, 92, .65, true, 2)}{fish(724, 142, .46, true, 4)}{fish(692, 205, .52, false, 1)}
+    {fish(-98, 455, .62, false, 4)}{fish(701, 462, .7, true, 3)}
+    {fish(105, -78, .55, false, 2)}{fish(505, -92, .48, true, 1)}
+    {fish(118, 637, .55, true, 3)}{fish(495, 648, .62, false, 4)}
     {dolphin(-112, 318, .95)}{dolphin(718, 330, .88, true)}
     {dolphin(278, -105, .7, true)}{dolphin(337, 661, .75)}
     <g className="ocean-bubbles"><circle cx="-55" cy="255" r="7"/><circle cx="-34" cy="279" r="3"/><circle cx="672" cy="265" r="6"/><circle cx="650" cy="286" r="3"/></g>
@@ -495,105 +521,55 @@ function SeaVisitor() {
   </div>;
 }
 
-function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile, onFoxBite }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void; onFoxBite?: () => void }) {
+function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const visibleTerrain = room?.board_tiles ?? previewTiles ?? terrain;
   const settlements = state?.settlements ?? [];
   const roads = state?.roads ?? [];
   const [carriageRoute, setCarriageRoute] = useState<CarriageRoute | null>(null);
-  const [foxRun, setFoxRun] = useState<FoxRun | null>(null);
-  const robberTileRef = useRef(robberPreviewTile ?? state?.robber_tile ?? 9);
-  const foxBiteRef = useRef(onFoxBite);
-  robberTileRef.current = robberPreviewTile ?? state?.robber_tile ?? 9;
-  foxBiteRef.current = onFoxBite;
-  const carriageCandidates = useMemo(() => {
-    const cities = settlements.filter((building) => building.building === "city");
-    const candidates: Array<{ vertices: number[]; player: number }> = [];
-    for (const player of new Set(cities.map((city) => city.player))) {
-      const playerCities = cities.filter((city) => city.player === player);
-      const playerRoads = roads.filter((road) => road.player === player);
-      const blocked = new Set(settlements.filter((building) => building.player !== player).map((building) => building.vertex));
-      const network = new Map<number, number[]>();
-      playerRoads.forEach((road) => {
-        network.set(road.a, [...(network.get(road.a) ?? []), road.b]);
-        network.set(road.b, [...(network.get(road.b) ?? []), road.a]);
-      });
-      for (let first = 0; first < playerCities.length; first += 1) {
-        for (let second = first + 1; second < playerCities.length; second += 1) {
-          const start = playerCities[first].vertex;
-          const destination = playerCities[second].vertex;
-          const queue: number[][] = [[start]];
-          const visited = new Set([start]);
-          let route: number[] | null = null;
-          while (queue.length && !route) {
-            const path = queue.shift()!;
-            const current = path[path.length - 1];
-            for (const next of network.get(current) ?? []) {
-              if (visited.has(next) || (blocked.has(next) && next !== destination)) continue;
-              const nextPath = [...path, next];
-              if (next === destination) { route = nextPath; break; }
-              visited.add(next);
-              queue.push(nextPath);
-            }
-          }
-          if (route && route.length - 1 >= 4) candidates.push({ vertices: route, player });
-        }
-      }
-    }
-    return candidates;
-  }, [roads, settlements]);
-
+  const carriageHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousRoads = useRef<Road[]>(roads);
+  const initialRoadHolder = typeof state?.longest_road_holder === "number" ? state.longest_road_holder : undefined;
+  const previousLongestRoadHolder = useRef<number | undefined>(initialRoadHolder);
   useEffect(() => {
-    if (!room || room.status !== "playing" || carriageCandidates.length === 0) {
+    if (!room || room.status !== "playing") {
+      previousRoads.current = roads;
+      previousLongestRoadHolder.current = typeof state?.longest_road_holder === "number" ? state.longest_road_holder : undefined;
       setCarriageRoute(null);
       return;
     }
-    let stopped = false;
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
-    let showTimer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = (first = false) => {
-      const delay = first ? 9000 + Math.random() * 8000 : 30000 + Math.random() * 45000;
-      showTimer = setTimeout(() => {
-        if (stopped) return;
-        const candidate = carriageCandidates[Math.floor(Math.random() * carriageCandidates.length)];
-        const direction = Math.random() < .5 ? candidate.vertices : [...candidate.vertices].reverse();
-        setCarriageRoute({ vertices: direction, player: candidate.player, run: Date.now() });
-        hideTimer = setTimeout(() => {
-          if (stopped) return;
-          setCarriageRoute(null);
-          schedule();
-        }, 50000);
-      }, delay);
-    };
-    schedule(true);
-    return () => { stopped = true; if (showTimer) clearTimeout(showTimer); if (hideTimer) clearTimeout(hideTimer); };
-  }, [room?.id, room?.status, carriageCandidates]);
-
-  useEffect(() => {
-    if (!room || room.status !== "playing") { setFoxRun(null); return; }
-    const boardRows = [[0,1,2],[3,4,5,6],[7,8,9,10,11],[12,13,14,15],[16,17,18]];
-    let biteTimer: ReturnType<typeof setTimeout> | undefined;
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
-    const startFox = () => {
-      const row = boardRows[Math.floor(Math.random() * boardRows.length)];
-      const reverse = Math.random() < .5;
-      setFoxRun({ row, reverse, run: Date.now() });
-      const robberPosition = row.indexOf(robberTileRef.current);
-      if (robberPosition >= 0) {
-        const firstX = tileCenters[row[0]].x;
-        const lastX = tileCenters[row[row.length - 1]].x;
-        const startX = reverse ? lastX + 82 : firstX - 82;
-        const endX = reverse ? firstX - 82 : lastX + 82;
-        const robberX = tileCenters[row[robberPosition]].x;
-        const biteDelay = 42000 * (Math.abs(robberX - startX) / Math.abs(endX - startX));
-        biteTimer = setTimeout(() => foxBiteRef.current?.(), biteDelay);
+    const newRoad = roads.find((road) => !previousRoads.current.some((previous) => previous.edge === road.edge));
+    const holder = typeof state?.longest_road_holder === "number" ? state.longest_road_holder : undefined;
+    const holderChanged = holder !== undefined && holder !== previousLongestRoadHolder.current;
+    let route: number[] = [];
+    let player: number | undefined;
+    let duration = 50;
+    if (holderChanged) {
+      route = calculateLongestRoadPath(holder, roads, settlements);
+      if (route.length - 1 >= 5) {
+        player = holder;
+        duration = 60;
       }
-      hideTimer = setTimeout(() => setFoxRun(null), 43000);
-    };
-    const interval = setInterval(startFox, 5 * 60 * 1000);
-    return () => { clearInterval(interval); if (biteTimer) clearTimeout(biteTimer); if (hideTimer) clearTimeout(hideTimer); };
-  }, [room?.id, room?.status]);
+    }
+    if (player === undefined && newRoad) {
+      const builtRoute = calculateLongestRoadPath(newRoad.player, roads, settlements);
+      if (builtRoute.length - 1 >= 3) {
+        route = builtRoute;
+        player = newRoad.player;
+        duration = 50;
+      }
+    }
+    previousRoads.current = roads;
+    previousLongestRoadHolder.current = holder;
+    if (player === undefined) return;
+    const direction = Math.random() < .5 ? route : [...route].reverse();
+    const run = Date.now();
+    setCarriageRoute({ vertices: direction, player, run, duration });
+    if (carriageHideTimer.current) clearTimeout(carriageHideTimer.current);
+    carriageHideTimer.current = setTimeout(() => setCarriageRoute((active) => active?.run === run ? null : active), duration * 1000 + 500);
+  }, [room?.id, room?.status, roads, settlements, state?.longest_road_holder]);
+  useEffect(() => () => { if (carriageHideTimer.current) clearTimeout(carriageHideTimer.current); }, []);
   const step = state?.setup_step ?? 0;
   const currentPlayer = state?.setup_order?.[step];
   const mySetupTurn = myIndex !== undefined && currentPlayer === myIndex;
@@ -687,28 +663,7 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
               <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
               <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
               <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
-              <animateMotion dur="48s" begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
-            </g>
-          </g>;
-        })()}
-        {foxRun && (() => {
-          const first = tileCenters[foxRun.row[0]];
-          const last = tileCenters[foxRun.row[foxRun.row.length - 1]];
-          const startX = foxRun.reverse ? last.x + 82 : first.x - 82;
-          const endX = foxRun.reverse ? first.x - 82 : last.x + 82;
-          const pathId = `fox-route-${foxRun.run}`;
-          return <g className="board-fox" aria-hidden="true">
-            <path id={pathId} d={`M${startX} ${first.y} L${endX} ${first.y}`} fill="none" stroke="transparent"/>
-            <g className="fox-runner">
-              <ellipse className="fox-shadow" cx="0" cy="8" rx="16" ry="4"/>
-              <path className="fox-tail" d="M8 0Q24-15 29-3Q23 10 10 7Z"/>
-              <ellipse className="fox-body" cx="0" cy="0" rx="13" ry="8"/>
-              <path className="fox-chest" d="M-8-5Q-14 1-8 7L-2 3Z"/>
-              <circle className="fox-head" cx="-12" cy="-7" r="8"/>
-              <path className="fox-ear" d="m-18-13 2-10 6 9m2 1 6-8 1 11"/>
-              <path className="fox-muzzle" d="m-19-5-8 4 10 2Z"/>
-              <circle className="fox-eye" cx="-14" cy="-9" r="1.2"/>
-              <animateMotion dur="42s" begin="0s" fill="freeze" rotate="auto-reverse"><mpath href={`#${pathId}`}/></animateMotion>
+              <animateMotion dur={`${carriageRoute.duration}s`} begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
             </g>
           </g>;
         })()}
@@ -1031,19 +986,6 @@ export default function Home() {
     call.rate = .62;
     call.pitch = .72;
     call.volume = .9;
-    window.speechSynthesis.speak(call);
-  }
-
-  function speakRobberOuch() {
-    if (!soundEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const call = new SpeechSynthesisUtterance("AUA!");
-    const germanVoice = window.speechSynthesis.getVoices().find((voice) => voice.lang.toLocaleLowerCase().startsWith("de"));
-    if (germanVoice) call.voice = germanVoice;
-    call.lang = "de-DE";
-    call.rate = .72;
-    call.pitch = .62;
-    call.volume = 1;
     window.speechSynthesis.speak(call);
   }
 
@@ -1661,9 +1603,11 @@ export default function Home() {
     const { data, error: placementError } = await supabase.rpc(rpcName, parameters);
     if (placementError) setError(placementError.message);
     else {
+      const { data: roadAwardData, error: roadAwardError } = await supabase.rpc("refresh_longest_road", { p_game_id: room.id });
+      if (roadAwardError) setError(roadAwardError.message);
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
       if (winnerError) setError(winnerError.message);
-      const nextRoom = normalizedRoom(winnerData ?? data);
+      const nextRoom = normalizedRoom(winnerData ?? roadAwardData ?? data);
       setRoom(nextRoom);
       const building = rpcName === "upgrade_game_city" ? "eine Stadt" : rpcName === "upgrade_game_goldmine" ? "eine Goldmine" : "eine Siedlung";
       if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
@@ -1681,9 +1625,13 @@ export default function Home() {
     const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
     if (placementError) setError(placementError.message);
     else {
-      setRoom(normalizedRoom(data));
+      const { data: roadAwardData, error: roadAwardError } = await supabase.rpc("refresh_longest_road", { p_game_id: room.id });
+      if (roadAwardError) setError(roadAwardError.message);
+      const nextRoom = normalizedRoom(roadAwardData ?? data);
+      setRoom(nextRoom);
       setBuildMode(null);
-      announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build");
+      if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
+      else announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build");
       await loadPlayerData(room.id);
     }
     setBusy(false);
@@ -1987,7 +1935,10 @@ export default function Home() {
     <main className="online-shell">
       <div className="frame-vines" aria-hidden="true"><i className="vine-top-right" /><i className="vine-bottom-right" /></div>
       <header className="online-topbar">
-        <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
+        <div className="topbar-left">
+          <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
+          {room.status === "playing" && <button className="end-button topbar-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
+        </div>
         <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
         <div className="topbar-actions">
           <button className="music-button" type="button" onClick={toggleMusic} aria-label={musicEnabled ? "Musik ausschalten" : "Musik einschalten"} title={musicEnabled ? "Musik ausschalten" : "Musik einschalten"}>{musicEnabled ? "🎵" : "🎵̸"}</button>
@@ -2020,7 +1971,6 @@ export default function Home() {
       <section className="online-layout">
         <div className="online-sidebar">
         <aside className="room-panel card">
-          {room.status === "playing" && <button className="end-button room-end-button" onClick={endTurn} disabled={room.state?.phase !== "build" || !isMyTurn || busy || Boolean(activeCard) || Boolean(room.state?.card_event)}>Zug beenden</button>}
           {players.map((player) => (
             <div className="room-player" key={player.user_id}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
@@ -2178,7 +2128,6 @@ export default function Home() {
             onKlausVertex={(vertex) => void playKlausCard({ vertex: vertex.id })}
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={selectRobberTile}
-            onFoxBite={speakRobberOuch}
           /></BoardFit>
           {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
           {largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
