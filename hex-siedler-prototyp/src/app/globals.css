@@ -1823,3 +1823,54 @@ button, a { font: inherit; }
   .online-shell .sidebar-klaus-hand,
   .online-shell .sidebar-dice-statistics { padding: 11px 10px; }
 }
+
+/* v44: Das Spiel bleibt exakt im sichtbaren Viewport; nur die linke Leiste scrollt. */
+html:has(.online-shell),
+body:has(.online-shell) {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #8fc5d2;
+}
+.online-shell {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.online-shell > .online-layout {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.online-shell .online-sidebar {
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.online-shell .sidebar-game-section .online-control-area,
+.online-shell .sidebar-game-section .room-panel,
+.online-shell .sidebar-game-section .waiting-card,
+.online-shell .sidebar-game-section .turn-card {
+  height: auto !important;
+  min-height: 0 !important;
+  align-self: auto;
+}
+.online-shell .sidebar-game-section .online-control-area {
+  display: block;
+  padding-bottom: 8px;
+}
+.online-shell .sidebar-game-section .room-panel {
+  padding-top: 4px;
+}

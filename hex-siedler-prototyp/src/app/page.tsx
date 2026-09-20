@@ -853,6 +853,7 @@ export default function Home() {
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const [localDiscardDeadline, setLocalDiscardDeadline] = useState<number | null>(null);
   const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
   const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
   const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
@@ -883,6 +884,7 @@ export default function Home() {
   const lastSoundEventId = useRef<Record<string, number>>({});
   const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
+  const automaticDiscardPending = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("new-katan-language");
@@ -1028,7 +1030,10 @@ export default function Home() {
     if (playerIndex === activePlayerIndex) return activePlayerSeconds;
     return Math.max(0, Number(room?.state?.player_time_remaining?.[String(playerIndex)] ?? 600));
   };
-  const discardSeconds = room?.state?.discard_deadline ? Math.max(0, Math.ceil((new Date(room.state.discard_deadline).getTime() - clockNow) / 1000)) : 10;
+  const discardDeadline = room?.state?.discard_deadline
+    ? new Date(room.state.discard_deadline).getTime()
+    : localDiscardDeadline;
+  const discardSeconds = discardDeadline ? Math.max(0, Math.ceil((discardDeadline - clockNow) / 1000)) : 10;
   const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
   const bankTradeRate = hasHarbor ? 3 : 4;
   const robberVictimsForTile = (tile: number) => players.filter((player) =>
@@ -1618,6 +1623,30 @@ export default function Home() {
     const clock = window.setInterval(() => setClockNow(Date.now()), 250);
     return () => window.clearInterval(clock);
   }, [roomId, room?.status]);
+
+  useEffect(() => {
+    if (room?.state?.phase !== "discard") {
+      setLocalDiscardDeadline(null);
+      automaticDiscardPending.current = false;
+      return;
+    }
+    if (!room.state.discard_deadline && localDiscardDeadline === null) {
+      setLocalDiscardDeadline(Date.now() + 10_000);
+    }
+  }, [localDiscardDeadline, room?.state?.discard_deadline, room?.state?.phase]);
+
+  useEffect(() => {
+    if (room?.state?.phase !== "discard" || !myDiscard || discardSeconds > 0 || busy || automaticDiscardPending.current) return;
+    const availableResources = resourceCards.flatMap(({ key }) =>
+      Array.from({ length: Math.max(0, myResources[key] ?? 0) }, () => key)
+    );
+    if (!availableResources.length) return;
+    const randomResource = availableResources[Math.floor(Math.random() * availableResources.length)];
+    automaticDiscardPending.current = true;
+    void discardResource(randomResource).finally(() => {
+      automaticDiscardPending.current = false;
+    });
+  }, [busy, discardSeconds, myDiscard?.remaining, myResources.wood, myResources.brick, myResources.wool, myResources.grain, myResources.ore, room?.state?.phase]);
 
   useEffect(() => {
     const client = supabase;
