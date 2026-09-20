@@ -246,13 +246,14 @@ button, a { font: inherit; }
 @keyframes city-flag-wave { 0%,100% { transform: skewY(-4deg) scaleX(1); } 50% { transform: skewY(7deg) scaleX(.78); } }
 .victory-target-chip { justify-self: center; padding: 4px 9px; border: 1px solid #d9b66f; border-radius: 999px; background: #fff7df; color: #81591f; font-size: 10px; font-style: normal; font-weight: 900; letter-spacing: .04em; }
 .road-carriage { pointer-events: none; }
-.road-carriage-vehicle { filter: drop-shadow(0 3px 3px #17211d66); }
+.road-carriage-vehicle { color: #111; filter: drop-shadow(0 3px 3px #17211d66); }
+.road-carriage-scale { transform: scale(.58); transform-origin: center; }
 .carriage-shadow { fill: #17211d35; }
-.carriage-horse { fill: #765336; stroke: #49321f; stroke-width: 1.6; stroke-linecap: round; }
-.carriage-shaft { fill: none; stroke: #66513a; stroke-width: 2; }
-.carriage-body { fill: currentColor; stroke: #fff7e3; stroke-width: 1.5; }
-.carriage-roof { fill: #55402c; stroke: #fff7e3; stroke-width: 1; }
-.carriage-wheel { fill: #3d3024; stroke: #d3ae6c; stroke-width: 1.5; }
+.carriage-horse { fill: #111; stroke: #050505; stroke-width: 1.6; stroke-linecap: round; }
+.carriage-shaft { fill: none; stroke: #111; stroke-width: 2; }
+.carriage-body { fill: #111; stroke: #d8d8d2; stroke-width: 1.5; }
+.carriage-roof { fill: #050505; stroke: #d8d8d2; stroke-width: 1; }
+.carriage-wheel { fill: #050505; stroke: #777; stroke-width: 1.5; }
 .robber-marker { pointer-events: none; filter: drop-shadow(0 2px 3px #17211d99); }
 .robber-walk { transform-origin: center bottom; }
 .robber-shadow { fill: #1118; }
@@ -268,7 +269,8 @@ button, a { font: inherit; }
 .setup-edge.built { cursor: default; }
 .setup-edge.klaus-danger { background: #b7493d; cursor: crosshair; animation: setup-pulse 1s infinite; }.setup-vertex.klaus-sneaky { width: 34px; height: 34px; border-color: #e9ffd8; background: #4d8d62; font-size: 15px; cursor: pointer; }
 .setup-error { color: #a43f2f !important; font-weight: 800; }
-.bot-debug-panel { position: fixed; z-index: 5000; top: 82px; right: 14px; width: min(430px,calc(100vw - 28px)); display: grid; gap: 4px; padding: 12px 14px; border: 3px solid #9b2f24; border-radius: 12px; background: #fff4cf; color: #442018; box-shadow: 0 8px 30px #32130d55; font-size: 12px; line-height: 1.3; }
+.bot-debug-toggle { position: fixed; z-index: 5001; top: 82px; right: 14px; width: 34px; height: 34px; padding: 0; border: 2px solid #8d3a30; border-radius: 999px; background: #fff4cf; color: #6f2c24; font-size: 13px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 12px #32130d38; }
+.bot-debug-panel { position: fixed; z-index: 5000; top: 122px; right: 14px; width: min(430px,calc(100vw - 28px)); display: grid; gap: 4px; padding: 12px 14px; border: 3px solid #9b2f24; border-radius: 12px; background: #fff4cf; color: #442018; box-shadow: 0 8px 30px #32130d55; font-size: 12px; line-height: 1.3; }
 .bot-debug-panel strong { color: #9b2f24; font-size: 14px; letter-spacing: .05em; }
 .bot-debug-panel span { color: #442018; overflow-wrap: anywhere; }
 .bot-debug-panel span b { color: #171c1a; font-size: inherit; letter-spacing: 0; }
@@ -331,10 +333,10 @@ button, a { font: inherit; }
 .resource-card { position: relative; overflow: visible; }
 .resource-card.gaining { z-index: 4; animation: resource-card-gain 2s ease-out both; }
 .resource-card.gaining .resource-badge { animation: resource-icon-gain 2s ease-out both; }
-.resource-gain { position: absolute; z-index: 5; right: -8px; top: -10px; min-width: 29px; padding: 4px 6px; border: 2px solid #fff; border-radius: 999px; background: #f4c94f; color: #254b40; font-size: 12px; font-weight: 950; line-height: 1; text-align: center; box-shadow: 0 4px 12px rgba(24,74,61,.3); animation: resource-gain-label 2s ease-out both; }
+.resource-gain { position: absolute; z-index: 5; right: -8px; top: -10px; min-width: 29px; padding: 4px 6px; border: 2px solid #fff; border-radius: 999px; background: #f4c94f; color: #254b40; font-size: 12px; font-weight: 950; line-height: 1; text-align: center; box-shadow: 0 4px 12px rgba(24,74,61,.3); animation: resource-gain-label 4.5s .7s ease-out both; }
 @keyframes resource-card-gain { 0% { transform: scale(.96); box-shadow: 0 0 0 0 color-mix(in srgb,var(--resource-color) 70%,transparent); } 18%,55% { transform: scale(1.08); border-color: #fff7b7; box-shadow: 0 0 0 5px #fff3a780,0 0 24px 8px color-mix(in srgb,var(--resource-color) 55%,transparent); } 100% { transform: scale(1); box-shadow: 0 3px 10px #394b4310; } }
 @keyframes resource-icon-gain { 0% { filter: brightness(1); } 18%,60% { filter: brightness(1.55) saturate(1.25) drop-shadow(0 0 7px #fff09a); } 100% { filter: brightness(1); } }
-@keyframes resource-gain-label { 0% { opacity: 0; transform: translateY(8px) scale(.7); } 14%,70% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-9px) scale(.9); } }
+@keyframes resource-gain-label { 0% { opacity: 0; transform: translateY(8px) scale(.7); } 9%,82% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-9px) scale(.9); } }
 .online-board-area { grid-column: 2; display: grid; grid-template-columns: minmax(0,1fr); justify-items: center; align-content: start; gap: 8px; min-width: 0; }.online-board-area .full-board { transform: scale(.9); transform-origin: top center; margin: 0 0 -46px; }.online-control-area { grid-column: 2; display: grid; justify-items: center; min-width: 0; }.waiting-card { width: min(540px,100%); padding: 18px 22px; background: white; border-radius: 16px; box-shadow: 0 8px 24px #33443e14; display: grid; gap: 6px; text-align: center; }.waiting-card span { color: #78827e; font-size: 12px; }.waiting-card button { max-width: 220px; margin: 10px auto 0; }.waiting-card.playing { background: #e4f1ec; }.waiting-card.victory-card { padding-block: 24px; background: linear-gradient(145deg,#fffaf0,#f1dfb9); border: 1px solid #e3c47f; }.victory-card .victory-crown { color: #c88625; font-size: 34px; line-height: 1; }.victory-card strong { color: #654414; font-size: 22px; }
 .longest-road-badge { margin-top: -12px; padding: 9px 16px; border: 1px solid #d7b66f; border-radius: 999px; background: linear-gradient(110deg,#fff9e9,#ecd69e); color: #79531c; font-size: 11px; box-shadow: 0 5px 14px #6b522020; }
 .largest-army-badge { margin-top: 0; padding: 9px 16px; border: 1px solid #b9a3bd; border-radius: 999px; background: linear-gradient(110deg,#fbf7fc,#dfcfe3); color: #67496b; font-size: 11px; box-shadow: 0 5px 14px #49324d20; }

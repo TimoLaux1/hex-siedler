@@ -681,14 +681,16 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           }).join(" ");
           return <g className="road-carriage" aria-hidden="true">
             <path id={routeId} d={routePath} fill="none" stroke="transparent" />
-            <g className="road-carriage-vehicle" style={{ color: colors[carriageRoute.player] }}>
-              <ellipse className="carriage-shadow" cx="0" cy="7" rx="18" ry="4" />
-              <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4"/></g>
-              <path className="carriage-shaft" d="M-9 1H2"/>
-              <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
-              <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
-              <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
-              <animateMotion dur={`${carriageRoute.duration}s`} begin="0s" fill="freeze" rotate="auto"><mpath href={`#${routeId}`} /></animateMotion>
+            <g className="road-carriage-vehicle">
+              <animateMotion path={routePath} dur={`${carriageRoute.duration}s`} begin="0s" fill="freeze" rotate="auto" />
+              <g className="road-carriage-scale">
+                <ellipse className="carriage-shadow" cx="0" cy="7" rx="18" ry="4" />
+                <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4"/></g>
+                <path className="carriage-shaft" d="M-9 1H2"/>
+                <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
+                <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
+                <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
+              </g>
             </g>
           </g>;
         })()}
@@ -818,7 +820,10 @@ export default function Home() {
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState<InstallPromptEvent | null>(null);
   const [activity, setActivity] = useState<GameActivity>({ message: "Willkommen bei New Katan.", kind: "info", created_at: "" });
+  const [showLongestRoadAward, setShowLongestRoadAward] = useState(false);
+  const [showLargestArmyAward, setShowLargestArmyAward] = useState(false);
   const [botDiagnostic, setBotDiagnostic] = useState("");
+  const [showBotDiagnostic, setShowBotDiagnostic] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
   const resumeAttemptedForUser = useRef("");
@@ -924,7 +929,7 @@ export default function Home() {
           return next;
         });
         delete resourceGainTimers.current[key];
-      }, 2000);
+      }, 5400);
     });
     if (Object.keys(gains).length) setResourceGains((active) => ({ ...active, ...gains }));
   }, [room?.id, me?.resources?.wood, me?.resources?.brick, me?.resources?.wool, me?.resources?.grain, me?.resources?.ore]);
@@ -964,13 +969,15 @@ export default function Home() {
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const activePlayerIndex = room?.state?.active_player;
   const playerTimersReady = Boolean(room?.state?.player_time_remaining);
-  const playerClockPaused = Boolean(room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
+  const activePlayerIsBot = Boolean(activePlayer?.is_bot);
+  const playerClockPaused = Boolean(activePlayerIsBot || room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
   const storedActiveSeconds = activePlayerIndex === undefined ? 600 : Number(room?.state?.player_time_remaining?.[String(activePlayerIndex)] ?? 600);
   const activeClockElapsed = !playerClockPaused && room?.state?.player_timer_active === activePlayerIndex && room?.state?.player_timer_started_at
     ? Math.max(0, (clockNow - new Date(room.state.player_timer_started_at).getTime()) / 1000)
     : 0;
   const activePlayerSeconds = Math.max(0, storedActiveSeconds - activeClockElapsed);
   const playerSeconds = (playerIndex: number) => {
+    if (players.find((player) => player.player_index === playerIndex)?.is_bot) return 600;
     if (playerIndex === activePlayerIndex) return activePlayerSeconds;
     return Math.max(0, Number(room?.state?.player_time_remaining?.[String(playerIndex)] ?? 600));
   };
@@ -1362,6 +1369,33 @@ export default function Home() {
 
   const roomId = room?.id;
 
+  useEffect(() => {
+    setActivity({ message: "Willkommen bei New Katan.", kind: "info", created_at: "" });
+    lastSeenRemoteActivity.current = "";
+    lastPlayedActivity.current = "";
+    lastPlayedActivityAt.current = 0;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (room?.state?.longest_road_holder === undefined || room?.state?.longest_road_holder === null) {
+      setShowLongestRoadAward(false);
+      return;
+    }
+    setShowLongestRoadAward(true);
+    const timer = window.setTimeout(() => setShowLongestRoadAward(false), 30000);
+    return () => window.clearTimeout(timer);
+  }, [roomId, room?.state?.longest_road_holder]);
+
+  useEffect(() => {
+    if (room?.state?.largest_army_holder === undefined || room?.state?.largest_army_holder === null) {
+      setShowLargestArmyAward(false);
+      return;
+    }
+    setShowLargestArmyAward(true);
+    const timer = window.setTimeout(() => setShowLargestArmyAward(false), 30000);
+    return () => window.clearTimeout(timer);
+  }, [roomId, room?.state?.largest_army_holder]);
+
   async function loadPlayerData(gameId: string) {
     const client = supabase;
     if (!client) return;
@@ -1439,8 +1473,9 @@ export default function Home() {
   useEffect(() => {
     const client = supabase;
     if (!roomId || !client) return;
+    let cancelled = false;
     const applyRemoteActivity = (next: GameActivity, playSound: boolean) => {
-      if (!next?.message) return;
+      if (cancelled || !next?.message) return;
       const activityKey = `${next.created_at}|${next.message}`;
       if (activityKey === lastSeenRemoteActivity.current) return;
       lastSeenRemoteActivity.current = activityKey;
@@ -1449,7 +1484,9 @@ export default function Home() {
     const loadActivity = async () => {
       const { data } = await client.rpc("get_latest_game_activity", { p_game_id: roomId });
       const latest = (Array.isArray(data) ? data[0] : data) as GameActivity | null;
-      if (latest?.message) applyRemoteActivity(latest, false);
+      // Beim Raumwechsel alte/gespeicherte Meldungen nur als Ausgangspunkt
+      // merken. Sichtbar bleibt "Willkommen", bis wirklich etwas Neues passiert.
+      if (!cancelled && latest?.message) lastSeenRemoteActivity.current = `${latest.created_at}|${latest.message}`;
     };
     void loadActivity();
     const activityPoll = window.setInterval(async () => {
@@ -1464,6 +1501,7 @@ export default function Home() {
       })
       .subscribe();
     return () => {
+      cancelled = true;
       window.clearInterval(activityPoll);
       client.removeChannel(channel);
     };
@@ -1515,7 +1553,7 @@ export default function Home() {
 
   useEffect(() => {
     const client = supabase;
-    if (!client || !roomId || room?.status !== "playing" || !playerTimersReady) return;
+    if (!client || !roomId || room?.status !== "playing" || !playerTimersReady || activePlayer?.is_bot) return;
     const synchronize = async () => {
       const { data, error: timerError } = await client.rpc("sync_player_game_timer", { p_game_id: roomId });
       if (timerError) {
@@ -1527,7 +1565,7 @@ export default function Home() {
     void synchronize();
     const timer = window.setInterval(() => void synchronize(), 1000);
     return () => window.clearInterval(timer);
-  }, [playerTimersReady, roomId, room?.status]);
+  }, [activePlayer?.is_bot, activePlayerIndex, playerTimersReady, roomId, room?.status]);
 
   useEffect(() => {
     const client = supabase;
@@ -1891,23 +1929,15 @@ export default function Home() {
     if (!supabase || !room || !activeCard || !isMyTurn) return;
     setBusy(true); setError("");
     const playedCard = activeCard;
-    const previousArmyHolder = room.state?.largest_army_holder;
     const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: activeCard.id, p_payload: payload });
     if (cardError) setError(cardError.message);
     else {
-      let nextRoom = normalizedRoom(data);
-      if (playedCard.card_type === "angry") {
-        const { data: armyData, error: armyError } = await supabase.rpc("refresh_largest_army", { p_game_id: room.id });
-        if (armyError) setError(armyError.message);
-        else if (armyData) nextRoom = normalizedRoom(armyData);
-      }
+      const nextRoom = normalizedRoom(data);
       setRoom(nextRoom);
       setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
       setSelectedCard(null);
       setSelectedRobberTile(null);
-      const tookLargestArmy = playedCard.card_type === "angry" && nextRoom.state?.largest_army_holder === me?.player_index && previousArmyHolder !== me?.player_index;
       if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
-      else if (tookLargestArmy) announceActivity("largest_army", `${me?.player_name ?? name} übernimmt die Größte Rittermacht!`, "klaus");
       else announceActivity("klaus_card", `${me?.player_name ?? name} spielt „${klausCards[playedCard.card_type].title}“.`, "klaus", klausCards[playedCard.card_type].title);
       await loadPlayerData(room.id);
     }
@@ -2033,7 +2063,8 @@ export default function Home() {
           <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>
         </div>
       </header>
-      {botCount > 0 && room.status !== "waiting" && (
+      {botCount > 0 && room.status !== "waiting" && <button className="bot-debug-toggle" type="button" onClick={() => setShowBotDiagnostic((open) => !open)} aria-expanded={showBotDiagnostic} title="Bot-Diagnose">🤖?</button>}
+      {botCount > 0 && room.status !== "waiting" && showBotDiagnostic && (
         <aside className="bot-debug-panel" aria-live="polite">
           <strong>BOT-DIAGNOSE v30</strong>
           <span>Spielstatus: <b>{room.status || "FEHLT"}</b></span>
@@ -2075,7 +2106,7 @@ export default function Home() {
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
               <strong>{player.player_name}{player.is_bot ? " 🤖" : player.user_id === userId ? " (Du)" : ""}</strong>
               {room.status === "waiting" && player.is_bot && isHost && <button className="remove-bot-button" type="button" onClick={() => void removeBot(player.player_index)} disabled={busy} aria-label={`${player.player_name} entfernen`}>×</button>}
-              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · <span className={`player-resource-count ${(resourceCounts[player.player_index] ?? 0) >= 8 ? "danger" : ""}`}>{resourceCounts[player.player_index] ?? 0}</span> · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
+              <small>{room.status === "waiting" ? player.player_index + 1 : <>{player.victory_points ?? 2} SP · 🛣 {calculateLongestRoad(player.player_index, room.state?.roads ?? [], room.state?.settlements ?? [])} · ♞ {player.knight_points ?? 0} · 🂠 {cardCounts[player.player_index] ?? 0} · <span className={`player-resource-count ${(resourceCounts[player.player_index] ?? 0) >= 8 ? "danger" : ""}`}>{resourceCounts[player.player_index] ?? 0}</span> · {eliminatedPlayers.includes(player.player_index) ? <span className="player-out">Zuschauer</span> : player.is_bot ? <>⏱ ∞</> : <>⏱ {formatClock(playerSeconds(player.player_index))}</>}{room.state?.longest_road_holder === player.player_index ? <span className="road-vp"> · Längste Handelsstraße (+2 SP)</span> : null}{room.state?.largest_army_holder === player.player_index ? <span className="army-vp"> · Größte Rittermacht (+2 SP)</span> : null}</>}</small>
             </div>
           ))}
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => isHost && botCount < 2
@@ -2134,7 +2165,7 @@ export default function Home() {
               </>}
               <div className={`turn-timer ${activePlayerSeconds <= 60 ? "urgent" : ""} ${playerClockPaused ? "paused" : ""}`}>
                 <div className="turn-timer-track"><span style={{ width: `${Math.max(0, Math.min(100, activePlayerSeconds / 600 * 100))}%` }} /></div>
-                <strong>{formatClock(activePlayerSeconds)}</strong>
+                <strong>{activePlayerIsBot ? "∞" : formatClock(activePlayerSeconds)}</strong>
               </div>
               {room.state?.dice ? (
                 <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /></div>
@@ -2233,8 +2264,8 @@ export default function Home() {
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={selectRobberTile}
           /></BoardFit>
-          {longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
-          {largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
+          {showLongestRoadAward && longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
+          {showLargestArmyAward && largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
         </section>
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
