@@ -1741,7 +1741,7 @@ button, a { font: inherit; }
   text-align: center;
 }
 .online-shell .sidebar-game-section .room-panel {
-  order: 2;
+  order: 1;
   flex: 0 0 auto;
   grid-column: auto;
   display: block;
@@ -1760,7 +1760,7 @@ button, a { font: inherit; }
   box-shadow: none;
 }
 .online-shell .sidebar-game-section .online-control-area {
-  order: 1;
+  order: 2;
   flex: 0 0 auto;
   grid-column: auto;
   position: static;
@@ -1872,5 +1872,21 @@ body:has(.online-shell) {
   padding-bottom: 8px;
 }
 .online-shell .sidebar-game-section .room-panel {
-  padding-top: 4px;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: flex-start !important;
+  align-content: flex-start !important;
+  gap: 0;
+  padding: 4px !important;
+}
+.online-shell .sidebar-game-section .room-player:first-child,
+.online-shell .sidebar-game-section .empty-player:first-child {
+  margin-top: 0 !important;
+}
+.online-shell .sidebar-game-section .waiting-card {
+  display: grid;
+  align-content: start;
+  justify-content: stretch;
+  gap: 7px;
+  padding: 12px !important;
 }
