@@ -1387,7 +1387,7 @@ export default function Home() {
     if (room.state?.trade_offer && !tradeBot && !offerBot) return;
     if (!activeBot && !tradeBot && !discardBot) return;
     const offerDeadline = offerBot && room.state?.trade_expires_at ? new Date(room.state.trade_expires_at).getTime() : 0;
-    const botDelay = offerBot ? Math.max(250, offerDeadline - Date.now() + 100) : 950 + Math.random() * 850;
+    const botDelay = offerBot ? Math.max(250, offerDeadline - Date.now() + 100) : 3000;
     const timer = window.setTimeout(async () => {
       if (!supabase || botActionPending.current) return;
       botActionPending.current = true;
