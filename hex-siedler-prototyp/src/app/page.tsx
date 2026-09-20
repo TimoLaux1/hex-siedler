@@ -16,9 +16,11 @@ type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky" | "desert" | "rich";
 type KlausCard = { id: string; card_type: KlausKind; must_play: boolean; bought_round?: number; created_at?: string };
 type CardEvent = { card_id: string; card_type: KlausKind; player: number; resolve_at: string };
+type BotCardReveal = { card_type: KlausKind; player: number; resolve_at: string };
+type GameSoundEvent = { id: number; player_index: number | null; kind: "build" | "klaus"; message: string; card_type?: KlausKind | null };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
@@ -63,7 +65,7 @@ const englishUi: Record<string, string> = {
   "Diese Runde bereits getauscht": "Already traded this round", "Angebot senden": "Send offer", "Würfelstatistik": "Dice statistics", "Würfe": "rolls",
   "Räuber hierhin setzen": "Place robber here", "Karten wegen der 7 abgeben": "Discard cards because of the 7", "Warte, bis alle betroffenen Spieler ihre Karten abgegeben haben.": "Wait until all affected players have discarded their cards.",
   "Goldmine fördert": "Gold mine produces", "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff.": "The 7 activates your gold mine. Choose any resource.",
-  "Goldmine für alle freigeschaltet": "Gold mine unlocked for everyone", "Alle Spieler können sie ab jetzt – unabhängig von ihren eigenen Siegpunkten – aus einer Siedlung an der Wüste entwickeln. Bei einer 7 fördert sie einen frei wählbaren Rohstoff.": "All players can now upgrade a settlement next to the desert into a gold mine, regardless of their own victory points. When a 7 is rolled, it produces a resource of their choice.",
+  "Goldmine für alle freigeschaltet": "Gold mine unlocked for everyone", "Sobald ein Spieler 8 Siegpunkte erreicht, wird die Goldmine für alle freigeschaltet. Jeder Spieler darf nun eine eigene Siedlung direkt an der Wüste zur Goldmine ausbauen. Wird eine 7 gewürfelt, wählt der Besitzer der Goldmine einen Rohstoff.": "As soon as one player reaches 8 victory points, the gold mine is unlocked for everyone. Each player may then upgrade one of their own settlements directly next to the desert into a gold mine. When a 7 is rolled, the gold mine's owner chooses one resource.",
   "Kosten": "Cost", "Verstanden": "Got it", "Fisch": "Fish", "Gebirge": "Mountains", "Weide": "Pasture", "Feld": "Fields", "Wald": "Forest", "Wüste": "Desert",
   "Enttäuschter Klaus": "Disappointed Klaus", "Ein Mitspieler verliert 1 Siegpunkt.": "Another player loses 1 victory point.", "Böser Klaus": "Angry Klaus", "Versetzt den Ritter und stiehlt einen zufälligen Rohstoff.": "Moves the knight and steals a random resource.",
   "Stolzer Klaus": "Proud Klaus", "Nimmt einen gewählten Rohstoff von allen Mitspielern.": "Takes one chosen resource from every other player.", "Blöder Klaus": "Silly Klaus", "Zerstört sofort eine eigene Straße.": "Immediately destroys one of your own roads.",
@@ -546,6 +548,48 @@ function SwimmingFishLayer() {
   </div>;
 }
 
+function RoadCarriage({ route }: { route: CarriageRoute }) {
+  const points = route.vertices.map((vertexId) => topology.vertices[vertexId]).filter(Boolean);
+  const [motion, setMotion] = useState(() => ({ x: points[0]?.x ?? 0, y: points[0]?.y ?? 0, angle: 0 }));
+  useEffect(() => {
+    if (points.length < 2) return;
+    const segments = points.slice(0,-1).map((point,index) => {
+      const next = points[index+1];
+      return { from: point, to: next, length: Math.hypot(next.x-point.x,next.y-point.y) };
+    });
+    const totalLength = segments.reduce((sum,segment) => sum+segment.length,0);
+    const startedAt = performance.now();
+    let frame = 0;
+    const animate = (now: number) => {
+      const progress = Math.min(1,(now-startedAt)/(route.duration*1000));
+      let distance = progress*totalLength;
+      let segment = segments[segments.length-1];
+      for (const candidate of segments) {
+        if (distance <= candidate.length) { segment=candidate; break; }
+        distance-=candidate.length;
+      }
+      const part = segment.length ? Math.min(1,distance/segment.length) : 0;
+      setMotion({
+        x: segment.from.x+(segment.to.x-segment.from.x)*part,
+        y: segment.from.y+(segment.to.y-segment.from.y)*part,
+        angle: Math.atan2(segment.to.y-segment.from.y,segment.to.x-segment.from.x)*180/Math.PI,
+      });
+      if (progress<1) frame=requestAnimationFrame(animate);
+    };
+    frame=requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [route.run]);
+  if (points.length<2) return null;
+  return <svg className="road-carriage-html" viewBox="-28 -20 56 40" aria-hidden="true" style={{ left: motion.x, top: motion.y, transform: `translate(-50%,-50%) rotate(${motion.angle + 180}deg)` }}>
+    <ellipse className="carriage-shadow" cx="0" cy="9" rx="18" ry="4" />
+    <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4"/></g>
+    <path className="carriage-shaft" d="M-9 1H2"/>
+    <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
+    <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
+    <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
+  </svg>;
+}
+
 function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
@@ -673,28 +717,8 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           <text className="harbor-anchor" y="-2">⚓</text>
           <text className="harbor-rate" y="12">3:1</text>
         </g>)}
-        {carriageRoute && (() => {
-          const routeId = `carriage-route-${carriageRoute.run}`;
-          const routePath = carriageRoute.vertices.map((vertexId, index) => {
-            const vertex = topology.vertices[vertexId];
-            return `${index === 0 ? "M" : "L"}${vertex.x} ${vertex.y}`;
-          }).join(" ");
-          return <g className="road-carriage" aria-hidden="true">
-            <path id={routeId} d={routePath} fill="none" stroke="transparent" />
-            <g className="road-carriage-vehicle">
-              <animateMotion path={routePath} dur={`${carriageRoute.duration}s`} begin="0s" fill="freeze" rotate="auto" />
-              <g className="road-carriage-scale">
-                <ellipse className="carriage-shadow" cx="0" cy="7" rx="18" ry="4" />
-                <g className="carriage-horse"><ellipse cx="-14" cy="-1" rx="8" ry="5"/><circle cx="-21" cy="-6" r="4"/><path d="M-23-9l-2-5 5 4"/></g>
-                <path className="carriage-shaft" d="M-9 1H2"/>
-                <path className="carriage-body" d="M1-9h18l4 14H-2Z"/>
-                <path className="carriage-roof" d="M3-11h15l-3-6H7Z"/>
-                <circle className="carriage-wheel" cx="4" cy="8" r="5"/><circle className="carriage-wheel" cx="19" cy="8" r="5"/>
-              </g>
-            </g>
-          </g>;
-        })()}
       </svg>
+      {carriageRoute && <RoadCarriage route={carriageRoute} />}
       {room && topology.edges.filter((edge) => visibleVertices.has(edge.a) && visibleVertices.has(edge.b)).map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
         const setupSelectable = mySetupTurn && state?.phase === "setup_road" && !built && (edge.a === latestOwnSettlement || edge.b === latestOwnSettlement);
@@ -824,6 +848,7 @@ export default function Home() {
   const [showLargestArmyAward, setShowLargestArmyAward] = useState(false);
   const [botDiagnostic, setBotDiagnostic] = useState("");
   const [showBotDiagnostic, setShowBotDiagnostic] = useState(false);
+  const [remoteCardReveal, setRemoteCardReveal] = useState<BotCardReveal | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
   const resumeAttemptedForUser = useRef("");
@@ -835,6 +860,8 @@ export default function Home() {
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
   const lastKlausVoiceAt = useRef(0);
+  const lastSoundEventId = useRef<Record<string, number>>({});
+  const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
 
   useEffect(() => {
@@ -916,7 +943,7 @@ export default function Home() {
     const gains: Partial<Record<ResourceKind, { amount: number; nonce: number }>> = {};
     resourceCards.forEach(({ key }) => {
       const amount = current[key] - previous.values[key];
-      if (amount <= 0) return;
+      if (amount === 0) return;
       const nonce = Date.now() + resourceCards.findIndex((resource) => resource.key === key);
       gains[key] = { amount, nonce };
       const oldTimer = resourceGainTimers.current[key];
@@ -984,7 +1011,6 @@ export default function Home() {
   const discardSeconds = room?.state?.discard_deadline ? Math.max(0, Math.ceil((new Date(room.state.discard_deadline).getTime() - clockNow) / 1000)) : 10;
   const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
   const bankTradeRate = hasHarbor ? 3 : 4;
-  const hasBankTradedThisRound = me?.last_bank_trade_round === (room?.state?.round ?? 1);
   const robberVictimsForTile = (tile: number) => players.filter((player) =>
     player.player_index !== me?.player_index && (resourceCounts[player.player_index] ?? 0) > 0 && (room?.state?.settlements ?? []).some((settlement) =>
       settlement.player === player.player_index && topology.tileVertices[tile]?.includes(settlement.vertex)
@@ -1480,7 +1506,7 @@ export default function Home() {
       const activityKey = `${next.created_at}|${next.message}`;
       if (activityKey === lastSeenRemoteActivity.current) return;
       lastSeenRemoteActivity.current = activityKey;
-      showActivity(next, playSound);
+      showActivity(next, playSound && next.kind !== "build" && next.kind !== "klaus");
     };
     const loadActivity = async () => {
       const { data } = await client.rpc("get_latest_game_activity", { p_game_id: roomId });
@@ -1507,6 +1533,41 @@ export default function Home() {
       client.removeChannel(channel);
     };
   }, [roomId, soundEnabled]);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!roomId || !client) return;
+    let cancelled = false;
+
+    const pollSounds = async (initialize = false) => {
+      const afterId = initialize ? -1 : (lastSoundEventId.current[roomId] ?? 0);
+      const { data } = await client.rpc("get_game_sound_events", { p_game_id: roomId, p_after_id: afterId });
+      if (cancelled || !Array.isArray(data)) return;
+      const events = data as GameSoundEvent[];
+      if (initialize) {
+        lastSoundEventId.current[roomId] = events.reduce((max,event) => Math.max(max,event.id),afterId);
+        return;
+      }
+      for (const event of events) {
+        lastSoundEventId.current[roomId] = Math.max(lastSoundEventId.current[roomId] ?? 0,event.id);
+        if (event.player_index === me?.player_index) continue;
+        if (soundEnabled) playActivitySound(event.kind,event.message);
+        if (event.card_type && event.player_index !== null) {
+          setRemoteCardReveal({ card_type: event.card_type, player: event.player_index, resolve_at: new Date(Date.now()+3500).toISOString() });
+          if (remoteCardRevealTimer.current) window.clearTimeout(remoteCardRevealTimer.current);
+          remoteCardRevealTimer.current = window.setTimeout(() => setRemoteCardReveal(null),3500);
+        }
+      }
+    };
+
+    void pollSounds(true);
+    const timer = window.setInterval(() => void pollSounds(),500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      if (remoteCardRevealTimer.current) window.clearTimeout(remoteCardRevealTimer.current);
+    };
+  }, [roomId, soundEnabled, me?.player_index]);
 
   useEffect(() => {
     const client = supabase;
@@ -1919,7 +1980,7 @@ export default function Home() {
         const boughtCard = { ...card, bought_round: room.state?.round ?? 1 };
         setMyCards((current) => [...current, boughtCard]);
         if (card.must_play) setSelectedCard(card);
-        announceActivity("klaus", `${me?.player_name ?? name} ruft Klaus.`, "klaus");
+        announceActivity("klaus_buy", `${me?.player_name ?? name} kauft eine Klaus-Karte.`, "klaus");
         await loadPlayerData(room.id);
       }
     }
@@ -2085,7 +2146,7 @@ export default function Home() {
               const gain = resourceGains[key];
               return (
               <div
-                className={`resource-card resource-${key} ${gain ? "gaining" : ""}`}
+                className={`resource-card resource-${key} ${gain ? gain.amount > 0 ? "gaining" : "losing" : ""}`}
                 key={`${key}-${gain?.nonce ?? 0}`}
                 title={`${label}: ${me.resources?.[key] ?? 0}`}
                 aria-label={`${label}: ${me.resources?.[key] ?? 0}`}
@@ -2093,7 +2154,7 @@ export default function Home() {
                 <span className="resource-badge"><ResourceIcon kind={key} /></span>
                 <span className="resource-label">{label}</span>
                 <b>{me.resources?.[key] ?? 0}</b>
-                {gain && <span className="resource-gain">+{gain.amount}</span>}
+                {gain && <span className={`resource-gain ${gain.amount < 0 ? "resource-loss" : ""}`}>{gain.amount > 0 ? `+${gain.amount}` : `−${Math.abs(gain.amount)}`}</span>}
               </div>
             )})}
           </div>
@@ -2206,7 +2267,7 @@ export default function Home() {
                     {tradeMode === "player" && <div className="trade-step"><span>Mit wem möchtest du handeln?</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}</button>)}</div></div>}
                     <div className="trade-step"><span>{tradeMode === "bank" ? `${bankTradeRate} gleiche Rohstoffe abgeben` : "1 Rohstoff anbieten"}</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeGive === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeGive(resource.key)} disabled={(myResources[resource.key] ?? 0) < (tradeMode === "bank" ? bankTradeRate : 1)}><ResourceIcon kind={resource.key} />{resource.label} ({myResources[resource.key] ?? 0})</button>)}</div></div>
                     <div className="trade-step"><span>Gewünschten Rohstoff wählen</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeWant === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeWant(resource.key)} disabled={tradeGive === resource.key}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></div>
-                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || hasBankTradedThisRound || !tradeGive || !tradeWant}>{hasBankTradedThisRound ? "Diese Runde bereits getauscht" : `${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
+                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
                   </div>}
                 </>}
               </>}
@@ -2269,7 +2330,9 @@ export default function Home() {
         </section>
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}
-      {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Goldmine für alle freigeschaltet</strong><p>Alle Spieler können sie ab jetzt – unabhängig von ihren eigenen Siegpunkten – aus einer Siedlung an der Wüste entwickeln. Bei einer 7 fördert sie einen frei wählbaren Rohstoff.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={closeGoldmineMessage}>Verstanden</button></div></div>}
+      {room.state?.bot_card_reveal && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.bot_card_reveal?.player)?.player_name ?? "Ein Bot"} spielt</span><KlausCardView kind={room.state.bot_card_reveal.card_type} /></div></div>}
+      {remoteCardReveal && !room.state?.card_event && !room.state?.bot_card_reveal && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === remoteCardReveal.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={remoteCardReveal.card_type} /></div></div>}
+      {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Goldmine für alle freigeschaltet</strong><p>Sobald ein Spieler 8 Siegpunkte erreicht, wird die Goldmine für alle freigeschaltet. Jeder Spieler darf nun eine eigene Siedlung direkt an der Wüste zur Goldmine ausbauen. Wird eine 7 gewürfelt, wählt der Besitzer der Goldmine einen Rohstoff.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={closeGoldmineMessage}>Verstanden</button></div></div>}
       <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
       <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
     </main>
