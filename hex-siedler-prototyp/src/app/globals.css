@@ -1725,7 +1725,9 @@ button, a { font: inherit; }
   font-size: 10px;
 }
 .online-shell .sidebar-game-section {
-  display: grid;
+  display: block;
+  width: 100%;
+  min-width: 0;
   padding: 12px 10px 14px;
   border-bottom: 3px solid #7b4829;
   background: transparent;
@@ -1735,7 +1737,10 @@ button, a { font: inherit; }
   text-align: center;
 }
 .online-shell .sidebar-game-section .room-panel {
+  grid-column: auto;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
   padding: 0 4px 10px;
   border: 0;
@@ -1745,11 +1750,23 @@ button, a { font: inherit; }
   box-shadow: none;
 }
 .online-shell .sidebar-game-section .online-control-area {
+  grid-column: auto;
+  position: static;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 10px 0 0;
   background: transparent;
 }
 .online-shell .sidebar-game-section .online-control-area::before { display: none; }
+.online-shell .sidebar-game-section .room-player,
+.online-shell .sidebar-game-section .empty-player,
+.online-shell .sidebar-game-section .waiting-card,
+.online-shell .sidebar-game-section .turn-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
 .online-shell .sidebar-klaus-hand {
   width: 100%;
   margin: 0;
