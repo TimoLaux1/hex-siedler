@@ -216,12 +216,22 @@ begin
     and not exists (
       select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) own_building
       where (own_building->>'player')::integer=p_bot_index
-        and candidate.tile_id=any((select tile_indices from public.board_vertex_tiles where vertex_id=(own_building->>'vertex')::integer))
+        and exists (
+          select 1 from public.board_vertex_tiles mapping
+          cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+          where mapping.vertex_id=(own_building->>'vertex')::integer
+            and adjacent.tile_id=candidate.tile_id
+        )
     )
     and exists (
       select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) opponent_building
       where (opponent_building->>'player')::integer<>p_bot_index
-        and candidate.tile_id=any((select tile_indices from public.board_vertex_tiles where vertex_id=(opponent_building->>'vertex')::integer))
+        and exists (
+          select 1 from public.board_vertex_tiles mapping
+          cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+          where mapping.vertex_id=(opponent_building->>'vertex')::integer
+            and adjacent.tile_id=candidate.tile_id
+        )
     )
   order by (
     select coalesce(sum(
@@ -233,7 +243,12 @@ begin
     ),0)
     from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) opponent_building
     where (opponent_building->>'player')::integer<>p_bot_index
-      and candidate.tile_id=any((select tile_indices from public.board_vertex_tiles where vertex_id=(opponent_building->>'vertex')::integer))
+      and exists (
+        select 1 from public.board_vertex_tiles mapping
+        cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+        where mapping.vertex_id=(opponent_building->>'vertex')::integer
+          and adjacent.tile_id=candidate.tile_id
+      )
   ) desc,random()
   limit 1;
   return chosen;
@@ -556,7 +571,11 @@ begin
     from public.game_players p
     join jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b on (b->>'player')::integer=p.player_index
     where p.game_id=p_game_id and p.player_index<>bot_index
-      and tile_index=any((select tile_indices from public.board_vertex_tiles where vertex_id=(b->>'vertex')::integer))
+      and exists (
+        select 1 from public.board_vertex_tiles mapping
+        cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+        where mapping.vertex_id=(b->>'vertex')::integer and adjacent.tile_id=tile_index
+      )
     order by p.victory_points desc,p.player_index limit 1;
     if tile_index is null then
       select candidate into tile_index from generate_series(0,jsonb_array_length(g.board_tiles)-1) candidate
@@ -564,7 +583,11 @@ begin
         and not exists (
           select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) own_building
           where (own_building->>'player')::integer=bot_index
-            and candidate=any((select tile_indices from public.board_vertex_tiles where vertex_id=(own_building->>'vertex')::integer))
+            and exists (
+              select 1 from public.board_vertex_tiles mapping
+              cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+              where mapping.vertex_id=(own_building->>'vertex')::integer and adjacent.tile_id=candidate
+            )
         )
       order by random() limit 1;
     end if;
@@ -600,7 +623,11 @@ begin
         from public.game_players p
         join jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b on (b->>'player')::integer=p.player_index
         where p.game_id=p_game_id and p.player_index<>bot_index
-          and tile_index=any((select tile_indices from public.board_vertex_tiles where vertex_id=(b->>'vertex')::integer))
+          and exists (
+            select 1 from public.board_vertex_tiles mapping
+            cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+            where mapping.vertex_id=(b->>'vertex')::integer and adjacent.tile_id=tile_index
+          )
         order by p.victory_points desc,p.player_index limit 1;
         if tile_index is null then
           select candidate into tile_index from generate_series(0,jsonb_array_length(g.board_tiles)-1) candidate
@@ -608,7 +635,11 @@ begin
             and not exists (
               select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) own_building
               where (own_building->>'player')::integer=bot_index
-                and candidate=any((select tile_indices from public.board_vertex_tiles where vertex_id=(own_building->>'vertex')::integer))
+                and exists (
+                  select 1 from public.board_vertex_tiles mapping
+                  cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
+                  where mapping.vertex_id=(own_building->>'vertex')::integer and adjacent.tile_id=candidate
+                )
             )
           order by random() limit 1;
         end if;

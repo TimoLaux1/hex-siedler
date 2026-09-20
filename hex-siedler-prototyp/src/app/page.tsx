@@ -2208,7 +2208,7 @@ export default function Home() {
               <button className="copy-button" data-mobile-label={inviteCopied ? "Kopiert ✓" : "Link kopieren"} type="button" onClick={() => void copyInvite()}>{inviteCopied ? "Link kopiert ✓" : "Einladungslink kopieren"}</button>
               {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
               <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
-              {error && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
+              {error && !error.startsWith("Bot-RPC Fehler:") && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
             </div>
           ) : room.status === "finished" ? (
             <div className="waiting-card victory-card">
@@ -2221,7 +2221,7 @@ export default function Home() {
             <div className="waiting-card playing">
               <strong>{room.state.phase === "setup_settlement" ? "Siedlung wählen" : "Angrenzende Straße wählen"}</strong>
               <span>{room.state.setup_order?.[room.state.setup_step ?? 0] === me?.player_index ? "Du bist am Zug – wähle direkt auf dem Spielfeld." : `${players.find((player) => player.player_index === room.state?.setup_order?.[room.state?.setup_step ?? 0])?.player_name ?? "Mitspieler"} ist am Zug.`}</span>
-              {error && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
+              {error && !error.startsWith("Bot-RPC Fehler:") && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
             </div>
           ) : (
             <div className="turn-card">
@@ -2301,7 +2301,7 @@ export default function Home() {
                 <span>{isGoldmineChooser ? "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff." : `${players.find((player) => player.player_index === goldmineChooser)?.player_name ?? "Ein Spieler"} wählt einen Goldminen-Rohstoff.`}</span>
                 {isGoldmineChooser && <div className="choice-grid resources-choice">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void chooseGoldmineResource(resource.key)} disabled={busy}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div>}
               </div>}
-              {error && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
+              {error && !error.startsWith("Bot-RPC Fehler:") && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
             </div>
           )}
         </section>
