@@ -887,6 +887,10 @@ export default function Home() {
   const isMyTurn = !isEliminated && me?.player_index === room?.state?.active_player;
   const myResources = me?.resources ?? { wood: 0, brick: 0, wool: 0, grain: 0, ore: 0 };
   const botCount = players.filter((player) => player.is_bot).length;
+  const diagnosticSetupStep = room?.state?.setup_step ?? 0;
+  const diagnosticSetupPlayer = room?.state?.setup_order?.[diagnosticSetupStep];
+  const diagnosticExpectedPlayer = players.find((player) => player.player_index === diagnosticSetupPlayer);
+  const diagnosticActivePlayer = players.find((player) => player.player_index === room?.state?.active_player);
   useEffect(() => {
     if (!room?.id || !me?.resources) {
       previousResources.current = null;
@@ -2028,6 +2032,18 @@ export default function Home() {
           <button className="leave-game-topbar-button" type="button" onClick={confirmLeaveGame} aria-label="Spiel verlassen" title="Spiel verlassen">×</button>
         </div>
       </header>
+      {botCount > 0 && room.status !== "waiting" && (
+        <aside className="bot-debug-panel" aria-live="polite">
+          <strong>BOT-DIAGNOSE v30</strong>
+          <span>Spielstatus: <b>{room.status || "FEHLT"}</b></span>
+          <span>Phase: <b>{room.state?.phase || "FEHLT"}</b></span>
+          <span>Setup-Schritt: <b>{diagnosticSetupStep}</b></span>
+          <span>Setup-Spieler: <b>{diagnosticExpectedPlayer?.player_name ?? `Index ${diagnosticSetupPlayer ?? "FEHLT"}`}</b> · Bot: <b>{diagnosticExpectedPlayer?.is_bot ? "JA" : "NEIN"}</b></span>
+          <span>active_player: <b>{diagnosticActivePlayer?.player_name ?? `Index ${room.state?.active_player ?? "FEHLT"}`}</b> · Bot: <b>{diagnosticActivePlayer?.is_bot ? "JA" : "NEIN"}</b></span>
+          <span>RPC: <b>{botDiagnostic || "Timer noch nicht gestartet"}</b></span>
+          {error && <span>Fehler: <b>{error}</b></span>}
+        </aside>
+      )}
       {room.status !== "waiting" && me && (
         <div className="resource-wallet">
           <p className="eyebrow">Deine Rohstoffe</p>
