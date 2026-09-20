@@ -1417,7 +1417,8 @@ export default function Home() {
 
   useEffect(() => {
     const isSetupPhase = room?.state?.phase?.startsWith("setup_") ?? false;
-    if (!supabase || !room?.id || (room.status !== "playing" && !isSetupPhase)) {
+    const setupJustFinished = room?.status === "setup" && ["turn", "build", "robber", "discard", "goldmine"].includes(room?.state?.phase ?? "");
+    if (!supabase || !room?.id || (room.status !== "playing" && !isSetupPhase && !setupJustFinished)) {
       setBotDiagnostic("");
       return;
     }
@@ -2149,7 +2150,6 @@ export default function Home() {
             <div className="waiting-card playing">
               <strong>{room.state.phase === "setup_settlement" ? "Siedlung wählen" : "Angrenzende Straße wählen"}</strong>
               <span>{room.state.setup_order?.[room.state.setup_step ?? 0] === me?.player_index ? "Du bist am Zug – wähle direkt auf dem Spielfeld." : `${players.find((player) => player.player_index === room.state?.setup_order?.[room.state?.setup_step ?? 0])?.player_name ?? "Mitspieler"} ist am Zug.`}</span>
-              <span className="setup-error">{botDiagnostic || `Bot-Diagnose wartet · Status: ${room.status} · Phase: ${room.state?.phase ?? "unbekannt"}`}</span>
               {error && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
             </div>
           ) : (
