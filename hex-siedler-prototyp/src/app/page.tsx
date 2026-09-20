@@ -1378,7 +1378,8 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (!supabase || !room?.id || room.status !== "playing") {
+    const isSetupPhase = room?.state?.phase?.startsWith("setup_") ?? false;
+    if (!supabase || !room?.id || (room.status !== "playing" && !isSetupPhase)) {
       setBotDiagnostic("");
       return;
     }
@@ -1407,10 +1408,10 @@ export default function Home() {
         botActionPending.current = false;
       }
     };
-    setBotDiagnostic("Bot-Timer aktiv · nächster Versuch in 3 Sekunden");
+    setBotDiagnostic(`Bot-Timer aktiv · Status: ${room.status} · Phase: ${room.state?.phase ?? "unbekannt"}`);
     const timer = window.setInterval(runBotTick, 3000);
     return () => window.clearInterval(timer);
-  }, [room?.id, room?.status]);
+  }, [room?.id, room?.status, room?.state?.phase]);
 
   async function addBot() {
     if (!supabase || !room || !isHost || botCount >= 2) return;
@@ -2100,7 +2101,7 @@ export default function Home() {
             <div className="waiting-card playing">
               <strong>{room.state.phase === "setup_settlement" ? "Siedlung wählen" : "Angrenzende Straße wählen"}</strong>
               <span>{room.state.setup_order?.[room.state.setup_step ?? 0] === me?.player_index ? "Du bist am Zug – wähle direkt auf dem Spielfeld." : `${players.find((player) => player.player_index === room.state?.setup_order?.[room.state?.setup_step ?? 0])?.player_name ?? "Mitspieler"} ist am Zug.`}</span>
-              {players.some((player) => player.is_bot && player.player_index === room.state?.setup_order?.[room.state?.setup_step ?? 0]) && botDiagnostic && <span className="setup-error">{botDiagnostic}</span>}
+              <span className="setup-error">{botDiagnostic || `Bot-Diagnose wartet · Status: ${room.status} · Phase: ${room.state?.phase ?? "unbekannt"}`}</span>
               {error && <span className="setup-error">{error}</span>}
             </div>
           ) : (
