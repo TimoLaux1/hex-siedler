@@ -425,9 +425,9 @@ const diePips: Record<number, number[]> = {
   6: [1, 3, 4, 6, 7, 9],
 };
 
-function PipDie({ value }: { value: number }) {
-  const visiblePips = diePips[value] ?? [];
-  return <span className="pip-die" role="img" aria-label={`Würfel zeigt ${value}`}>
+function PipDie({ value }: { value?: number }) {
+  const visiblePips = value === undefined ? [] : (diePips[value] ?? []);
+  return <span className={`pip-die ${value === undefined ? "pending" : ""}`} role="img" aria-label={value === undefined ? "Noch nicht gewürfelt" : `Würfel zeigt ${value}`}>
     {Array.from({ length: 9 }, (_, index) => (
       <span
         aria-hidden="true"
@@ -435,6 +435,7 @@ function PipDie({ value }: { value: number }) {
         key={index}
       />
     ))}
+    {value === undefined && <b aria-hidden="true">?</b>}
   </span>;
 }
 
@@ -1495,6 +1496,10 @@ export default function Home() {
           setBotDiagnostic(`Bot-RPC ohne Ergebnis · ${new Date().toLocaleTimeString("de-DE")}`);
         }
         await loadPlayerData(gameId);
+      } catch (botFailure) {
+        const message = botFailure instanceof Error ? botFailure.message : "Netzwerkfehler";
+        setBotDiagnostic(`Bot-RPC Netzwerkfehler: ${message}`);
+        setError("Der Bot-Zug konnte nicht geladen werden. Tippe auf „Bot-Zug fortsetzen“.");
       } finally {
         botActionPending.current = false;
       }
@@ -1916,6 +1921,28 @@ export default function Home() {
     setBusy(false);
   }
 
+  async function resumeBotTurn() {
+    if (!supabase || !room || !activePlayerIsBot || botActionPending.current) return;
+    botActionPending.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const { data, error: botError } = await supabase.rpc("run_game_bot_until_human", { p_game_id: room.id });
+      if (botError) {
+        setError(`Bot-Zug fehlgeschlagen: ${botError.message}`);
+      } else if (data) {
+        setRoom(normalizedRoom(data));
+        await loadPlayerData(room.id);
+      }
+    } catch (botFailure) {
+      const message = botFailure instanceof Error ? botFailure.message : "Netzwerkfehler";
+      setError(`Bot-Zug konnte nicht geladen werden: ${message}. Bitte erneut versuchen.`);
+    } finally {
+      botActionPending.current = false;
+      setBusy(false);
+    }
+  }
+
   async function moveRobber(targetPlayer?: number, tileOverride?: number) {
     const targetTile = tileOverride ?? selectedRobberTile;
     if (!supabase || !room || !isMyTurn || targetTile === null) return;
@@ -2242,15 +2269,19 @@ export default function Home() {
           <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
           {room.status === "playing" && (
             <button
-              className={`end-button topbar-end-button ${room.state?.phase === "turn" ? "roll-action" : ""}`}
-              onClick={room.state?.phase === "turn" ? rollDice : endTurn}
+              type="button"
+              className={`end-button topbar-end-button ${room.state?.phase === "turn" || activePlayerIsBot ? "roll-action" : ""}`}
+              onClick={activePlayerIsBot ? resumeBotTurn : room.state?.phase === "turn" ? rollDice : endTurn}
               disabled={
-                !isMyTurn || busy || isEliminated ||
-                (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
-                (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
+                busy || isEliminated ||
+                (!activePlayerIsBot && (
+                  !isMyTurn ||
+                  (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
+                  (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
+                ))
               }
             >
-              {room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
+              {activePlayerIsBot ? "Bot-Zug fortsetzen" : room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
             </button>
           )}
         </div>
@@ -2311,7 +2342,7 @@ export default function Home() {
               </div>
               {room.state?.dice ? (
                 <div className="online-dice"><PipDie value={room.state.dice[0]} /><PipDie value={room.state.dice[1]} /></div>
-              ) : <span className="turn-note">Der aktive Spieler würfelt einmal.</span>}
+              ) : <><div className="online-dice pending"><PipDie /><PipDie /></div><span className="turn-note">Der aktive Spieler würfelt einmal.</span></>}
               {tradeOffer && <div className="trade-offer-banner">
                 <strong>🤝 Handelsangebot</strong>
                 <span>{players.find((player) => player.player_index === tradeOffer.from)?.player_name} bietet 1 {resourceCards.find((resource) => resource.key === tradeOffer.give)?.label} gegen 1 {resourceCards.find((resource) => resource.key === tradeOffer.want)?.label} von {players.find((player) => player.player_index === tradeOffer.to)?.player_name}.</span>
