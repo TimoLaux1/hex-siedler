@@ -1973,6 +1973,39 @@ body:has(.online-shell) {
   border-radius: 999px;
   background: #4f897f;
 }
+.mobile-scroll-cue { display: none; }
+@media (orientation: landscape) and (max-width: 1400px) and (max-height: 850px) {
+  .online-shell .online-sidebar { position: relative; }
+  .online-shell .mobile-scroll-cue {
+    position: absolute;
+    z-index: 30;
+    left: 50%;
+    bottom: 10px;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    transform: translateX(-50%);
+    border: 1px solid #b8cfc7;
+    border-radius: 50%;
+    background: #fffdf5e8;
+    color: #28745f;
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+    box-shadow: 0 5px 14px #253d3528;
+    opacity: 0;
+    animation: mobile-scroll-hint 3.4s ease-out .35s forwards;
+  }
+}
+@keyframes mobile-scroll-hint {
+  0% { opacity: 0; transform: translate(-50%, -5px); }
+  14%, 65% { opacity: .95; }
+  28%, 52% { transform: translate(-50%, 5px); }
+  40% { transform: translate(-50%, -2px); }
+  100% { opacity: 0; transform: translate(-50%, 8px); visibility: hidden; }
+}
 .online-shell .sidebar-game-section {
   display: grid !important;
   grid-template-columns: minmax(0,1fr) !important;

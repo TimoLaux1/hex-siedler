@@ -2260,6 +2260,7 @@ export default function Home() {
             </button>
           )}
         </div>
+        {room.status === "waiting" && isHost && botCount < 2 && <span className="mobile-scroll-cue" aria-hidden="true">⌄</span>}
         <section className="sidebar-game-section">
         <p className="eyebrow sidebar-section-title">Spielsteuerung</p>
         <aside className="room-panel card">
