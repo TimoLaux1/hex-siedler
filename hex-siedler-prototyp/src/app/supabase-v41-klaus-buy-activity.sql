@@ -1,26 +1,5 @@
--- Synchronisierte Meldungen für die obere Spielleiste.
+-- New Katan v41: Klaus-Kartenkäufe korrekt als Klaus-Aktivität übertragen.
 -- Diese Datei einmal vollständig im Supabase SQL Editor ausführen.
-
-create table if not exists public.game_activity (
-  game_id uuid primary key references public.games(id) on delete cascade,
-  message text not null,
-  kind text not null default 'info' check (kind in ('info','turn','dice','build','trade','klaus','win')),
-  created_at timestamptz not null default now()
-);
-
-alter table public.game_activity enable row level security;
-
-drop policy if exists "Players can read their game activity" on public.game_activity;
-create policy "Players can read their game activity"
-on public.game_activity for select
-to authenticated
-using (
-  exists (
-    select 1 from public.game_players gp
-    where gp.game_id = game_activity.game_id
-      and gp.user_id = auth.uid()
-  )
-);
 
 create or replace function public.record_game_activity(
   p_game_id uuid,
@@ -92,42 +71,3 @@ $$;
 
 revoke all on function public.record_game_activity(uuid,text,text) from public;
 grant execute on function public.record_game_activity(uuid,text,text) to authenticated;
-grant select on public.game_activity to authenticated;
-
--- Polling-Fallback für Mobilbrowser. Die Funktion ist unabhängig davon, ob
--- Postgres-Realtime auf dem Gerät gerade zuverlässig verbunden ist.
-create or replace function public.get_latest_game_activity(p_game_id uuid)
-returns table(message text, kind text, created_at timestamptz)
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if not exists (
-    select 1 from public.game_players gp
-    where gp.game_id = p_game_id and gp.user_id = auth.uid()
-  ) then
-    raise exception 'Du bist kein Spieler in diesem Raum.';
-  end if;
-
-  return query
-  select ga.message, ga.kind, ga.created_at
-  from public.game_activity ga
-  where ga.game_id = p_game_id;
-end;
-$$;
-
-revoke all on function public.get_latest_game_activity(uuid) from public;
-grant execute on function public.get_latest_game_activity(uuid) to authenticated;
-
-do $$
-begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'game_activity'
-  ) then
-    alter publication supabase_realtime add table public.game_activity;
-  end if;
-end $$;

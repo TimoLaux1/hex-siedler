@@ -5,12 +5,12 @@ import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
 type ResourceKind = keyof Resources;
-type Player = { user_id: string | null; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number; is_bot?: boolean };
+type Player = { user_id: string | null; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number; is_bot?: boolean; road_limit_bonus?: number; settlement_limit_bonus?: number };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" | "goldmine" };
 type Road = { edge: number; a: number; b: number; player: number };
 type FishTile = { slot: number; number: number };
 type BoardTile = { name: string; className: string; symbol: string; number: number; resource: ResourceKind | "none" };
-type TradeOffer = { from: number; to: number; give: ResourceKind; want: ResourceKind };
+type TradeOffer = { from: number; to?: number | null; give: ResourceKind; want: ResourceKind; rejected_by?: number[] };
 type DiscardEntry = { player: number; remaining: number };
 type HighScore = { rank: number; display_name: string; wins: number };
 type KlausKind = "disappointed" | "angry" | "proud" | "stupid" | "sneaky" | "desert" | "rich";
@@ -20,7 +20,8 @@ type BotCardReveal = { card_type: KlausKind; player: number; resolve_at: string 
 type GameSoundEvent = { id: number; player_index: number | null; kind: "build" | "klaus"; message: string; card_type?: KlausKind | null };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type TurnLogEntry = { player: number; round: number; at: string };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; turn_log?: TurnLogEntry[]; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
@@ -51,7 +52,7 @@ const englishUi: Record<string, string> = {
   "Warte auf Mitspieler": "Waiting for players", "Bereit zum Start": "Ready to start", "Kopiert ✓": "Copied ✓", "Link kopieren": "Copy link",
   "Link kopiert ✓": "Link copied ✓", "Einladungslink kopieren": "Copy invitation link", "Spiel starten": "Start game", "Spiel verlassen": "Leave game",
   "Siedlung wählen": "Choose settlement", "Angrenzende Straße wählen": "Choose adjacent road", "Du bist am Zug – wähle direkt auf dem Spielfeld.": "It is your turn — choose directly on the board.",
-  "Du bist am Zug": "It is your turn", "Zeit abgelaufen, Klaus dankt. Ciao": "Time is up. Klaus thanks you. Goodbye.", "Der aktive Spieler würfelt einmal.": "The active player rolls once.",
+  "Du bist am Zug": "It is your turn", "Zeit abgelaufen. Du bist jetzt Zuschauer": "Time is up. You are now a spectator.", "Der aktive Spieler würfelt einmal.": "The active player rolls once.",
   "Handelsangebot": "Trade offer", "Annehmen": "Accept", "Ablehnen": "Decline", "Angebot zurückziehen": "Withdraw offer", "Würfeln": "Roll dice",
   "Welcher Mitspieler verliert einen Siegpunkt?": "Which player loses one victory point?", "Welchen Rohstoff soll Klaus einsammeln?": "Which resource should Klaus collect?",
   "Wähle auf dem Spielfeld das neue Ritterfeld.": "Choose the knight's new tile on the board.", "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?": "Which affected player should lose a random resource?",
@@ -858,7 +859,6 @@ export default function Home() {
   const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
   const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
   const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
-  const [tradeTarget, setTradeTarget] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [buildMode, setBuildMode] = useState<BuildMode>(null);
   const [error, setError] = useState(supabase ? "" : "Supabase ist noch nicht mit der App verbunden.");
@@ -882,6 +882,7 @@ export default function Home() {
   const lastPlayedActivityAt = useRef(0);
   const lastSeenRemoteActivity = useRef("");
   const lastKlausVoiceAt = useRef(0);
+  const playedGameEndSound = useRef<string | null>(null);
   const lastSoundEventId = useRef<Record<string, number>>({});
   const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
@@ -1018,6 +1019,18 @@ export default function Home() {
   const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const activePlayerIndex = room?.state?.active_player;
+  const activeRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
+  const activeSettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
+  const activeRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === activePlayerIndex).length;
+  const activeSettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === activePlayerIndex && (building.building === undefined || building.building === "settlement")
+  ).length;
+  const activeCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === activePlayerIndex && building.building === "city"
+  ).length;
+  const activeRoadsRemaining = Math.max(0, activeRoadLimit + (activePlayer?.road_limit_bonus ?? 0) - activeRoadsBuilt);
+  const activeSettlementsRemaining = Math.max(0, activeSettlementLimit + (activePlayer?.settlement_limit_bonus ?? 0) - activeSettlementsBuilt);
+  const activeCitiesRemaining = Math.max(0, 4 - activeCitiesBuilt);
   const playerTimersReady = Boolean(room?.state?.player_time_remaining);
   const activePlayerIsBot = Boolean(activePlayer?.is_bot);
   const playerClockPaused = Boolean(activePlayerIsBot || room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
@@ -1076,7 +1089,7 @@ export default function Home() {
     call.lang = "de-DE";
     call.rate = .62;
     call.pitch = .72;
-    call.volume = .9;
+    call.volume = 1;
     window.speechSynthesis.speak(call);
   }
 
@@ -1091,8 +1104,41 @@ export default function Home() {
       if (!context) return;
 
       const normalizedMessage = message.toLocaleLowerCase("de");
-      if (kind === "klaus" && normalizedMessage.includes("ruft klaus")) speakKlaus();
-      const woodenHit = (delay: number, pitch = 118, volume = .12) => {
+      if (kind === "klaus" && (
+        normalizedMessage.includes("ruft klaus")
+        || normalizedMessage.includes("kauft eine klaus-karte")
+        || normalizedMessage.includes("buys a klaus card")
+      )) speakKlaus();
+
+      if (kind === "win") {
+        const endSoundKey = room?.id ?? normalizedMessage;
+        if (playedGameEndSound.current === endSoundKey) return;
+        playedGameEndSound.current = endSoundKey;
+
+        const ownName = me?.player_name?.toLocaleLowerCase("de") ?? "";
+        const didIWin = room?.state?.winner_player !== undefined
+          ? room.state.winner_player === me?.player_index
+          : Boolean(ownName && normalizedMessage.startsWith(ownName));
+        const endNotes = didIWin
+          ? [523.25, 659.25, 783.99, 1046.5]
+          : [392, 349.23, 293.66, 261.63];
+
+        endNotes.forEach((frequency, index) => {
+          const start = context.currentTime + index * (didIWin ? .14 : .2);
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.type = didIWin ? "triangle" : "sine";
+          oscillator.frequency.setValueAtTime(frequency, start);
+          gain.gain.setValueAtTime(.0001, start);
+          gain.gain.exponentialRampToValueAtTime(didIWin ? .16 : .105, start + .025);
+          gain.gain.exponentialRampToValueAtTime(.0001, start + (didIWin ? .24 : .34));
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + (didIWin ? .25 : .35));
+        });
+        return;
+      }
+      const woodenHit = (delay: number, pitch = 118, volume = .16) => {
         const start = context.currentTime + delay;
         const oscillator = context.createOscillator();
         const oscillatorGain = context.createGain();
@@ -1124,22 +1170,22 @@ export default function Home() {
 
       if (kind === "build") {
         if (normalizedMessage.includes("straße")) {
-          woodenHit(0, 142, .09);
-          woodenHit(.11, 126, .08);
+          woodenHit(0, 142, .13);
+          woodenHit(.11, 126, .12);
         } else if (normalizedMessage.includes("goldmine")) {
-          woodenHit(0, 175, .1);
-          woodenHit(.13, 230, .11);
-          woodenHit(.27, 155, .09);
+          woodenHit(0, 175, .14);
+          woodenHit(.13, 230, .15);
+          woodenHit(.27, 155, .13);
         } else {
-          woodenHit(0, 112, .12);
-          woodenHit(.14, 126, .11);
-          woodenHit(.29, normalizedMessage.includes("stadt") ? 158 : 108, .13);
+          woodenHit(0, 112, .16);
+          woodenHit(.14, 126, .15);
+          woodenHit(.29, normalizedMessage.includes("stadt") ? 158 : 108, .17);
         }
         return;
       }
 
       if (kind === "dice") {
-        [0, .045, .09, .145, .205].forEach((delay, index) => woodenHit(delay, 185 + index * 19, .045));
+        [0, .045, .09, .145, .205].forEach((delay, index) => woodenHit(delay, 185 + index * 19, .075));
         return;
       }
 
@@ -1150,7 +1196,7 @@ export default function Home() {
         oscillator.type = kind === "klaus" ? "sawtooth" : "sine";
         oscillator.frequency.setValueAtTime(frequency, start);
         gain.gain.setValueAtTime(.0001, start);
-        gain.gain.exponentialRampToValueAtTime(kind === "win" ? .1 : .055, start + .012);
+        gain.gain.exponentialRampToValueAtTime(.085, start + .012);
         gain.gain.exponentialRampToValueAtTime(.0001, start + .11);
         oscillator.connect(gain).connect(context.destination);
         oscillator.start(start);
@@ -1199,7 +1245,7 @@ export default function Home() {
     if (!player) {
       player = new Audio(backgroundTracks[musicTrack.current]);
       player.preload = "auto";
-      player.volume = .18;
+      player.volume = .09;
       const advanceTrack = () => {
         musicTrack.current = (musicTrack.current + 1) % backgroundTracks.length;
         if (!musicPlayer.current) return;
@@ -1321,15 +1367,16 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [goldmineUnlocked, room, me]);
 
-  function cycleFishTiles() {
+  function toggleFishTiles() {
     if (fishTiles.length === 4) {
       setFishTiles([]);
       return;
     }
-    const freeSlots = fishCenters.map((_, slot) => slot).filter((slot) => !fishTiles.some((fish) => fish.slot === slot));
-    const slot = freeSlots[Math.floor(Math.random() * freeSlots.length)];
-    const number = fishNumbers[Math.floor(Math.random() * fishNumbers.length)];
-    setFishTiles((current) => [...current, { slot, number }]);
+    const slots = fishCenters.map((_, slot) => slot).sort(() => Math.random() - .5).slice(0, 4);
+    setFishTiles(slots.map((slot) => ({
+      slot,
+      number: fishNumbers[Math.floor(Math.random() * fishNumbers.length)],
+    })));
   }
 
   function cycleVictoryTarget() {
@@ -1404,7 +1451,11 @@ export default function Home() {
       }
 
       const resumedRoom = (Array.isArray(data) ? data[0] : data) as Room | null;
-      if (!resumedRoom?.id || !resumedRoom.join_code) return;
+      if (!resumedRoom?.id || !resumedRoom.join_code) {
+        window.localStorage.removeItem(`new-katan-last-room-${userId}`);
+        if (!urlCode) window.history.replaceState({}, "", window.location.pathname);
+        return;
+      }
       setRoom(resumedRoom);
       setCode(resumedRoom.join_code);
       window.localStorage.setItem(`new-katan-last-room-${userId}`, resumedRoom.join_code);
@@ -1536,7 +1587,9 @@ export default function Home() {
       const activityKey = `${next.created_at}|${next.message}`;
       if (activityKey === lastSeenRemoteActivity.current) return;
       lastSeenRemoteActivity.current = activityKey;
-      showActivity(next, playSound && next.kind !== "build" && next.kind !== "klaus");
+      const isKlausPurchase = next.kind === "klaus"
+        && /kauft eine klaus-karte|buys a klaus card/i.test(next.message);
+      showActivity(next, playSound && next.kind !== "build" && (next.kind !== "klaus" || isKlausPurchase));
     };
     const loadActivity = async () => {
       const { data } = await client.rpc("get_latest_game_activity", { p_game_id: roomId });
@@ -1600,6 +1653,12 @@ export default function Home() {
   }, [roomId, soundEnabled, me?.player_index]);
 
   useEffect(() => {
+    if (!soundEnabled || room?.status !== "finished" || room.state?.winner_player === undefined) return;
+    const winnerName = players.find((player) => player.player_index === room.state?.winner_player)?.player_name ?? "Ein Spieler";
+    playActivitySound("win", `${winnerName} gewinnt das Spiel!`);
+  }, [room?.id, room?.status, room?.state?.winner_player, soundEnabled, me?.player_index, players]);
+
+  useEffect(() => {
     const client = supabase;
     if (!roomId || !client) return;
     const loadPlayers = () => loadPlayerData(roomId);
@@ -1641,17 +1700,24 @@ export default function Home() {
   }, [localDiscardDeadline, room?.state?.discard_deadline, room?.state?.phase]);
 
   useEffect(() => {
-    if (room?.state?.phase !== "discard" || !myDiscard || discardSeconds > 0 || busy || automaticDiscardPending.current) return;
-    const availableResources = resourceCards.flatMap(({ key }) =>
-      Array.from({ length: Math.max(0, myResources[key] ?? 0) }, () => key)
-    );
-    if (!availableResources.length) return;
-    const randomResource = availableResources[Math.floor(Math.random() * availableResources.length)];
+    const client = supabase;
+    if (!client || !room?.id || room.state?.phase !== "discard" || !myDiscard || discardSeconds > 0 || automaticDiscardPending.current) return;
     automaticDiscardPending.current = true;
-    void discardResource(randomResource).finally(() => {
-      automaticDiscardPending.current = false;
-    });
-  }, [busy, discardSeconds, myDiscard?.remaining, myResources.wood, myResources.brick, myResources.wool, myResources.grain, myResources.ore, room?.state?.phase]);
+    void (async () => {
+      try {
+        const { data, error: discardError } = await client.rpc("auto_discard_seven_resources", { p_game_id: room.id });
+        if (discardError) {
+          setError(`Automatische Abgabe fehlgeschlagen: ${discardError.message}`);
+          return;
+        }
+        if (data) setRoom(normalizedRoom(data));
+        announceActivity("discard", `${me?.player_name ?? name} gibt die übrigen Rohstoffe automatisch ab.`, "klaus");
+        await loadPlayerData(room.id);
+      } finally {
+        automaticDiscardPending.current = false;
+      }
+    })();
+  }, [discardSeconds, myDiscard?.remaining, room?.id, room?.state?.phase]);
 
   useEffect(() => {
     const client = supabase;
@@ -1728,6 +1794,7 @@ export default function Home() {
     await supabase.auth.signOut();
     resumeAttemptedForUser.current = "";
     setRoom(null);
+    setCode("");
     setPlayers([]);
     setHighScores([]);
     setOtp("");
@@ -1742,6 +1809,7 @@ export default function Home() {
       window.history.replaceState({}, "", window.location.pathname);
     }
     setRoom(null);
+    setCode("");
     setPlayers([]);
     setMyCards([]);
     setCardCounts({});
@@ -1751,7 +1819,6 @@ export default function Home() {
     setTradeMode(null);
     setTradeGive(null);
     setTradeWant(null);
-    setTradeTarget(null);
     setError("");
   }
 
@@ -1780,6 +1847,9 @@ export default function Home() {
     setBusy(true); setError("");
 
     const normalizedCode = code.toUpperCase();
+    // Abgelaufene Räume werden vor einem erneuten Beitrittsversuch geschlossen.
+    // Auf Installationen ohne v39 ist der optionale Aufruf rückwärtskompatibel.
+    await supabase.rpc("expire_game_room_by_code", { p_join_code: normalizedCode });
     const { data: resumedData, error: resumeError } = await supabase.rpc("resume_my_game_room", { p_join_code: normalizedCode });
     const resumedRoom = (Array.isArray(resumedData) ? resumedData[0] : resumedData) as Room | null;
     if (!resumeError && resumedRoom?.id) {
@@ -1976,7 +2046,6 @@ export default function Home() {
   function resetTradeSelection() {
     setTradeGive(null);
     setTradeWant(null);
-    setTradeTarget(null);
   }
 
   async function tradeWithBank() {
@@ -1995,15 +2064,24 @@ export default function Home() {
   }
 
   async function offerPlayerTrade() {
-    if (!supabase || !room || tradeTarget === null || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
+    if (!supabase || !room || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
     setBusy(true); setError("");
-    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: tradeTarget, p_give: tradeGive, p_want: tradeWant });
+    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: null, p_give: tradeGive, p_want: tradeWant });
     if (tradeError) setError(tradeError.message);
     else {
-      setRoom(normalizedRoom(data));
+      let nextRoom = normalizedRoom(data);
+      const offerMessage = `${me?.player_name ?? name} bietet einen Handel an.`;
+      showActivity({ message: offerMessage, kind: "trade", created_at: new Date().toISOString() });
+      await supabase.rpc("record_game_activity", { p_game_id: room.id, p_action: "trade_offer", p_detail: null });
+      if (players.some((player) => player.is_bot)) {
+        const { data: botTradeData, error: botTradeError } = await supabase.rpc("resolve_bot_trade_offer", { p_game_id: room.id });
+        if (botTradeError) setError(`Bot-Handel fehlgeschlagen: ${botTradeError.message}`);
+        else nextRoom = normalizedRoom(botTradeData);
+      }
+      setRoom(nextRoom);
       resetTradeSelection();
       setTradeMode(null);
-      announceActivity("trade_offer", `${me?.player_name ?? name} bietet einen Handel an.`, "trade");
+      await loadPlayerData(room.id);
     }
     setBusy(false);
   }
@@ -2168,9 +2246,9 @@ export default function Home() {
           <div className="lobby-brand"><span>⬡</span> NEW KATAN</div>
           <div className="lobby-account"><span><small>Eingeloggt als</small><strong>{name}</strong></span><button type="button" onClick={() => void signOut()}>Abmelden</button></div>
           <div className="lobby-options-grid">
-            <button className={`fish-option ${fishTiles.length ? "active" : ""}`} type="button" onClick={cycleFishTiles}>
+            <button className={`fish-option ${fishTiles.length === 4 ? "active" : ""}`} type="button" onClick={toggleFishTiles}>
               <span><b>+ Fisch</b><small>Zufälliger Rohstoff beim Würfeln</small></span>
-              <strong>{fishTiles.length}/4</strong>
+              <strong>{fishTiles.length === 4 ? "Aktiv" : "Aus"}</strong>
             </button>
             <button className="victory-option" type="button" onClick={cycleVictoryTarget}>
               <span><b>Siegpunkte</b><small>Ziel für den Spielsieg</small></span>
@@ -2309,7 +2387,7 @@ export default function Home() {
                 <em className="victory-target-chip">Ziel: {room.victory_target ?? 10} SP</em>
               </div>
               {isEliminated && <>
-                <div className="player-eliminated-message">Zeit abgelaufen, Klaus dankt. Ciao</div>
+                <div className="player-eliminated-message">Zeit abgelaufen. Du bist jetzt Zuschauer</div>
                 <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
               </>}
               <div className={`turn-timer ${activePlayerSeconds <= 60 ? "urgent" : ""} ${playerClockPaused ? "paused" : ""}`}>
@@ -2321,8 +2399,9 @@ export default function Home() {
               ) : <><div className="online-dice pending"><PipDie /><PipDie /></div><span className="turn-note">Der aktive Spieler würfelt einmal.</span></>}
               {tradeOffer && <div className="trade-offer-banner">
                 <strong>🤝 Handelsangebot</strong>
-                <span>{players.find((player) => player.player_index === tradeOffer.from)?.player_name} bietet 1 {resourceCards.find((resource) => resource.key === tradeOffer.give)?.label} gegen 1 {resourceCards.find((resource) => resource.key === tradeOffer.want)?.label} von {players.find((player) => player.player_index === tradeOffer.to)?.player_name}.</span>
-                {tradeOffer.to === me?.player_index && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={isEliminated || busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={isEliminated || busy}>Ablehnen</button></div>}
+                <span>{players.find((player) => player.player_index === tradeOffer.from)?.player_name} bietet {tradeOffer.to == null ? "allen" : players.find((player) => player.player_index === tradeOffer.to)?.player_name} 1 {resourceCards.find((resource) => resource.key === tradeOffer.give)?.label} gegen 1 {resourceCards.find((resource) => resource.key === tradeOffer.want)?.label}.</span>
+                {tradeOffer.from !== me?.player_index && (tradeOffer.to == null || tradeOffer.to === me?.player_index) && !tradeOffer.rejected_by?.includes(me?.player_index ?? -1) && <div className="choice-grid"><button onClick={() => void respondToTrade(true)} disabled={isEliminated || busy || (myResources[tradeOffer.want] ?? 0) < 1}>Annehmen</button><button onClick={() => void respondToTrade(false)} disabled={isEliminated || busy}>Ablehnen</button></div>}
+                {tradeOffer.from !== me?.player_index && (tradeOffer.to == null || tradeOffer.to === me?.player_index) && tradeOffer.rejected_by?.includes(me?.player_index ?? -1) && <small>Du hast dieses Angebot abgelehnt.</small>}
                 {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={isEliminated || busy}>Angebot zurückziehen</button>}
               </div>}
               {room.state?.phase === "build" && <>
@@ -2351,10 +2430,10 @@ export default function Home() {
                   </div>
                   {tradeMode && <div className="trade-panel">
                     <div className="trade-tabs"><button className={tradeMode === "bank" ? "active" : ""} onClick={() => { setTradeMode("bank"); resetTradeSelection(); }}>Vorrat {bankTradeRate}:1</button><button className={tradeMode === "player" ? "active" : ""} onClick={() => { setTradeMode("player"); resetTradeSelection(); }}>Spieler 1:1</button></div>
-                    {tradeMode === "player" && <div className="trade-step"><span>Mit wem möchtest du handeln?</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}</button>)}</div></div>}
+                    {tradeMode === "player" && <div className="trade-step"><span>Das Angebot wird allen Mitspielern und Bots angezeigt. Die erste Annahme zählt.</span></div>}
                     <div className="trade-step"><span>{tradeMode === "bank" ? `${bankTradeRate} gleiche Rohstoffe abgeben` : "1 Rohstoff anbieten"}</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeGive === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeGive(resource.key)} disabled={(myResources[resource.key] ?? 0) < (tradeMode === "bank" ? bankTradeRate : 1)}><ResourceIcon kind={resource.key} />{resource.label} ({myResources[resource.key] ?? 0})</button>)}</div></div>
                     <div className="trade-step"><span>Gewünschten Rohstoff wählen</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeWant === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeWant(resource.key)} disabled={tradeGive === resource.key}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></div>
-                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot senden</button>}
+                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || !tradeGive || !tradeWant}>Angebot an alle senden</button>}
                   </div>}
                 </>}
               </>}
@@ -2410,6 +2489,27 @@ export default function Home() {
               </div>;
             })}
           </div>
+        </div>}
+        {room.status !== "waiting" && activePlayer && <div className="active-piece-reserve">
+          <div><strong>Vorrat · {activePlayer.player_name}</strong><span>aktiver Spieler</span></div>
+          <ul>
+            <li><span>🛣</span><b>{activeRoadsRemaining}</b><small>Straßen</small></li>
+            <li><span>🏠</span><b>{activeSettlementsRemaining}</b><small>Siedlungen</small></li>
+            <li><span>🏰</span><b>{activeCitiesRemaining}</b><small>Städte</small></li>
+          </ul>
+        </div>}
+        {room.status !== "waiting" && (room.state?.turn_log?.length ?? 0) > 0 && <div className="turn-history">
+          <div className="turn-history-heading"><strong>Zugprotokoll</strong><span>letzte Wechsel</span></div>
+          <ol>
+            {[...(room.state?.turn_log ?? [])].reverse().map((entry, index) => {
+              const player = players.find((candidate) => candidate.player_index === entry.player);
+              return <li key={`${entry.at}-${entry.player}-${index}`}>
+                <span className="turn-history-dot" style={{ background: player?.color ?? "#789" }} />
+                <b>{player?.player_name ?? `Spieler ${entry.player + 1}`}</b>
+                <small>Runde {entry.round}</small>
+              </li>;
+            })}
+          </ol>
         </div>}
         </div>
         <section className="online-board-area">
