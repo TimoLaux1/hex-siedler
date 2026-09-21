@@ -1499,7 +1499,7 @@ export default function Home() {
       } catch (botFailure) {
         const message = botFailure instanceof Error ? botFailure.message : "Netzwerkfehler";
         setBotDiagnostic(`Bot-RPC Netzwerkfehler: ${message}`);
-        setError("Der Bot-Zug konnte nicht geladen werden. Tippe auf „Bot-Zug fortsetzen“.");
+        setError("Der Bot-Zug konnte nicht geladen werden. Der nächste automatische Versuch läuft gleich.");
       } finally {
         botActionPending.current = false;
       }
@@ -1921,28 +1921,6 @@ export default function Home() {
     setBusy(false);
   }
 
-  async function resumeBotTurn() {
-    if (!supabase || !room || !activePlayerIsBot || botActionPending.current) return;
-    botActionPending.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      const { data, error: botError } = await supabase.rpc("run_game_bot_until_human", { p_game_id: room.id });
-      if (botError) {
-        setError(`Bot-Zug fehlgeschlagen: ${botError.message}`);
-      } else if (data) {
-        setRoom(normalizedRoom(data));
-        await loadPlayerData(room.id);
-      }
-    } catch (botFailure) {
-      const message = botFailure instanceof Error ? botFailure.message : "Netzwerkfehler";
-      setError(`Bot-Zug konnte nicht geladen werden: ${message}. Bitte erneut versuchen.`);
-    } finally {
-      botActionPending.current = false;
-      setBusy(false);
-    }
-  }
-
   async function moveRobber(targetPlayer?: number, tileOverride?: number) {
     const targetTile = tileOverride ?? selectedRobberTile;
     if (!supabase || !room || !isMyTurn || targetTile === null) return;
@@ -2270,18 +2248,15 @@ export default function Home() {
           {room.status === "playing" && (
             <button
               type="button"
-              className={`end-button topbar-end-button ${room.state?.phase === "turn" || activePlayerIsBot ? "roll-action" : ""}`}
-              onClick={activePlayerIsBot ? resumeBotTurn : room.state?.phase === "turn" ? rollDice : endTurn}
+              className={`end-button topbar-end-button ${room.state?.phase === "turn" ? "roll-action" : ""}`}
+              onClick={room.state?.phase === "turn" ? rollDice : endTurn}
               disabled={
-                busy || isEliminated ||
-                (!activePlayerIsBot && (
-                  !isMyTurn ||
-                  (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
-                  (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
-                ))
+                !isMyTurn || busy || isEliminated ||
+                (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
+                (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
               }
             >
-              {activePlayerIsBot ? "Bot-Zug fortsetzen" : room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
+              {room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
             </button>
           )}
         </div>
