@@ -1811,20 +1811,30 @@ export default function Home() {
   }
 
   async function startGame() {
-    if (!supabase || !room || players.length < 2) return;
+    if (!supabase || !room || players.length < 2 || busy) return;
+    setBusy(true);
     setError("");
-    const { data, error: setupError } = await supabase.rpc("start_game_setup_random", { p_game_id: room.id });
-    if (setupError) {
-      setError(setupError.message);
-      return;
+    try {
+      const { data, error: setupError } = await supabase.rpc("start_game_setup_random", { p_game_id: room.id });
+      if (setupError) {
+        setError(setupError.message);
+        return;
+      }
+      const startedRoom = normalizedRoom(data);
+      if (!startedRoom?.id) {
+        setError("Das Spiel konnte nicht gestartet werden. Bitte versuche es erneut.");
+        return;
+      }
+      setRoom(startedRoom);
+      const firstPlayer = players.find((player) => player.player_index === startedRoom.state?.active_player)?.player_name ?? me?.player_name ?? name;
+      announceActivity("turn", `${firstPlayer} beginnt die Aufbauphase.`, "turn", firstPlayer);
+      const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
+      if (timerError) setError(timerError.message);
+      else if (timedRoom) setRoom(normalizedRoom(timedRoom));
+      await loadPlayerData(room.id);
+    } finally {
+      setBusy(false);
     }
-    const startedRoom = normalizedRoom(data);
-    setRoom(startedRoom);
-    const firstPlayer = players.find((player) => player.player_index === startedRoom.state?.active_player)?.player_name ?? me?.player_name ?? name;
-    announceActivity("turn", `${firstPlayer} beginnt die Aufbauphase.`, "turn", firstPlayer);
-    const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
-    if (timerError) setError(timerError.message);
-    else if (timedRoom) setRoom(normalizedRoom(timedRoom));
   }
 
   async function placeSettlement(vertex: Vertex) {
@@ -1838,7 +1848,16 @@ export default function Home() {
       : { p_game_id: room.id, p_vertex: vertex.id };
     const { data, error: placementError } = await supabase.rpc(rpcName, parameters);
     if (placementError) setError(placementError.message);
-    else {
+    else if (rpcName === "place_setup_settlement") {
+      const nextRoom = normalizedRoom(data);
+      if (nextRoom?.id) {
+        setRoom(nextRoom);
+        announceActivity("settlement", `${me?.player_name ?? name} baut eine Siedlung.`, "build");
+        await loadPlayerData(room.id);
+      } else {
+        setError("Die Startsiedlung wurde nicht bestätigt. Bitte versuche es erneut.");
+      }
+    } else {
       const { data: roadAwardData, error: roadAwardError } = await supabase.rpc("refresh_longest_road", { p_game_id: room.id });
       if (roadAwardError) setError(roadAwardError.message);
       const { data: winnerData, error: winnerError } = await supabase.rpc("check_game_winner", { p_game_id: room.id });
@@ -1860,7 +1879,16 @@ export default function Home() {
     const rpcName = room.state?.phase === "setup_road" ? "place_setup_road" : "build_game_road";
     const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
     if (placementError) setError(placementError.message);
-    else {
+    else if (rpcName === "place_setup_road") {
+      const nextRoom = normalizedRoom(data);
+      if (nextRoom?.id) {
+        setRoom(nextRoom);
+        announceActivity("road", `${me?.player_name ?? name} baut eine Straße.`, "build");
+        await loadPlayerData(room.id);
+      } else {
+        setError("Die Startstraße wurde nicht bestätigt. Bitte versuche es erneut.");
+      }
+    } else {
       const { data: roadAwardData, error: roadAwardError } = await supabase.rpc("refresh_longest_road", { p_game_id: room.id });
       if (roadAwardError) setError(roadAwardError.message);
       const nextRoom = normalizedRoom(roadAwardData ?? data);
@@ -2249,7 +2277,7 @@ export default function Home() {
               {players.length >= 2 && <strong>Bereit zum Start</strong>}
               <span>Teile den Code {room.join_code} oder den Einladungslink · Ziel: {room.victory_target ?? 10} Siegpunkte.</span>
               <button className="copy-button" data-mobile-label={inviteCopied ? "Kopiert ✓" : "Link kopieren"} type="button" onClick={() => void copyInvite()}>{inviteCopied ? "Link kopiert ✓" : "Einladungslink kopieren"}</button>
-              {isHost && <button onClick={startGame} disabled={players.length < 2}>Spiel starten</button>}
+              {isHost && <button type="button" onClick={() => void startGame()} disabled={players.length < 2 || busy}>{busy ? "Spiel wird gestartet …" : "Spiel starten"}</button>}
               <button className="leave-game-button" type="button" onClick={confirmLeaveGame}>Spiel verlassen</button>
               {error && !error.startsWith("Bot-RPC Fehler:") && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
             </div>
