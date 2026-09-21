@@ -1950,3 +1950,71 @@ body:has(.online-shell) {
     inset-inline: 4px;
   }
 }
+
+/* v46: Klare Reihenfolge und sichtbar scrollbare linke Spielleiste. */
+.online-shell .online-sidebar {
+  display: block !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  scrollbar-width: auto;
+  scrollbar-color: #4f897f #ebe6d9;
+  scrollbar-gutter: stable;
+}
+.online-shell .online-sidebar::-webkit-scrollbar { width: 11px; }
+.online-shell .online-sidebar::-webkit-scrollbar-track {
+  background: #ebe6d9;
+  border-left: 1px solid #d5cdbd;
+}
+.online-shell .online-sidebar::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 2px solid #ebe6d9;
+  border-radius: 999px;
+  background: #4f897f;
+}
+.online-shell .sidebar-game-section {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) !important;
+  grid-template-rows: auto auto auto !important;
+  align-items: start !important;
+  align-content: start !important;
+  gap: 0 !important;
+}
+.online-shell .sidebar-game-section > .sidebar-section-title {
+  grid-row: 1;
+  order: initial !important;
+}
+.online-shell .sidebar-game-section > .online-control-area {
+  grid-row: 2;
+  order: initial !important;
+  position: static !important;
+  display: block !important;
+  float: none !important;
+  clear: both !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 0 10px !important;
+}
+.online-shell .sidebar-game-section > .room-panel {
+  grid-row: 3;
+  order: initial !important;
+  position: static !important;
+  display: block !important;
+  float: none !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 4px !important;
+}
+.online-shell .sidebar-game-section .waiting-card,
+.online-shell .sidebar-game-section .turn-card {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+.online-shell .sidebar-player-list {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) !important;
+  grid-auto-rows: auto !important;
+  align-content: start !important;
+}
