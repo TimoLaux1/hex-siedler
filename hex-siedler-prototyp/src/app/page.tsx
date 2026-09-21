@@ -2229,6 +2229,7 @@ export default function Home() {
         <section className="sidebar-game-section">
         <p className="eyebrow sidebar-section-title">Spielsteuerung</p>
         <aside className="room-panel card">
+          <div className="sidebar-player-list">
           {players.map((player) => (
             <div className={`room-player ${player.is_bot ? "bot-player" : ""}`} key={player.user_id ?? `bot-${player.player_index}`}>
               <span style={{ background: colors[player.player_index] }}>{player.player_name.slice(0, 1).toUpperCase()}</span>
@@ -2240,6 +2241,7 @@ export default function Home() {
           {room.status === "waiting" && Array.from({ length: 4 - players.length }).map((_, index) => isHost && botCount < 2
             ? <button className="empty-player add-bot-button" type="button" key={index} onClick={() => void addBot()} disabled={busy}>+ Bot hinzufügen</button>
             : <div className="empty-player" key={index}>Warte auf Spieler …</div>)}
+          </div>
         </aside>
         <section className="online-control-area">
           {room.status === "waiting" ? (
