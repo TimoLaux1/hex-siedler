@@ -181,6 +181,10 @@ begin
       and not (coalesce(g.state->'eliminated_players', '[]'::jsonb) @> jsonb_build_array(gp.player_index))
   ) into nobody_left;
 
+  if nobody_left then
+    decision_message := 'Alle anderen Spieler haben das Handelsangebot abgelehnt.';
+  end if;
+
   update public.games
   set state = case when nobody_left
         then state - 'trade_offer' - 'trade_expires_at'
