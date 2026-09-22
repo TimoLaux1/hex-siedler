@@ -2111,11 +2111,13 @@ export default function Home() {
   async function respondToTrade(accept: boolean) {
     if (!supabase || !room) return;
     const offerBeforeResponse = room.state?.trade_offer;
-    const allOthersRejected = !accept && offerBeforeResponse?.to == null && players.every((player) =>
-      player.player_index === offerBeforeResponse.from
+    const openOfferFrom = offerBeforeResponse?.to == null ? offerBeforeResponse?.from ?? null : null;
+    const alreadyRejected = offerBeforeResponse?.rejected_by ?? [];
+    const allOthersRejected = !accept && openOfferFrom !== null && players.every((player) =>
+      player.player_index === openOfferFrom
       || player.player_index === me?.player_index
       || eliminatedPlayers.includes(player.player_index)
-      || offerBeforeResponse.rejected_by?.includes(player.player_index)
+      || alreadyRejected.includes(player.player_index)
     );
     setBusy(true); setError("");
     const { data, error: tradeError } = await supabase.rpc("respond_player_trade", { p_game_id: room.id, p_accept: accept });
