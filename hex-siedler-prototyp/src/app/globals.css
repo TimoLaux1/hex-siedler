@@ -502,6 +502,7 @@ button, a { font: inherit; }
   position: fixed;
   z-index: 10000;
   inset: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom));
   display: grid;
   place-items: center;
   overflow: hidden;
