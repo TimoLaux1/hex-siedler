@@ -20,8 +20,7 @@ type BotCardReveal = { card_type: KlausKind; player: number; resolve_at: string 
 type GameSoundEvent = { id: number; player_index: number | null; kind: "build" | "klaus"; message: string; card_type?: KlausKind | null };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type TurnLogEntry = { player: number; round: number; at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; turn_log?: TurnLogEntry[]; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
@@ -843,6 +842,7 @@ export default function Home() {
   const [code, setCode] = useState(() => typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("room") ?? "").toUpperCase());
   const [userId, setUserId] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
+  const [joinedAsSpectator, setJoinedAsSpectator] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [myCards, setMyCards] = useState<KlausCard[]>([]);
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
@@ -873,7 +873,6 @@ export default function Home() {
   const [remoteCardReveal, setRemoteCardReveal] = useState<BotCardReveal | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
-  const resumeAttemptedForUser = useRef("");
   const playerTimerInitialized = useRef(new Set<string>());
   const audioContext = useRef<AudioContext | null>(null);
   const musicPlayer = useRef<HTMLAudioElement | null>(null);
@@ -1429,46 +1428,11 @@ export default function Home() {
   }, [userId]);
 
   useEffect(() => {
-    const client = supabase;
-    if (!client || !userId || !name || room || resumeAttemptedForUser.current === userId) return;
-    resumeAttemptedForUser.current = userId;
-
-    const resumeRoom = async () => {
-      const urlCode = new URLSearchParams(window.location.search).get("room")?.trim().toUpperCase() ?? "";
-      const storedCode = window.localStorage.getItem(`new-katan-last-room-${userId}`)?.trim().toUpperCase() ?? "";
-      const requestedCode = urlCode || storedCode || null;
-      let { data, error: resumeError } = await client.rpc("resume_my_game_room", { p_join_code: requestedCode });
-
-      if (!resumeError && !data && !urlCode && storedCode) {
-        const fallback = await client.rpc("resume_my_game_room", { p_join_code: null });
-        data = fallback.data;
-        resumeError = fallback.error;
-      }
-
-      if (resumeError) {
-        if (!resumeError.message.includes("resume_my_game_room")) setError(resumeError.message);
-        return;
-      }
-
-      const resumedRoom = (Array.isArray(data) ? data[0] : data) as Room | null;
-      if (!resumedRoom?.id || !resumedRoom.join_code) {
-        window.localStorage.removeItem(`new-katan-last-room-${userId}`);
-        if (!urlCode) window.history.replaceState({}, "", window.location.pathname);
-        return;
-      }
-      setRoom(resumedRoom);
-      setCode(resumedRoom.join_code);
-      window.localStorage.setItem(`new-katan-last-room-${userId}`, resumedRoom.join_code);
-      window.history.replaceState({}, "", `?room=${resumedRoom.join_code}`);
-    };
-
-    void resumeRoom();
-  }, [name, room, userId]);
-
-  useEffect(() => {
-    if (!room?.join_code || !userId) return;
-    window.localStorage.setItem(`new-katan-last-room-${userId}`, room.join_code);
-  }, [room?.join_code, userId]);
+    if (typeof window === "undefined") return;
+    // Ein Einladungslink darf den Code vorbelegen, soll aber weder den Raum
+    // automatisch oeffnen noch beim naechsten Seitenaufruf erhalten bleiben.
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   const roomId = room?.id;
 
@@ -1663,7 +1627,7 @@ export default function Home() {
     if (!roomId || !client) return;
     const loadPlayers = () => loadPlayerData(roomId);
     const loadRoom = async () => {
-      const { data } = await client.rpc("get_game_room", { p_game_id: roomId });
+      const { data } = await client.rpc(joinedAsSpectator ? "get_spectator_game_room" : "get_game_room", { p_game_id: roomId });
       const freshRoom = Array.isArray(data) ? data[0] : data;
       if (freshRoom) setRoom(freshRoom as Room);
     };
@@ -1680,7 +1644,7 @@ export default function Home() {
       window.clearInterval(refreshTimer);
       client.removeChannel(channel);
     };
-  }, [roomId]);
+  }, [joinedAsSpectator, roomId]);
 
   useEffect(() => {
     if (!roomId || room?.status !== "playing") return;
@@ -1792,8 +1756,8 @@ export default function Home() {
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
-    resumeAttemptedForUser.current = "";
     setRoom(null);
+    setJoinedAsSpectator(false);
     setCode("");
     setPlayers([]);
     setHighScores([]);
@@ -1805,10 +1769,10 @@ export default function Home() {
 
   function leaveGame() {
     if (typeof window !== "undefined") {
-      if (userId) window.localStorage.removeItem(`new-katan-last-room-${userId}`);
       window.history.replaceState({}, "", window.location.pathname);
     }
     setRoom(null);
+    setJoinedAsSpectator(false);
     setCode("");
     setPlayers([]);
     setMyCards([]);
@@ -1835,8 +1799,8 @@ export default function Home() {
     if (rpcError) setError(rpcError.message);
     else {
       const result = data[0];
+      setJoinedAsSpectator(false);
       setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId, fish_tiles: fishTiles, board_tiles: boardTiles, victory_target: victoryTarget });
-      window.history.replaceState({}, "", `?room=${result.join_code}`);
     }
     setBusy(false);
   }
@@ -1853,9 +1817,8 @@ export default function Home() {
     const { data: resumedData, error: resumeError } = await supabase.rpc("resume_my_game_room", { p_join_code: normalizedCode });
     const resumedRoom = (Array.isArray(resumedData) ? resumedData[0] : resumedData) as Room | null;
     if (!resumeError && resumedRoom?.id) {
+      setJoinedAsSpectator(false);
       setRoom(resumedRoom);
-      window.localStorage.setItem(`new-katan-last-room-${userId}`, normalizedCode);
-      window.history.replaceState({}, "", `?room=${normalizedCode}`);
       setBusy(false);
       return;
     }
@@ -1867,14 +1830,14 @@ export default function Home() {
       if (!result?.game_id) {
         setError("Der Beitritt wurde nicht bestätigt. Bitte versuche es erneut.");
       } else {
-        const { data: gameData, error: gameError } = await supabase.rpc("get_game_room", { p_game_id: result.game_id });
+        const spectator = result.player_index === -1;
+        const { data: gameData, error: gameError } = await supabase.rpc(spectator ? "get_spectator_game_room" : "get_game_room", { p_game_id: result.game_id });
         const game = Array.isArray(gameData) ? gameData[0] : gameData;
         if (gameError) setError(gameError.message);
         else if (!game) setError("Der Spielraum konnte nach dem Beitritt nicht geladen werden.");
         else {
+          setJoinedAsSpectator(spectator);
           setRoom(game as Room);
-          window.localStorage.setItem(`new-katan-last-room-${userId}`, normalizedCode);
-          window.history.replaceState({}, "", `?room=${normalizedCode}`);
         }
       }
     }
@@ -2497,19 +2460,6 @@ export default function Home() {
             <li><span>🏠</span><b>{activeSettlementsRemaining}</b><small>Siedlungen</small></li>
             <li><span>🏰</span><b>{activeCitiesRemaining}</b><small>Städte</small></li>
           </ul>
-        </div>}
-        {room.status !== "waiting" && (room.state?.turn_log?.length ?? 0) > 0 && <div className="turn-history">
-          <div className="turn-history-heading"><strong>Zugprotokoll</strong><span>letzte Wechsel</span></div>
-          <ol>
-            {[...(room.state?.turn_log ?? [])].reverse().map((entry, index) => {
-              const player = players.find((candidate) => candidate.player_index === entry.player);
-              return <li key={`${entry.at}-${entry.player}-${index}`}>
-                <span className="turn-history-dot" style={{ background: player?.color ?? "#789" }} />
-                <b>{player?.player_name ?? `Spieler ${entry.player + 1}`}</b>
-                <small>Runde {entry.round}</small>
-              </li>;
-            })}
-          </ol>
         </div>}
         </div>
         <section className="online-board-area">
