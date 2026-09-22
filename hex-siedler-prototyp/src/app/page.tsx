@@ -935,8 +935,8 @@ export default function Home() {
   const automaticDiscardPending = useRef(false);
 
   useEffect(() => {
-    const fadeTimer = window.setTimeout(() => setOpeningIntroFading(true), 7000);
-    const hideTimer = window.setTimeout(() => setShowOpeningIntro(false), 8000);
+    const fadeTimer = window.setTimeout(() => setOpeningIntroFading(true), 9000);
+    const hideTimer = window.setTimeout(() => setShowOpeningIntro(false), 10000);
     return () => {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(hideTimer);
