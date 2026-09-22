@@ -2520,6 +2520,7 @@ export default function Home() {
             <li><span>🏰</span><b>{myCitiesRemaining}</b><small>Städte</small></li>
           </ul>
         </div>}
+        <div className="sidebar-room-code">Raumcode: <strong>{room.join_code}</strong></div>
         </div>
         <section className="online-board-area">
           <SeaVisitor />
