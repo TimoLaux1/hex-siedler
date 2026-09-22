@@ -76,7 +76,8 @@ const englishUi: Record<string, string> = {
   "Vorrat dauerhaft erweitern": "Permanently expand supply",
   "Musik ausschalten": "Turn music off", "Musik einschalten": "Turn music on", "Ton ausschalten": "Turn sound off", "Ton einschalten": "Turn sound on",
   "New Katan installieren": "Install New Katan", "Tippe in Safari unten auf": "In Safari, tap", "Teilen": "Share", "und danach auf": "and then", "„Zum Home-Bildschirm“": "‘Add to Home Screen’",
-  "Zum Homebildschirm hinzufügen?": "Add to Home Screen?", "Starte New Katan künftig direkt wie eine App.": "Launch New Katan directly like an app.", "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab.": "Add New Katan to your Home Screen for quick access.", "Hinzufügen": "Add", "Vollbild": "Fullscreen"
+  "Zum Homebildschirm hinzufügen?": "Add to Home Screen?", "Starte New Katan künftig direkt wie eine App.": "Launch New Katan directly like an app.", "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab.": "Add New Katan to your Home Screen for quick access.", "Hinzufügen": "Add", "Vollbild": "Fullscreen",
+  "Die Rache des Klaus Teuber.": "The Revenge of Klaus Teuber."
 };
 
 function translateUiText(raw: string) {
@@ -806,6 +807,50 @@ function OrientationPrompt() {
   );
 }
 
+const introFishTiles: FishTile[] = [
+  { slot: 0, number: 4 },
+  { slot: 1, number: 9 },
+  { slot: 2, number: 10 },
+  { slot: 3, number: 5 },
+];
+
+const introRoom: Room = {
+  id: "intro",
+  join_code: "INTRO",
+  status: "playing",
+  created_by: "",
+  board_tiles: terrain,
+  fish_tiles: introFishTiles,
+  state: {
+    robber_tile: 9,
+    settlements: [
+      { vertex: 7, player: 0, building: "settlement" },
+      { vertex: 20, player: 1, building: "city" },
+      { vertex: 31, player: 2, building: "goldmine" },
+      { vertex: 44, player: 3, building: "settlement" },
+    ],
+    roads: [],
+  },
+};
+
+function OpeningIntro({ fading }: { fading: boolean }) {
+  return (
+    <main className={`opening-intro ${fading ? "is-fading" : ""}`} aria-label="New Katan Intro">
+      <div className="opening-intro-water" aria-hidden="true">
+        <SwimmingFishLayer />
+        <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} /></BoardFit></div>
+        <div className="opening-intro-glow" />
+      </div>
+      <section className="opening-intro-title">
+        <span className="opening-intro-mark">⬡</span>
+        <h1>New Katan.</h1>
+        <p>Die Rache des Klaus Teuber.</p>
+      </section>
+      <div className="opening-intro-mist" aria-hidden="true" />
+    </main>
+  );
+}
+
 function HighScoreBoard({ scores, currentName }: { scores: HighScore[]; currentName: string }) {
   const winningScores = scores.filter((score) => score.wins > 0);
   return (
@@ -828,6 +873,8 @@ function formatClock(seconds: number) {
 }
 
 export default function Home() {
+  const [showOpeningIntro, setShowOpeningIntro] = useState(true);
+  const [openingIntroFading, setOpeningIntroFading] = useState(false);
   const [language, setLanguage] = useState<Language>("de");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -886,6 +933,15 @@ export default function Home() {
   const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
   const automaticDiscardPending = useRef(false);
+
+  useEffect(() => {
+    const fadeTimer = window.setTimeout(() => setOpeningIntroFading(true), 3200);
+    const hideTimer = window.setTimeout(() => setShowOpeningIntro(false), 4000);
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("new-katan-language");
@@ -2164,6 +2220,8 @@ export default function Home() {
     setInviteCopied(true);
     window.setTimeout(() => setInviteCopied(false), 1800);
   }
+
+  if (showOpeningIntro) return <OpeningIntro fading={openingIntroFading} />;
 
   if (!authReady) {
     return <main className="auth-shell"><OrientationPrompt /><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
