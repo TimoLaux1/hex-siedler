@@ -594,8 +594,8 @@ button, a { font: inherit; }
 .opening-intro-title::after { right: 18px; }
 .opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 12px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(12px,1.4vw,18px); font-weight: 950; letter-spacing: .18em; }
 .opening-intro-mark { color: #ffd673; font-size: clamp(27px,3vw,39px); font-weight: 400; line-height: 1; }
-.opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(42px,7vw,92px); line-height: .98; letter-spacing: -.04em; }
-.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(17px,2.6vw,38px); font-weight: 700; line-height: 1.05; letter-spacing: .01em; white-space: nowrap; }
+.opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(38px,5vw,72px); line-height: .98; letter-spacing: -.04em; white-space: nowrap; }
+.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(16px,2vw,30px); font-weight: 700; line-height: 1.05; letter-spacing: 0; white-space: nowrap; }
 .opening-intro-mist {
   position: absolute;
   z-index: 30;
