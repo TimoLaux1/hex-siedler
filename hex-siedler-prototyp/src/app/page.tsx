@@ -904,7 +904,7 @@ export default function Home() {
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [localDiscardDeadline, setLocalDiscardDeadline] = useState<number | null>(null);
   const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
-  const [tradeTarget, setTradeTarget] = useState<number | null>(null);
+  const [tradeTarget, setTradeTarget] = useState<number | "all" | null>(null);
   const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
   const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
   const [busy, setBusy] = useState(false);
@@ -2088,7 +2088,7 @@ export default function Home() {
   async function offerPlayerTrade() {
     if (!supabase || !room || tradeTarget === null || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
     setBusy(true); setError("");
-    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: tradeTarget, p_give: tradeGive, p_want: tradeWant });
+    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: tradeTarget === "all" ? null : tradeTarget, p_give: tradeGive, p_want: tradeWant });
     if (tradeError) setError(tradeError.message);
     else {
       let nextRoom = normalizedRoom(data);
@@ -2454,10 +2454,10 @@ export default function Home() {
                   </div>
                   {tradeMode && <div className="trade-panel">
                     <div className="trade-tabs"><button className={tradeMode === "bank" ? "active" : ""} onClick={() => { setTradeMode("bank"); resetTradeSelection(); }}>Vorrat {bankTradeRate}:1</button><button className={tradeMode === "player" ? "active" : ""} onClick={() => { setTradeMode("player"); resetTradeSelection(); }}>Spieler 1:1</button></div>
-                    {tradeMode === "player" && <div className="trade-step"><span>Handelspartner wählen</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index && !eliminatedPlayers.includes(player.player_index)).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}{player.is_bot ? " 🤖" : ""}</button>)}</div></div>}
+                    {tradeMode === "player" && <div className="trade-step"><span>Handelspartner wählen</span><div className="choice-grid"><button className={tradeTarget === "all" ? "selected" : ""} onClick={() => setTradeTarget("all")}>Alle Spieler</button>{players.filter((player) => player.player_index !== me?.player_index && !eliminatedPlayers.includes(player.player_index)).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}{player.is_bot ? " 🤖" : ""}</button>)}</div></div>}
                     <div className="trade-step"><span>{tradeMode === "bank" ? `${bankTradeRate} gleiche Rohstoffe abgeben` : "1 Rohstoff anbieten"}</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeGive === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeGive(resource.key)} disabled={(myResources[resource.key] ?? 0) < (tradeMode === "bank" ? bankTradeRate : 1)}><ResourceIcon kind={resource.key} />{resource.label} ({myResources[resource.key] ?? 0})</button>)}</div></div>
                     <div className="trade-step"><span>Gewünschten Rohstoff wählen</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeWant === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeWant(resource.key)} disabled={tradeGive === resource.key}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></div>
-                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot an {players.find((player) => player.player_index === tradeTarget)?.player_name ?? "Spieler"} senden</button>}
+                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot an {tradeTarget === "all" ? "alle Spieler" : players.find((player) => player.player_index === tradeTarget)?.player_name ?? "Spieler"} senden</button>}
                   </div>}
                 </>}
               </>}
