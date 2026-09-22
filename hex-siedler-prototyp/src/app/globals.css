@@ -595,7 +595,7 @@ button, a { font: inherit; }
 .opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 12px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(12px,1.4vw,18px); font-weight: 950; letter-spacing: .18em; }
 .opening-intro-mark { color: #ffd673; font-size: clamp(27px,3vw,39px); font-weight: 400; line-height: 1; }
 .opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(42px,7vw,92px); line-height: .98; letter-spacing: -.04em; }
-.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(19px,3vw,38px); font-weight: 700; letter-spacing: .01em; }
+.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(17px,2.6vw,38px); font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
 .opening-intro-mist {
   position: absolute;
   z-index: 30;
@@ -629,6 +629,7 @@ button, a { font: inherit; }
   .opening-intro-water { background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
   .opening-intro-board { top: 16vh; right: -19vw; bottom: 4vh; left: 14vw; opacity: .72; }
   .opening-intro-title { justify-self: center; width: calc(100vw - 34px); margin-left: 0; padding: 38px 20px; }
+  .opening-intro-title p { font-size: clamp(15px,4.5vw,24px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .opening-intro-board,
