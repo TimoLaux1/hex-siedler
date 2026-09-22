@@ -2110,9 +2110,28 @@ export default function Home() {
 
   async function respondToTrade(accept: boolean) {
     if (!supabase || !room) return;
+    const offerBeforeResponse = room.state?.trade_offer;
+    const allOthersRejected = !accept && offerBeforeResponse?.to == null && players.every((player) =>
+      player.player_index === offerBeforeResponse.from
+      || player.player_index === me?.player_index
+      || eliminatedPlayers.includes(player.player_index)
+      || offerBeforeResponse.rejected_by?.includes(player.player_index)
+    );
     setBusy(true); setError("");
     const { data, error: tradeError } = await supabase.rpc("respond_player_trade", { p_game_id: room.id, p_accept: accept });
-    if (tradeError) setError(tradeError.message); else { setRoom(normalizedRoom(data)); announceActivity(accept ? "trade_accept" : "trade_reject", `${me?.player_name ?? name} ${accept ? "nimmt den Handel an" : "lehnt den Handel ab"}.`, "trade"); await loadPlayerData(room.id); }
+    if (tradeError) setError(tradeError.message); else {
+      setRoom(normalizedRoom(data));
+      announceActivity(
+        accept ? "trade_accept" : "trade_reject",
+        accept
+          ? `${me?.player_name ?? name} nimmt den Handel an.`
+          : allOthersRejected
+            ? "Alle anderen Spieler haben das Handelsangebot abgelehnt."
+            : `${me?.player_name ?? name} lehnt den Handel ab.`,
+        "trade"
+      );
+      await loadPlayerData(room.id);
+    }
     setBusy(false);
   }
 
