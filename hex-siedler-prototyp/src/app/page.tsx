@@ -2023,7 +2023,14 @@ export default function Home() {
     });
     if (robberError) setError(robberError.message);
     else {
-      setRoom(normalizedRoom(data));
+      let nextRoom = normalizedRoom(data);
+      const attackedBot = targetPlayer === undefined ? undefined : players.find((player) => player.player_index === targetPlayer && player.is_bot);
+      if (attackedBot) {
+        const { data: attackData, error: attackError } = await supabase.rpc("record_bot_attack", { p_game_id: room.id, p_target_bot: attackedBot.player_index });
+        if (attackError) setError(`Bot-Reaktion konnte nicht gespeichert werden: ${attackError.message}`);
+        else if (attackData) nextRoom = normalizedRoom(attackData);
+      }
+      setRoom(nextRoom);
       setSelectedRobberTile(null);
       announceActivity("robber", `${me?.player_name ?? name} versetzt den Ritter.`, "klaus");
       await loadPlayerData(room.id);
@@ -2197,7 +2204,14 @@ export default function Home() {
     const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: activeCard.id, p_payload: payload });
     if (cardError) setError(cardError.message);
     else {
-      const nextRoom = normalizedRoom(data);
+      let nextRoom = normalizedRoom(data);
+      const targetPlayer = typeof payload.target_player === "number" ? payload.target_player : undefined;
+      const attackedBot = targetPlayer === undefined ? undefined : players.find((player) => player.player_index === targetPlayer && player.is_bot);
+      if (attackedBot && (playedCard.card_type === "disappointed" || playedCard.card_type === "angry")) {
+        const { data: attackData, error: attackError } = await supabase.rpc("record_bot_attack", { p_game_id: room.id, p_target_bot: attackedBot.player_index });
+        if (attackError) setError(`Bot-Reaktion konnte nicht gespeichert werden: ${attackError.message}`);
+        else if (attackData) nextRoom = normalizedRoom(attackData);
+      }
       setRoom(nextRoom);
       setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
       setSelectedCard(null);
