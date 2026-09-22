@@ -538,10 +538,16 @@ button, a { font: inherit; }
 .opening-intro-water::after { right: -25vw; top: -25vw; transform: rotate(-18deg); animation-delay: -2s; }
 .opening-intro-board {
   position: absolute;
-  inset: 10vh 10vw -30vh;
-  opacity: .26;
-  filter: saturate(.88) contrast(.92) drop-shadow(0 24px 28px #16444a52);
-  transform: scale(1.05) rotate(-2deg);
+  z-index: 6;
+  top: 2vh;
+  right: -8vw;
+  bottom: -4vh;
+  left: 48vw;
+  opacity: .31;
+  filter: blur(1.8px) saturate(.78) contrast(.88) drop-shadow(0 24px 28px #16444a52);
+  -webkit-mask-image: radial-gradient(ellipse at 67% 52%,#000 0 30%,rgba(0,0,0,.72) 48%,transparent 76%);
+  mask-image: radial-gradient(ellipse at 67% 52%,#000 0 30%,rgba(0,0,0,.72) 48%,transparent 76%);
+  transform: scale(1.08) rotate(2deg);
   animation: opening-board-float 8s ease-in-out both;
 }
 .opening-intro-board .full-board { pointer-events: none; }
@@ -584,7 +590,8 @@ button, a { font: inherit; }
 }
 .opening-intro-title::before { left: 18px; }
 .opening-intro-title::after { right: 18px; }
-.opening-intro-mark { display: block; margin-bottom: 5px; color: #ffd673; font-size: clamp(30px,4vw,48px); line-height: 1; }
+.opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 12px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(12px,1.4vw,18px); font-weight: 950; letter-spacing: .18em; }
+.opening-intro-mark { color: #ffd673; font-size: clamp(27px,3vw,39px); font-weight: 400; line-height: 1; }
 .opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(42px,7vw,92px); line-height: .98; letter-spacing: -.04em; }
 .opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(19px,3vw,38px); font-weight: 700; letter-spacing: .01em; }
 .opening-intro-mist {
@@ -596,9 +603,9 @@ button, a { font: inherit; }
   animation: opening-mist 8s linear both;
 }
 @keyframes opening-board-float {
-  0%,18% { transform: scale(1.13) rotate(-3deg) translateY(45px); opacity: 0; }
+  0%,18% { transform: scale(1.17) rotate(4deg) translate(55px,35px); opacity: 0; filter: blur(6px) saturate(.7); }
   42% { opacity: .2; }
-  100% { transform: scale(.98) rotate(1deg) translateY(0); opacity: .3; }
+  100% { transform: scale(1.02) rotate(1deg) translate(0,0); opacity: .34; filter: blur(1.8px) saturate(.78); }
 }
 @keyframes opening-landscape-camera {
   0% { background-position: center center,center center,center 52%; filter: saturate(.88) brightness(.88); }
@@ -617,7 +624,7 @@ button, a { font: inherit; }
 }
 @media (max-width: 700px) and (orientation: portrait) {
   .opening-intro-water { background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
-  .opening-intro-board { inset: 14vh -52vw -28vh; transform: scale(1.2); }
+  .opening-intro-board { top: 17vh; right: -58vw; bottom: 3vh; left: 32vw; }
   .opening-intro-title { width: calc(100vw - 34px); padding: 38px 20px; }
 }
 @media (prefers-reduced-motion: reduce) {

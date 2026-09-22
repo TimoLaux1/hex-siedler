@@ -842,7 +842,7 @@ function OpeningIntro({ fading }: { fading: boolean }) {
         <div className="opening-intro-glow" />
       </div>
       <section className="opening-intro-title">
-        <span className="opening-intro-mark">⬡</span>
+        <div className="opening-intro-logo"><span className="opening-intro-mark">⬡</span><b>NEW KATAN</b></div>
         <h1>New Katan.</h1>
         <p>Die Rache des Klaus Teuber.</p>
       </section>
