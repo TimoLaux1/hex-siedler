@@ -675,6 +675,9 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
           <linearGradient id="clay-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#cd805b"/><stop offset="1" stopColor="#88452f"/></linearGradient>
           <linearGradient id="desert-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#dac997"/><stop offset="1" stopColor="#aa945d"/></linearGradient>
           <linearGradient id="fish-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#62c7d5"/><stop offset=".55" stopColor="#278fa9"/><stop offset="1" stopColor="#166b88"/></linearGradient>
+          <linearGradient id="robber-cloak-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#4b5652"/><stop offset=".42" stopColor="#1c2422"/><stop offset="1" stopColor="#080d0c"/></linearGradient>
+          <linearGradient id="robber-sack-fill" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#95836a"/><stop offset=".48" stopColor="#5b5142"/><stop offset="1" stopColor="#29271f"/></linearGradient>
+          <radialGradient id="robber-head-fill" cx="32%" cy="24%" r="74%"><stop stopColor="#e4c9a5"/><stop offset=".56" stopColor="#b99a76"/><stop offset="1" stopColor="#775d45"/></radialGradient>
         </defs>
         {visibleFish.map((fish) => {
           const { x, y } = fishCenters[fish.slot];
@@ -705,7 +708,9 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
                 <animateTransform attributeName="transform" type="translate" values="-7 1;-7 1;7 1;7 1;-7 1" keyTimes="0;.2857;.5;.7857;1" dur="70s" repeatCount="indefinite"/>
                 <ellipse className="robber-shadow" cx="1" cy="15" rx="16" ry="4"/>
                 <ellipse className="robber-sack" cx="10" cy="-1" rx="11" ry="14" transform="rotate(-24 10 -1)"/>
+                <ellipse className="robber-sack-highlight" cx="7" cy="-5" rx="3" ry="7" transform="rotate(-24 7 -5)"/>
                 <path className="robber-cloak" d="M-9-5Q-3-14 5-8L10 12H-11Z"/>
+                <path className="robber-cloak-highlight" d="M-7-5Q-3-10 0-8L1 9H-7Z"/>
                 <circle className="robber-head" cx="-5" cy="-14" r="6"/>
                 <path className="robber-hood" d="M-13-15Q-7-26 2-18L1-10Q-7-14-13-9Z"/>
               </g>
