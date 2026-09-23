@@ -448,7 +448,8 @@ begin
       elsif bot_card.card_type='sneaky' then
         select candidate.vertex_id into chosen_vertex from public.board_vertex_neighbors candidate
         where exists(select 1 from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'player')::integer=bot_index and ((r->>'a')::integer=candidate.vertex_id or (r->>'b')::integer=candidate.vertex_id))
-          and not exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=candidate.vertex_id or (b->>'vertex')::integer=any(candidate.neighbor_vertices))
+          and not exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=candidate.vertex_id)
+          and exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=any(candidate.neighbor_vertices))
         order by public.bot_vertex_score(p_game_id,bot_index,candidate.vertex_id) desc limit 1;
         select count(*) into own_settlement_count from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b
         where (b->>'player')::integer=bot_index and coalesce(b->>'building','settlement')='settlement';
