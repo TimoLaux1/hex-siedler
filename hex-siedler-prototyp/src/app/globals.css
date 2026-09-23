@@ -525,7 +525,8 @@ button, a { font: inherit; }
 
 .auth-shell { min-height: 100svh; padding: 24px; display: grid; place-items: center; background: radial-gradient(circle at 50% 35%,#eaf6f3 0 16%,transparent 46%),linear-gradient(145deg,#9bcbd3,#e6f1ed); }.auth-card { width: min(430px,100%); padding: clamp(26px,5vw,42px); display: grid; justify-items: center; gap: 13px; border: 1px solid #ffffffb3; border-radius: 26px; background: rgba(255,255,255,.94); box-shadow: 0 25px 80px #204c4a40; text-align: center; }.auth-brand { justify-self: start; color: #20302d; font-size: 13px; font-weight: 950; letter-spacing: .14em; }.auth-brand span { color: #d89231; font-size: 26px; vertical-align: middle; }.auth-klaus { width: 72px; height: 72px; display: grid; place-items: center; margin-top: 8px; border-radius: 50%; background: #f4e1b5; font-size: 45px; box-shadow: 0 7px 0 #ceb275,0 12px 22px #6c55252b; }.auth-card h1 { margin: 7px 0 0; font-size: clamp(24px,7vw,32px); }.auth-card > p { margin: 0; color: #68736f; font-size: 13px; line-height: 1.5; }.auth-card > small { margin-top: 3px; color: #8a918e; font-size: 10px; }.auth-form { width: 100%; display: grid; gap: 11px; margin-top: 6px; }.auth-form label { display: grid; gap: 7px; color: #596963; font-size: 11px; font-weight: 850; text-align: left; }.auth-form input { width: 100%; min-height: 50px; padding: 13px 15px; border: 1px solid #d8d2c4; border-radius: 12px; background: white; outline: none; }.auth-form input:focus { border-color: #1f6b57; box-shadow: 0 0 0 3px #1f6b5720; }.auth-form .otp-input { font-size: 24px; font-weight: 900; letter-spacing: .3em; text-align: center; }.auth-form button { min-height: 49px; border: 0; border-radius: 12px; background: #1f6b57; color: white; font-weight: 900; cursor: pointer; }.auth-form button:disabled { opacity: .45; cursor: not-allowed; }.auth-form .auth-back { min-height: auto; padding: 5px; background: transparent; color: #68736f; font-size: 11px; }.auth-error { width: 100%; padding: 10px; border-radius: 10px; background: #fff0ed; color: #a43f2f !important; }.auth-loading span { color: #d89231; font-size: 42px; }
 
-/* Zehnsekündiger Vorspann vor Login/Lobby mit einer plastischen Inselwelt. */
+/* Zehnsekündiger Vorspann vor Login/Lobby. Eine plastische 3D-Welt führt in
+   die echte Brettgrafik über, damit Intro und Spiel zusammengehören. */
 .opening-intro {
   position: fixed;
   z-index: 10000;
@@ -565,23 +566,23 @@ button, a { font: inherit; }
 }
 .opening-intro-water::before { left: -24vw; bottom: -23vw; transform: rotate(22deg); }
 .opening-intro-water::after { right: -25vw; top: -25vw; transform: rotate(-18deg); animation-delay: -2s; }
-.opening-intro-island {
+.opening-intro-board {
   position: absolute;
   z-index: 16;
-  top: 3vh;
-  right: -2vw;
-  width: min(62vw,980px);
-  height: 94vh;
-  opacity: 0;
-  filter: drop-shadow(0 28px 30px #123b4070);
-  transform: translate(80px,35px) scale(.9) rotate(3deg);
-  animation: opening-island-arrive 10s cubic-bezier(.2,.7,.2,1) both;
+  top: 2vh;
+  right: -1vw;
+  bottom: 2vh;
+  left: 49vw;
+  opacity: .78;
+  filter: blur(.3px) saturate(1.08) contrast(1.04) drop-shadow(0 20px 28px #123b4073);
+  -webkit-mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
+  mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
+  transform: scale(1.08) rotate(1deg);
+  animation: opening-board-float 10s ease-in-out both;
 }
-.opening-intro-island svg { width:100%; height:100%; overflow:visible; }
-.intro-island-water { opacity:.42; filter:blur(1px); }.intro-island-shadow { fill:rgba(12,48,55,.46); filter:blur(13px); }.intro-island-cliff { stroke:#d8b66f; stroke-width:4; }.intro-biome-desert { fill:#d9c078; }.intro-biome-meadow { fill:#8fbd68; }.intro-biome-forest { fill:#286448; }.intro-biome-clay { fill:#aa5940; }.intro-biome-gold { fill:url(#intro-gold); }.intro-biome-divider { fill:none; stroke:rgba(255,245,207,.36); stroke-width:7; }
-.intro-island-shore { fill:none; stroke:#fff4c9; stroke-width:9; stroke-linejoin:round; filter:drop-shadow(0 4px 2px rgba(25,72,64,.35)); }.intro-dunes { fill:none; stroke:#fff0a8; stroke-width:9; stroke-linecap:round; opacity:.72; }.intro-forest-trees { fill:#103f32; stroke:#79a96b; stroke-width:3; filter:drop-shadow(8px 12px 2px rgba(14,51,39,.38)); }.intro-meadow-details { fill:none; stroke:#def0a5; stroke-width:6; stroke-linecap:round; }.intro-sheep { fill:#fff7da; stroke:#506a48; stroke-width:3; }.intro-clay-details { fill:none; stroke:#713a30; stroke-width:6; stroke-linejoin:round; opacity:.7; }
-.intro-mine-rock { fill:#6c5b3c; stroke:#ffe785; stroke-width:4; }.intro-mine-entry { fill:#27352f; stroke:#f1ce55; stroke-width:5; }.intro-mine-rail { fill:none; stroke:#b87824; stroke-width:5; }.intro-gold-vein { fill:none; stroke:#fff188; stroke-width:8; stroke-linecap:round; }.intro-goldmine circle { fill:#fff6a7; filter:drop-shadow(0 0 8px #ffd23f); }.intro-foam,.intro-water-ripples { fill:none; stroke:rgba(238,255,248,.7); stroke-width:5; stroke-linecap:round; }.intro-water-ripples { stroke-width:3; opacity:.55; }
-.intro-island-fish { fill:#dff2c5; stroke:#175b6c; stroke-width:2; transform-box:fill-box; transform-origin:center; animation:intro-fish-swim 5.5s ease-in-out infinite alternate; }.intro-island-fish circle { fill:#153e49; stroke:none; }.intro-foam { animation:intro-shore-foam 2.8s ease-in-out infinite; }
+.opening-intro-board .full-board { pointer-events: none; }
+.opening-intro-board .board-svg { filter: drop-shadow(0 8px 12px #173c4052); }
+.opening-intro-board .setup-vertex { pointer-events: none; }
 .opening-intro-glow {
   position: absolute;
   z-index: 10;
@@ -633,9 +634,12 @@ button, a { font: inherit; }
   background: radial-gradient(ellipse at 20% 60%,rgba(255,255,255,.19),transparent 22%),radial-gradient(ellipse at 80% 35%,rgba(255,255,255,.14),transparent 24%);
   animation: opening-mist 10s linear both;
 }
-@keyframes opening-island-arrive { 0% { opacity:0; transform:translate(90px,42px) scale(.86) rotate(4deg); filter:blur(7px); } 22% { opacity:.5; } 100% { opacity:.96; transform:translate(0,0) scale(1) rotate(.3deg); filter:blur(0); } }
-@keyframes intro-fish-swim { to { translate:18px -4px; } }
-@keyframes intro-shore-foam { 50% { opacity:.35; stroke-width:8; } }
+@keyframes opening-board-float {
+  0% { transform: scale(1.14) rotate(4deg) translate(55px,35px); opacity: 0; filter: blur(7px) saturate(.72); }
+  10% { opacity: .22; }
+  28% { opacity: .7; }
+  100% { transform: scale(1.03) rotate(.35deg) translate(0,0); opacity: .82; filter: blur(.3px) saturate(1.08) contrast(1.04); }
+}
 @keyframes opening-landscape-camera {
   0% { background-position: center center,center center,center 52%; filter: saturate(.88) brightness(.88); }
   100% { background-position: center center,center center,center 48%; filter: saturate(1.06) brightness(1); }
@@ -662,12 +666,12 @@ button, a { font: inherit; }
     min-height: 100lvh;
   }
   .opening-intro-water { min-height: 100lvh; background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
-  .opening-intro-island { top: 7vh; right: -32vw; width: 125vw; height: 82vh; opacity: .74; }
+  .opening-intro-board { top: 16vh; right: -19vw; bottom: 4vh; left: 14vw; opacity: .72; }
   .opening-intro-title { justify-self: center; width: calc(100vw - 34px); margin-left: 0; padding: 38px 20px; }
   .opening-intro-title p { font-size: clamp(15px,4.5vw,24px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .opening-intro-island,
+  .opening-intro-board,
   .opening-intro-title,
   .opening-intro-mist,
   .opening-intro-water::before,
