@@ -1954,10 +1954,15 @@ export default function Home() {
     if (!supabase || !room || players.length < 2 || busy) return;
     setBusy(true);
     setError("");
+    const startController = new AbortController();
+    const startTimeout = window.setTimeout(() => startController.abort(), 12000);
     try {
-      const { data, error: setupError } = await supabase.rpc("start_game_setup_random", { p_game_id: room.id });
+      const { data, error: setupError } = await supabase
+        .rpc("start_game_setup_random", { p_game_id: room.id })
+        .abortSignal(startController.signal);
+      window.clearTimeout(startTimeout);
       if (setupError) {
-        setError(setupError.message);
+        setError(startController.signal.aborted ? "Der Spielstart hat zu lange gedauert. Bitte erneut versuchen." : setupError.message);
         return;
       }
       const startedRoom = normalizedRoom(data);
@@ -1966,13 +1971,21 @@ export default function Home() {
         return;
       }
       setRoom(startedRoom);
+      setBusy(false);
       const firstPlayer = players.find((player) => player.player_index === startedRoom.state?.active_player)?.player_name ?? me?.player_name ?? name;
       announceActivity("turn", `${firstPlayer} beginnt die Aufbauphase.`, "turn", firstPlayer);
-      const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
-      if (timerError) setError(timerError.message);
-      else if (timedRoom) setRoom(normalizedRoom(timedRoom));
-      await loadPlayerData(room.id);
+      void (async () => {
+        const { data: timedRoom, error: timerError } = await supabase.rpc("ensure_player_game_timer", { p_game_id: room.id });
+        if (timerError) setError(timerError.message);
+        else if (timedRoom) setRoom(normalizedRoom(timedRoom));
+        await loadPlayerData(room.id);
+      })();
+    } catch (startFailure) {
+      setError(startController.signal.aborted
+        ? "Der Spielstart hat zu lange gedauert. Bitte erneut versuchen."
+        : startFailure instanceof Error ? startFailure.message : "Das Spiel konnte nicht gestartet werden.");
     } finally {
+      window.clearTimeout(startTimeout);
       setBusy(false);
     }
   }
