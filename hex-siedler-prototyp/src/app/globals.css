@@ -613,8 +613,8 @@ button, a { font: inherit; }
 }
 .opening-intro-title::before { left: 18px; }
 .opening-intro-title::after { right: 18px; }
-.opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: clamp(12px,2vw,24px); margin: 0 0 18px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(26px,6vw,72px); font-weight: 950; letter-spacing: .12em; white-space: nowrap; }
-.opening-intro-mark { color: #ffd673; font-size: clamp(46px,7vw,88px); font-weight: 400; line-height: 1; }
+.opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: clamp(10px,1.5vw,18px); margin: 0 0 18px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(24px,5vw,58px); font-weight: 950; letter-spacing: .11em; white-space: nowrap; }
+.opening-intro-mark { color: #ffd673; font-size: clamp(42px,6vw,72px); font-weight: 400; line-height: 1; }
 .opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(38px,5vw,72px); line-height: .98; letter-spacing: -.04em; white-space: nowrap; }
 .opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(16px,2vw,30px); font-weight: 700; line-height: 1.05; letter-spacing: 0; white-space: nowrap; }
 .opening-intro-mist {
