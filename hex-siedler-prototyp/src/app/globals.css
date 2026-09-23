@@ -2462,3 +2462,20 @@ body:has(.online-shell) {
   -webkit-mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
   mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
 }
+
+/* v51: Mobile Spielfeldmitte und sauberer Abschluss der rechten Holzleiste. */
+@media (orientation: landscape) and (pointer: coarse) and (max-width: 1400px) and (max-height: 850px) {
+  .online-board-area > .board-fit .board-fit-stage {
+    transform: rotateX(13deg) rotateZ(-.35deg) translate(6px,-11px) scale(.992);
+  }
+
+  .online-shell::before {
+    box-shadow:
+      inset 4px 0 0 #754527,
+      inset 0 4px 0 #754527,
+      inset 0 -4px 0 #754527,
+      inset 7px 0 0 #d79a5a,
+      inset 0 7px 0 #d79a5a,
+      inset 0 -7px 0 #d79a5a;
+  }
+}
