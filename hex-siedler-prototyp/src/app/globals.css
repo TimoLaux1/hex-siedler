@@ -429,7 +429,7 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 }
 .lobby-board > .board-fit .board-fit-stage,
 .online-board-area > .board-fit .board-fit-stage {
-  transform: rotateX(13deg) rotateZ(-.7deg) translateY(-18px) scale(.985);
+  transform: rotateX(13deg) rotateZ(-.7deg) translateY(-24px) scale(.985);
   transform-origin: 50% 44%;
   transform-style: preserve-3d;
   filter: drop-shadow(0 30px 22px rgba(13,45,48,.38));
@@ -440,7 +440,7 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 @media (max-width: 900px), (max-height: 650px) {
   .lobby-board > .board-fit .board-fit-stage,
   .online-board-area > .board-fit .board-fit-stage {
-    transform: rotateX(8deg) rotateZ(-.35deg) translateY(-8px) scale(.992);
+    transform: rotateX(8deg) rotateZ(-.35deg) translateY(-11px) scale(.992);
     filter: drop-shadow(0 16px 13px rgba(13,45,48,.3));
   }
 }
@@ -613,8 +613,8 @@ button, a { font: inherit; }
 }
 .opening-intro-title::before { left: 18px; }
 .opening-intro-title::after { right: 18px; }
-.opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 12px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(12px,1.4vw,18px); font-weight: 950; letter-spacing: .18em; }
-.opening-intro-mark { color: #ffd673; font-size: clamp(27px,3vw,39px); font-weight: 400; line-height: 1; }
+.opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: clamp(12px,2vw,24px); margin: 0 0 18px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(26px,6vw,72px); font-weight: 950; letter-spacing: .12em; white-space: nowrap; }
+.opening-intro-mark { color: #ffd673; font-size: clamp(46px,7vw,88px); font-weight: 400; line-height: 1; }
 .opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(38px,5vw,72px); line-height: .98; letter-spacing: -.04em; white-space: nowrap; }
 .opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(16px,2vw,30px); font-weight: 700; line-height: 1.05; letter-spacing: 0; white-space: nowrap; }
 .opening-intro-mist {
@@ -644,7 +644,8 @@ button, a { font: inherit; }
   .opening-intro-title { width: min(560px,calc(53vw - 34px)); margin-left: 28px; padding-block: 24px; }
   .opening-intro-title h1 { font-size: clamp(38px,7vh,64px); }
   .opening-intro-title p { margin-top: 8px; font-size: clamp(17px,4vh,27px); }
-  .opening-intro-mark { font-size: 28px; }
+  .opening-intro-logo { margin-bottom: 8px; font-size: clamp(28px,7vh,42px); }
+  .opening-intro-mark { font-size: clamp(42px,10vh,60px); }
 }
 @media (max-width: 700px) and (orientation: portrait) {
   .opening-intro-water { background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
