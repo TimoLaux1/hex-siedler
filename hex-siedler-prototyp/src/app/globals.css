@@ -435,6 +435,9 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
   filter: drop-shadow(0 30px 22px rgba(13,45,48,.38));
   will-change: transform;
 }
+.lobby-board > .board-fit .board-fit-stage {
+  transform: rotateX(12deg) rotateZ(-.7deg) translateY(0) scale(.88);
+}
 .online-board-area > .board-fit { position: absolute; inset: 6px; width: auto; height: auto; }
 .online-board-area > .board-fit { z-index: 5; }
 @media (max-width: 900px), (max-height: 650px) {
@@ -442,6 +445,9 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
   .online-board-area > .board-fit .board-fit-stage {
     transform: rotateX(8deg) rotateZ(-.35deg) translateY(-11px) scale(.992);
     filter: drop-shadow(0 16px 13px rgba(13,45,48,.3));
+  }
+  .lobby-board > .board-fit .board-fit-stage {
+    transform: rotateX(8deg) rotateZ(-.35deg) translateY(0) scale(.88);
   }
 }
 button, a { font: inherit; }
