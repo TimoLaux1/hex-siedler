@@ -399,12 +399,11 @@ function OceanDecorations() {
     <circle cx="29" cy="-7" r="1.8" />
   </g>;
   return <svg className="ocean-decorations" viewBox="0 0 610 544" aria-hidden="true">
-    {fish(-72, 98, .78, false, 1)}{fish(-118, 145, .48, false, 3)}{fish(-88, 195, .58, true, 2)}
     {fish(686, 92, .65, true, 2)}{fish(724, 142, .46, true, 4)}{fish(692, 205, .52, false, 1)}
     {fish(-98, 455, .62, false, 4)}{fish(701, 462, .7, true, 3)}
     {fish(105, -78, .55, false, 2)}{fish(505, -92, .48, true, 1)}
     {fish(118, 637, .55, true, 3)}{fish(495, 648, .62, false, 4)}
-    {dolphin(-112, 318, .95)}{dolphin(718, 330, .88, true)}
+    {dolphin(718, 330, .88, true)}
     {dolphin(278, -105, .7, true)}{dolphin(337, 661, .75)}
     <g className="ocean-bubbles"><circle cx="-55" cy="255" r="7"/><circle cx="-34" cy="279" r="3"/><circle cx="672" cy="265" r="6"/><circle cx="650" cy="286" r="3"/></g>
   </svg>;
