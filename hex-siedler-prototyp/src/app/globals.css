@@ -429,7 +429,7 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 }
 .lobby-board > .board-fit .board-fit-stage,
 .online-board-area > .board-fit .board-fit-stage {
-  transform: rotateX(13deg) rotateZ(-.7deg) translateY(-7px) scale(.985);
+  transform: rotateX(13deg) rotateZ(-.7deg) translateY(-18px) scale(.985);
   transform-origin: 50% 44%;
   transform-style: preserve-3d;
   filter: drop-shadow(0 30px 22px rgba(13,45,48,.38));
@@ -440,7 +440,7 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 @media (max-width: 900px), (max-height: 650px) {
   .lobby-board > .board-fit .board-fit-stage,
   .online-board-area > .board-fit .board-fit-stage {
-    transform: rotateX(8deg) rotateZ(-.35deg) translateY(-3px) scale(.992);
+    transform: rotateX(8deg) rotateZ(-.35deg) translateY(-8px) scale(.992);
     filter: drop-shadow(0 16px 13px rgba(13,45,48,.3));
   }
 }
