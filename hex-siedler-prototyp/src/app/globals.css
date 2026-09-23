@@ -2346,15 +2346,17 @@ body:has(.online-shell) {
   display: block !important;
   position: absolute;
   z-index: 1;
-  inset: 0;
+  inset: 0 0 auto 0;
   width: auto;
-  height: auto;
+  height: 54px;
   pointer-events: none;
-  opacity: .96;
+  opacity: 1;
   background:
-    radial-gradient(circle at 11% 76px,#fffbd5 0 33px,#ffe67c 34px 48px,#ffc04f 49px 60px,#ed743a 61px 68px,transparent 69px),
-    linear-gradient(to bottom,transparent 0 84px,rgba(91,70,68,.42) 85px,rgba(255,224,154,.48) 87px,transparent 91px),
-    linear-gradient(to bottom,rgba(181,57,45,.72) 0,rgba(229,87,48,.64) 30px,rgba(247,143,65,.5) 59px,rgba(255,197,94,.24) 84px,transparent 116px);
+    radial-gradient(circle at 11% 54px,#fffbd5 0 24px,#ffe67c 25px 35px,#ffc04f 36px 44px,#ed743a 45px 52px,transparent 53px),
+    radial-gradient(ellipse 245px 88px at 11% 54px,rgba(224,76,44,.68) 0,rgba(245,132,59,.38) 40%,rgba(255,189,91,.16) 59%,transparent 76%),
+    linear-gradient(to bottom,#68afd2 0%,#7fc0d8 52%,#9bcfdc 100%);
+  border-bottom: 2px solid rgba(102,84,76,.42);
+  box-shadow: 0 3px 8px rgba(241,145,63,.22);
   filter: none;
   transform: none;
 }
@@ -2365,12 +2367,12 @@ body:has(.online-shell) {
   display: block !important;
   position: absolute;
   z-index: 1;
-  top: 82px;
+  top: 53px;
   left: calc(11% - 92px);
   width: 184px;
   height: 250px;
   pointer-events: none;
-  opacity: .72;
+  opacity: .68;
   background:
     repeating-linear-gradient(176deg,rgba(255,244,171,.82) 0 3px,rgba(255,194,79,.55) 4px 7px,rgba(229,91,48,.2) 8px 10px,transparent 11px 17px);
   clip-path: polygon(38% 0,62% 0,67% 10%,82% 18%,63% 27%,88% 38%,59% 47%,93% 59%,64% 69%,81% 80%,55% 100%,35% 100%,46% 79%,17% 69%,43% 57%,8% 46%,39% 35%,20% 24%,42% 14%);
