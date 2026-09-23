@@ -424,15 +424,15 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 .lobby-board > .board-fit,.online-board-area > .board-fit {
   align-self: stretch;
   justify-self: stretch;
-  perspective: 1400px;
-  perspective-origin: 50% 38%;
+  perspective: 850px;
+  perspective-origin: 50% 34%;
 }
 .lobby-board > .board-fit .board-fit-stage,
 .online-board-area > .board-fit .board-fit-stage {
-  transform: rotateX(5deg) rotateZ(-.35deg) translateY(-2px);
-  transform-origin: 50% 46%;
+  transform: rotateX(13deg) rotateZ(-.7deg) translateY(-7px) scale(.985);
+  transform-origin: 50% 44%;
   transform-style: preserve-3d;
-  filter: drop-shadow(0 18px 16px rgba(20,59,61,.24));
+  filter: drop-shadow(0 30px 22px rgba(13,45,48,.38));
   will-change: transform;
 }
 .online-board-area > .board-fit { position: absolute; inset: 6px; width: auto; height: auto; }
@@ -440,8 +440,8 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 @media (max-width: 900px), (max-height: 650px) {
   .lobby-board > .board-fit .board-fit-stage,
   .online-board-area > .board-fit .board-fit-stage {
-    transform: rotateX(3deg) rotateZ(-.18deg) translateY(-1px);
-    filter: drop-shadow(0 10px 10px rgba(20,59,61,.2));
+    transform: rotateX(8deg) rotateZ(-.35deg) translateY(-3px) scale(.992);
+    filter: drop-shadow(0 16px 13px rgba(13,45,48,.3));
   }
 }
 button, a { font: inherit; }
@@ -704,7 +704,12 @@ button, a { font: inherit; }
 .water-swimmer circle { fill: rgba(236,255,247,.88); stroke: none; }
 .water-swimmer-flip { scale: -1 1; }
 @media (prefers-reduced-motion: reduce) { .water-swimmer { animation: none !important; } }
-.svg-tile polygon:first-of-type { stroke: #f7f2e7; stroke-width: 1.25; stroke-linejoin: round; }
+.svg-tile polygon:first-of-type {
+  stroke: #f7f2e7;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 5px 2px rgba(24,47,42,.42));
+}
 .svg-tile .tile-inset { fill: none; stroke: rgba(255,255,255,.28); stroke-width: 5; transform: scale(.965); transform-box: fill-box; transform-origin: center; pointer-events: none; }
 .svg-tile.rolled-tile .tile-inset { stroke: #fff3a3; animation: rolled-field-pulse .75s ease-in-out 4; }
 @keyframes rolled-field-pulse { 50% { stroke: #fff; stroke-width: 10; filter: drop-shadow(0 0 8px #f6c84f) drop-shadow(0 0 14px #fff3a3); } }
