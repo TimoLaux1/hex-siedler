@@ -2479,3 +2479,19 @@ body:has(.online-shell) {
       inset 0 -7px 0 #d79a5a;
   }
 }
+
+/* v52: iOS-Abschluss rechts neben der mobilen Holzleiste. */
+@media (orientation: landscape) and (pointer: coarse) and (max-width: 1400px) and (max-height: 850px) {
+  .online-shell::after {
+    content: "";
+    position: fixed;
+    z-index: 925;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 9px;
+    display: block;
+    background: repeating-linear-gradient(91deg,#b8753f 0 8px,#c98b50 9px 15px,#9b5b31 16px 18px);
+    pointer-events: none;
+  }
+}
