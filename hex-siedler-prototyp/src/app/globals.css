@@ -783,10 +783,11 @@ button, a { font: inherit; }
 /* Plastische Spielfiguren: Die Grundform wird gegen die Brettneigung
    aufgerichtet; Lichtkante, Seitenflaeche und Kontaktschatten erzeugen Tiefe. */
 .building-piece {
-  transform: perspective(110px) rotateX(-9deg) rotateY(-8deg) translateY(-3px);
+  transform: translate3d(0,-3px,0);
   transform-origin: 50% 100%;
   transform-style: preserve-3d;
-  filter: drop-shadow(4px 8px 4px rgba(18,31,27,.58));
+  backface-visibility: hidden;
+  filter: drop-shadow(4px 7px 0 rgba(18,31,27,.48));
 }
 .building-piece::after {
   content: "";
@@ -798,19 +799,19 @@ button, a { font: inherit; }
   height: 9px;
   border-radius: 50%;
   background: rgba(12,28,24,.48);
-  filter: blur(3px);
+  filter: blur(1.25px);
   transform: translate(4px,3px);
 }
 .building-piece .building-roof {
-  filter: drop-shadow(4px 5px 0 color-mix(in srgb,currentColor 58%,#18231f)) drop-shadow(-2px -1px 0 rgba(255,255,255,.42));
+  filter: drop-shadow(4px 5px 0 color-mix(in srgb,currentColor 55%,#18231f)) drop-shadow(-1px -1px 0 rgba(255,255,255,.62));
 }
 .building-piece .building-body,
 .building-piece .city-hut-body {
   background: linear-gradient(90deg,
     color-mix(in srgb,currentColor 70%,white) 0 18%,
     currentColor 19% 68%,
-    color-mix(in srgb,currentColor 58%,#18231f) 69% 100%);
-  box-shadow: inset 2px 0 rgba(255,255,255,.38),inset -4px 0 rgba(20,34,30,.32),3px 5px 0 color-mix(in srgb,currentColor 54%,#18231f),5px 8px 5px rgba(15,29,25,.42);
+    color-mix(in srgb,currentColor 52%,#18231f) 69% 100%);
+  box-shadow: inset 2px 0 rgba(255,255,255,.52),inset -4px 0 rgba(20,34,30,.38),3px 5px 0 color-mix(in srgb,currentColor 50%,#18231f),5px 8px 0 rgba(15,29,25,.3);
 }
 .building-piece .building-door {
   box-shadow: inset 2px 0 rgba(255,255,255,.16),2px 2px 0 rgba(10,20,18,.42);
@@ -2353,8 +2354,8 @@ body:has(.online-shell) {
   opacity: 1;
   background:
     radial-gradient(circle at 11% 54px,#fffbd5 0 24px,#ffe67c 25px 35px,#ffc04f 36px 44px,#ed743a 45px 52px,transparent 53px),
-    radial-gradient(ellipse 245px 88px at 11% 54px,rgba(224,76,44,.68) 0,rgba(245,132,59,.38) 40%,rgba(255,189,91,.16) 59%,transparent 76%),
-    linear-gradient(to bottom,#68afd2 0%,#7fc0d8 52%,#9bcfdc 100%);
+    radial-gradient(ellipse 250px 90px at 11% 54px,rgba(224,76,44,.66) 0,rgba(245,132,59,.34) 39%,rgba(255,189,91,.13) 58%,transparent 76%),
+    linear-gradient(to bottom,#37b9ba 0%,#58c8c5 52%,#8bd7cf 100%);
   border-bottom: 2px solid rgba(102,84,76,.42);
   box-shadow: 0 3px 8px rgba(241,145,63,.22);
   filter: none;
@@ -2368,17 +2369,22 @@ body:has(.online-shell) {
   position: absolute;
   z-index: 1;
   top: 53px;
-  left: calc(11% - 92px);
-  width: 184px;
-  height: 250px;
+  left: calc(11% - 155px);
+  width: 310px;
+  height: 410px;
   pointer-events: none;
-  opacity: .68;
+  opacity: .8;
   background:
-    repeating-linear-gradient(176deg,rgba(255,244,171,.82) 0 3px,rgba(255,194,79,.55) 4px 7px,rgba(229,91,48,.2) 8px 10px,transparent 11px 17px);
-  clip-path: polygon(38% 0,62% 0,67% 10%,82% 18%,63% 27%,88% 38%,59% 47%,93% 59%,64% 69%,81% 80%,55% 100%,35% 100%,46% 79%,17% 69%,43% 57%,8% 46%,39% 35%,20% 24%,42% 14%);
-  filter: blur(.45px) drop-shadow(0 0 9px rgba(255,187,69,.38));
-  transform: rotate(-3deg);
+    radial-gradient(ellipse 42% 4% at 50% 4%,rgba(255,251,199,.94) 0 58%,transparent 62%),
+    radial-gradient(ellipse 56% 3% at 48% 12%,rgba(255,235,139,.84) 0 55%,transparent 60%),
+    radial-gradient(ellipse 70% 3% at 52% 22%,rgba(255,216,103,.72) 0 52%,transparent 58%),
+    radial-gradient(ellipse 82% 2.6% at 48% 34%,rgba(255,198,77,.58) 0 50%,transparent 58%),
+    radial-gradient(ellipse 68% 2.4% at 53% 48%,rgba(255,184,69,.45) 0 48%,transparent 58%),
+    repeating-linear-gradient(176deg,rgba(255,246,177,.74) 0 3px,rgba(255,197,82,.46) 4px 7px,rgba(229,91,48,.13) 8px 10px,transparent 11px 19px);
+  clip-path: polygon(38% 0,62% 0,70% 8%,82% 17%,72% 26%,92% 38%,76% 49%,88% 61%,67% 73%,72% 84%,58% 100%,42% 100%,34% 84%,23% 74%,30% 62%,10% 51%,25% 39%,8% 28%,28% 18%);
+  filter: blur(.8px) drop-shadow(0 0 14px rgba(255,187,69,.34));
+  transform: rotate(-1.5deg);
   transform-origin: 50% 0;
-  -webkit-mask-image: linear-gradient(to bottom,#000 0 58%,transparent 100%);
-  mask-image: linear-gradient(to bottom,#000 0 58%,transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
+  mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
 }
