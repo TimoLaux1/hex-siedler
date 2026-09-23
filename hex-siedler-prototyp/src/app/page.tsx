@@ -393,18 +393,11 @@ function OceanDecorations() {
       <circle cx="15" cy="-2" r="2" />
     </g>
   </g>;
-  const dolphin = (x: number, y: number, scale = 1, flip = false) => <g className="ocean-dolphin" transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
-    <path d="M-36 9C-17-17 17-22 42-5 27-5 22 2 12 9 0 18-15 18-28 14l-13 10 4-15Z" />
-    <path d="M4-10 16-27 19-7M-5 11 8 25 10 8" />
-    <circle cx="29" cy="-7" r="1.8" />
-  </g>;
   return <svg className="ocean-decorations" viewBox="0 0 610 544" aria-hidden="true">
     {fish(686, 92, .65, true, 2)}{fish(724, 142, .46, true, 4)}{fish(692, 205, .52, false, 1)}
     {fish(-98, 455, .62, false, 4)}{fish(701, 462, .7, true, 3)}
     {fish(105, -78, .55, false, 2)}{fish(505, -92, .48, true, 1)}
     {fish(118, 637, .55, true, 3)}{fish(495, 648, .62, false, 4)}
-    {dolphin(718, 330, .88, true)}
-    {dolphin(278, -105, .7, true)}{dolphin(337, 661, .75)}
     <g className="ocean-bubbles"><circle cx="-55" cy="255" r="7"/><circle cx="-34" cy="279" r="3"/><circle cx="672" cy="265" r="6"/><circle cx="650" cy="286" r="3"/></g>
   </svg>;
 }
@@ -503,26 +496,73 @@ function BoardFit({ children }: { children: ReactNode }) {
   </div>;
 }
 
-function SeaVisitor() {
-  const [visitor, setVisitor] = useState<{ id: number; kind: "fish" | "whale"; left: number; top: number; flip: boolean } | null>(null);
+function DolphinVisitor() {
+  const [visit, setVisit] = useState<number | null>(null);
   useEffect(() => {
+    let nextTimer: ReturnType<typeof setTimeout> | undefined;
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
-    const showVisitor = () => {
-      // Links oben bleibt der Lichtweg der Sonne frei. Besucher erscheinen
-      // deshalb rechts, links erst unterhalb der Spiegelung oder ganz unten.
-      const zone = Math.random();
-      const left = zone < .5 ? 83 + Math.random() * 12 : zone < .76 ? 3 + Math.random() * 14 : 24 + Math.random() * 60;
-      const top = zone < .5 ? 14 + Math.random() * 68 : zone < .76 ? 55 + Math.random() * 28 : 86 + Math.random() * 8;
-      setVisitor({ id: Date.now(), kind: Math.random() < .65 ? "fish" : "whale", left, top, flip: Math.random() < .5 });
-      hideTimer = setTimeout(() => setVisitor(null), 10500);
+    const schedule = (first = false) => {
+      const delay = first ? 5000 + Math.random() * 5000 : 11000 + Math.random() * 8000;
+      nextTimer = setTimeout(() => {
+        setVisit(Date.now());
+        hideTimer = setTimeout(() => {
+          setVisit(null);
+          schedule();
+        }, 3400);
+      }, delay);
     };
-    const firstTimer = setTimeout(showVisitor, 12000);
-    const interval = setInterval(showVisitor, 30000);
-    return () => { clearTimeout(firstTimer); if (hideTimer) clearTimeout(hideTimer); clearInterval(interval); };
+    schedule(true);
+    return () => { if (nextTimer) clearTimeout(nextTimer); if (hideTimer) clearTimeout(hideTimer); };
   }, []);
-  if (!visitor) return null;
-  return <div key={visitor.id} className={`sea-visitor sea-${visitor.kind} ${visitor.flip ? "sea-flip" : ""}`} style={{ left: `${visitor.left}%`, top: `${visitor.top}%` }} aria-hidden="true">
-    {visitor.kind === "fish" ? <svg viewBox="0 0 90 48"><path d="M18 24C32 7 59 7 72 24 59 41 32 41 18 24Z"/><path d="M19 24 3 9v30Z"/><circle cx="61" cy="20" r="2.5"/></svg> : <svg viewBox="0 0 150 70"><path d="M20 39C38 12 95 8 125 31 118 55 78 64 43 55 31 52 24 47 20 39Z"/><path d="M24 39 5 23l5 25Z"/><path d="M111 24q15-22 29-8-10 2-13 13Z"/><path className="whale-spout" d="M104 16q-4-12 3-16m2 16q5-11 13-11"/><circle cx="109" cy="34" r="2.7"/></svg>}
+  if (visit === null) return null;
+  return <div key={visit} className="dolphin-visitor" aria-hidden="true">
+    <svg viewBox="0 0 180 96">
+      <path className="dolphin-tail-back" d="M37 56 7 42 20 65 5 83 39 70Z"/>
+      <path className="dolphin-body" d="M31 58C49 28 85 17 121 24c20 4 32 15 48 24l-22 7c-9 3-13 11-25 16-29 12-66 8-91-13Z"/>
+      <path className="dolphin-back-facet" d="M31 58 55 34 95 21 121 24 87 43Z"/>
+      <path className="dolphin-mid-facet" d="m31 58 56-15 35-19 25 31-51 6Z"/>
+      <path className="dolphin-belly" d="m31 58 65 3 51-6-25 16c-29 12-66 8-91-13Z"/>
+      <path className="dolphin-fin" d="m75 68 17 22 12-27Z"/>
+      <path className="dolphin-dorsal" d="m79 28 8-25 21 20Z"/>
+      <path className="dolphin-beak" d="m137 42 38 8-28 5Z"/>
+      <circle className="dolphin-eye" cx="139" cy="41" r="2.4"/>
+    </svg>
+    <i className="dolphin-splash dolphin-splash-one"/><i className="dolphin-splash dolphin-splash-two"/>
+  </div>;
+}
+
+function HorizonBirds() {
+  const [flight, setFlight] = useState<{ id: number; direction: "right" | "left"; top: number } | null>(null);
+  useEffect(() => {
+    let nextTimer: ReturnType<typeof setTimeout> | undefined;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (first = false) => {
+      const delay = first ? 9000 + Math.random() * 5000 : 16000 + Math.random() * 9000;
+      nextTimer = setTimeout(() => {
+        setFlight({ id: Date.now(), direction: Math.random() < .5 ? "right" : "left", top: 15 + Math.random() * 16 });
+        hideTimer = setTimeout(() => {
+          setFlight(null);
+          schedule();
+        }, 8200);
+      }, delay);
+    };
+    schedule(true);
+    return () => { if (nextTimer) clearTimeout(nextTimer); if (hideTimer) clearTimeout(hideTimer); };
+  }, []);
+  if (!flight) return null;
+  return <div key={flight.id} className={`horizon-birds birds-${flight.direction}`} style={{ top: flight.top }} aria-hidden="true">
+    <svg viewBox="0 0 118 34">
+      <path d="M2 14q8-9 16 0 8-9 16 0M43 24q6-7 12 0 6-7 12 0M76 9q9-10 18 0 9-10 18 0"/>
+    </svg>
+  </div>;
+}
+
+function SeaAtmosphere() {
+  return <div className="sea-atmosphere" aria-hidden="true">
+    <HorizonBirds />
+    <div className="sea-waves">
+      {Array.from({ length: 8 }, (_, index) => <i className={`sea-wave sea-wave-${index + 1}`} key={index}/>) }
+    </div>
   </div>;
 }
 
@@ -2354,7 +2394,7 @@ export default function Home() {
           <small>Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.</small>
           <HighScoreBoard scores={highScores} currentName={name} />
         </section>
-        <div className="lobby-board"><BoardFit><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></BoardFit></div>
+        <div className="lobby-board"><SeaAtmosphere /><BoardFit><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></BoardFit></div>
         <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
@@ -2590,7 +2630,8 @@ export default function Home() {
         <div className="sidebar-room-code">Raumcode: <strong>{room.join_code}</strong></div>
         </div>
         <section className="online-board-area">
-          <SeaVisitor />
+          <SeaAtmosphere />
+          <DolphinVisitor />
           <SwimmingFishLayer />
           <JumpingFishLayer />
           <BoardFit><FullBoard
