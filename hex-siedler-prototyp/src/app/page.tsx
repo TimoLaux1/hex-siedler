@@ -496,54 +496,19 @@ function BoardFit({ children }: { children: ReactNode }) {
   </div>;
 }
 
-function DolphinVisitor() {
-  const [visit, setVisit] = useState<number | null>(null);
-  useEffect(() => {
-    let nextTimer: ReturnType<typeof setTimeout> | undefined;
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
-    const schedule = (first = false) => {
-      const delay = first ? 5000 + Math.random() * 5000 : 11000 + Math.random() * 8000;
-      nextTimer = setTimeout(() => {
-        setVisit(Date.now());
-        hideTimer = setTimeout(() => {
-          setVisit(null);
-          schedule();
-        }, 3400);
-      }, delay);
-    };
-    schedule(true);
-    return () => { if (nextTimer) clearTimeout(nextTimer); if (hideTimer) clearTimeout(hideTimer); };
-  }, []);
-  if (visit === null) return null;
-  return <div key={visit} className="dolphin-visitor" aria-hidden="true">
-    <svg viewBox="0 0 180 96">
-      <path className="dolphin-tail-back" d="M37 56 7 42 20 65 5 83 39 70Z"/>
-      <path className="dolphin-body" d="M31 58C49 28 85 17 121 24c20 4 32 15 48 24l-22 7c-9 3-13 11-25 16-29 12-66 8-91-13Z"/>
-      <path className="dolphin-back-facet" d="M31 58 55 34 95 21 121 24 87 43Z"/>
-      <path className="dolphin-mid-facet" d="m31 58 56-15 35-19 25 31-51 6Z"/>
-      <path className="dolphin-belly" d="m31 58 65 3 51-6-25 16c-29 12-66 8-91-13Z"/>
-      <path className="dolphin-fin" d="m75 68 17 22 12-27Z"/>
-      <path className="dolphin-dorsal" d="m79 28 8-25 21 20Z"/>
-      <path className="dolphin-beak" d="m137 42 38 8-28 5Z"/>
-      <circle className="dolphin-eye" cx="139" cy="41" r="2.4"/>
-    </svg>
-    <i className="dolphin-splash dolphin-splash-one"/><i className="dolphin-splash dolphin-splash-two"/>
-  </div>;
-}
-
 function HorizonBirds() {
   const [flight, setFlight] = useState<{ id: number; direction: "right" | "left"; top: number } | null>(null);
   useEffect(() => {
     let nextTimer: ReturnType<typeof setTimeout> | undefined;
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
     const schedule = (first = false) => {
-      const delay = first ? 9000 + Math.random() * 5000 : 16000 + Math.random() * 9000;
+      const delay = first ? 6000 + Math.random() * 4000 : 5000 + Math.random() * 4000;
       nextTimer = setTimeout(() => {
         setFlight({ id: Date.now(), direction: Math.random() < .5 ? "right" : "left", top: 15 + Math.random() * 16 });
         hideTimer = setTimeout(() => {
           setFlight(null);
           schedule();
-        }, 8200);
+        }, 14000);
       }, delay);
     };
     schedule(true);
@@ -552,7 +517,9 @@ function HorizonBirds() {
   if (!flight) return null;
   return <div key={flight.id} className={`horizon-birds birds-${flight.direction}`} style={{ top: flight.top }} aria-hidden="true">
     <svg viewBox="0 0 118 34">
-      <path d="M2 14q8-9 16 0 8-9 16 0M43 24q6-7 12 0 6-7 12 0M76 9q9-10 18 0 9-10 18 0"/>
+      <g className="horizon-bird bird-one" transform="translate(18 14)"><path className="bird-wing bird-wing-left" d="M0 0Q-8-10-16 0"/><path className="bird-wing bird-wing-right" d="M0 0Q8-10 16 0"/></g>
+      <g className="horizon-bird bird-two" transform="translate(55 24)"><path className="bird-wing bird-wing-left" d="M0 0Q-6-8-12 0"/><path className="bird-wing bird-wing-right" d="M0 0Q6-8 12 0"/></g>
+      <g className="horizon-bird bird-three" transform="translate(94 10)"><path className="bird-wing bird-wing-left" d="M0 0Q-9-11-18 0"/><path className="bird-wing bird-wing-right" d="M0 0Q9-11 18 0"/></g>
     </svg>
   </div>;
 }
@@ -561,7 +528,7 @@ function SeaAtmosphere() {
   return <div className="sea-atmosphere" aria-hidden="true">
     <HorizonBirds />
     <div className="sea-waves">
-      {Array.from({ length: 8 }, (_, index) => <i className={`sea-wave sea-wave-${index + 1}`} key={index}/>) }
+      {Array.from({ length: 14 }, (_, index) => <i className={`sea-wave sea-wave-${index + 1}`} key={index}/>) }
     </div>
   </div>;
 }
@@ -592,27 +559,33 @@ function SwimmingFishLayer() {
 }
 
 function JumpingFishLayer() {
-  const [jumper, setJumper] = useState<{ id: number; left: number; size: number; flip: boolean } | null>(null);
+  const [jumpers, setJumpers] = useState<Array<{ id: number; left: number; size: number; flip: boolean }>>([]);
   useEffect(() => {
     let nextTimer: ReturnType<typeof setTimeout> | undefined;
-    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const hideTimers: Array<ReturnType<typeof setTimeout>> = [];
     const schedule = () => {
       nextTimer = setTimeout(() => {
-        setJumper({ id: Date.now(), left: 28 + Math.random() * 66, size: 15 + Math.random() * 9, flip: Math.random() < .5 });
-        hideTimer = setTimeout(() => {
-          setJumper(null);
-          schedule();
-        }, 1900);
-      }, 3500 + Math.random() * 6000);
+        const stamp = Date.now();
+        const amount = Math.random() < .48 ? 2 : 1;
+        const newcomers = Array.from({ length: amount }, (_, index) => ({
+          id: stamp + index,
+          left: Math.random() < .46 ? 23 + Math.random() * 7 : 87 + Math.random() * 8,
+          size: 17 + Math.random() * 10,
+          flip: Math.random() < .5,
+        }));
+        setJumpers((current) => [...current, ...newcomers]);
+        hideTimers.push(setTimeout(() => setJumpers((current) => current.filter((fish) => !newcomers.some((newcomer) => newcomer.id === fish.id))), 1900));
+        schedule();
+      }, 1500 + Math.random() * 2400);
     };
     schedule();
-    return () => { if (nextTimer) clearTimeout(nextTimer); if (hideTimer) clearTimeout(hideTimer); };
+    return () => { if (nextTimer) clearTimeout(nextTimer); hideTimers.forEach(clearTimeout); };
   }, []);
   return <div className="jumping-fish-layer" aria-hidden="true">
-    {jumper && <span key={jumper.id} className={`jumping-fish ${jumper.flip ? "jumping-fish-flip" : ""}`} style={{ left: `${jumper.left}%`, width: jumper.size }}>
+    {jumpers.map((jumper) => <span key={jumper.id} className={`jumping-fish ${jumper.flip ? "jumping-fish-flip" : ""}`} style={{ left: `${jumper.left}%`, width: jumper.size }}>
       <svg viewBox="0 0 64 34"><path d="M13 17C22 5 43 5 53 17 43 29 22 29 13 17Z"/><path d="M14 17 2 6v22Z"/><circle cx="45" cy="14" r="1.7"/></svg>
       <i className="jump-splash jump-splash-one"/><i className="jump-splash jump-splash-two"/>
-    </span>}
+    </span>)}
   </div>;
 }
 
@@ -2394,7 +2367,7 @@ export default function Home() {
           <small>Deine Siege werden dauerhaft deinem Spielerprofil gutgeschrieben.</small>
           <HighScoreBoard scores={highScores} currentName={name} />
         </section>
-        <div className="lobby-board"><SeaAtmosphere /><BoardFit><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></BoardFit></div>
+        <div className="lobby-board"><SeaAtmosphere /><JumpingFishLayer /><BoardFit><FullBoard fishTiles={fishTiles} previewTiles={boardTiles} /></BoardFit></div>
         <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
         <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
       </main>
@@ -2631,7 +2604,6 @@ export default function Home() {
         </div>
         <section className="online-board-area">
           <SeaAtmosphere />
-          <DolphinVisitor />
           <SwimmingFishLayer />
           <JumpingFishLayer />
           <BoardFit><FullBoard
