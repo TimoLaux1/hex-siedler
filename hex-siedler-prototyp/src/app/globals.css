@@ -6,16 +6,27 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 .orientation-overlay { display: none; }
 
 @media (max-width: 900px) and (orientation: portrait) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    min-height: 100lvh;
+    background: #78b9c5;
+    overflow: hidden;
+  }
+
   body::before,
   body::after { display: none !important; }
 
   .orientation-overlay {
     position: fixed;
     z-index: 10000;
-    inset: 0;
+    inset: 0 0 calc(-1 * env(safe-area-inset-bottom));
     display: grid;
     place-items: center;
-    min-height: 100svh;
+    width: 100vw;
+    height: calc(100lvh + env(safe-area-inset-bottom));
+    min-height: calc(100dvh + env(safe-area-inset-bottom));
     padding: max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));
     overflow: hidden;
     background:
@@ -551,6 +562,16 @@ button, a { font: inherit; }
     #79bcc8;
   animation: opening-landscape-camera 10s ease-out both;
 }
+.opening-intro-landscape {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
 .opening-intro-water::before,
 .opening-intro-water::after {
   content: "";
@@ -666,6 +687,7 @@ button, a { font: inherit; }
     min-height: 100lvh;
   }
   .opening-intro-water { min-height: 100lvh; background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
+  .opening-intro-landscape { object-position: 61% center; }
   .opening-intro-board { top: 16vh; right: -19vw; bottom: 4vh; left: 14vw; opacity: .72; }
   .opening-intro-title { justify-self: center; width: calc(100vw - 34px); margin-left: 0; padding: 38px 20px; }
   .opening-intro-title p { font-size: clamp(15px,4.5vw,24px); }
