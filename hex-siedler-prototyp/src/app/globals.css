@@ -421,9 +421,29 @@ body { margin: 0; overflow-x: hidden; background: #d9ebe8; color: var(--ink); fo
 .board-fit { width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; }
 .board-fit-stage { position: relative; flex: none; }
 .board-fit-stage > .full-board { position: absolute !important; inset: 0 auto auto 0 !important; top: 0 !important; left: 0 !important; margin: 0 !important; transform: scale(var(--board-fit-scale)) !important; transform-origin: top left !important; }
-.lobby-board > .board-fit,.online-board-area > .board-fit { align-self: stretch; justify-self: stretch; }
+.lobby-board > .board-fit,.online-board-area > .board-fit {
+  align-self: stretch;
+  justify-self: stretch;
+  perspective: 1400px;
+  perspective-origin: 50% 38%;
+}
+.lobby-board > .board-fit .board-fit-stage,
+.online-board-area > .board-fit .board-fit-stage {
+  transform: rotateX(5deg) rotateZ(-.35deg) translateY(-2px);
+  transform-origin: 50% 46%;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 16px rgba(20,59,61,.24));
+  will-change: transform;
+}
 .online-board-area > .board-fit { position: absolute; inset: 6px; width: auto; height: auto; }
 .online-board-area > .board-fit { z-index: 5; }
+@media (max-width: 900px), (max-height: 650px) {
+  .lobby-board > .board-fit .board-fit-stage,
+  .online-board-area > .board-fit .board-fit-stage {
+    transform: rotateX(3deg) rotateZ(-.18deg) translateY(-1px);
+    filter: drop-shadow(0 10px 10px rgba(20,59,61,.2));
+  }
+}
 button, a { font: inherit; }
 .game-shell { min-height: 100vh; background: radial-gradient(circle at 50% 30%, #fffdf7 0 22%, transparent 55%), var(--paper); }
 .topbar { height: 76px; padding: 0 4vw; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.74); }
