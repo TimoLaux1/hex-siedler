@@ -779,6 +779,58 @@ button, a { font: inherit; }
 .building-flagpole,.building-flag { display: none; }
 .building-city .building-flagpole { display: block; z-index: -1; left: 20px; top: -8px; width: 2px; height: 20px; border-radius: 2px; background: #51433b; }
 .building-city .building-flag { display: block; left: 22px; top: -7px; width: 14px; height: 9px; border-radius: 1px 4px 4px 1px; background: currentColor; box-shadow: inset 0 0 0 1px #fff7; transform-origin: left center; animation: city-flag-wave 1.2s ease-in-out infinite; }
+
+/* Plastische Spielfiguren: Die Grundform wird gegen die Brettneigung
+   aufgerichtet; Lichtkante, Seitenflaeche und Kontaktschatten erzeugen Tiefe. */
+.building-piece {
+  transform: perspective(110px) rotateX(-9deg) rotateY(-8deg) translateY(-3px);
+  transform-origin: 50% 100%;
+  transform-style: preserve-3d;
+  filter: drop-shadow(4px 8px 4px rgba(18,31,27,.58));
+}
+.building-piece::after {
+  content: "";
+  position: absolute;
+  z-index: -3;
+  left: 3px;
+  bottom: -2px;
+  width: 38px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(12,28,24,.48);
+  filter: blur(3px);
+  transform: translate(4px,3px);
+}
+.building-piece .building-roof {
+  filter: drop-shadow(4px 5px 0 color-mix(in srgb,currentColor 58%,#18231f)) drop-shadow(-2px -1px 0 rgba(255,255,255,.42));
+}
+.building-piece .building-body,
+.building-piece .city-hut-body {
+  background: linear-gradient(90deg,
+    color-mix(in srgb,currentColor 70%,white) 0 18%,
+    currentColor 19% 68%,
+    color-mix(in srgb,currentColor 58%,#18231f) 69% 100%);
+  box-shadow: inset 2px 0 rgba(255,255,255,.38),inset -4px 0 rgba(20,34,30,.32),3px 5px 0 color-mix(in srgb,currentColor 54%,#18231f),5px 8px 5px rgba(15,29,25,.42);
+}
+.building-piece .building-door {
+  box-shadow: inset 2px 0 rgba(255,255,255,.16),2px 2px 0 rgba(10,20,18,.42);
+}
+.building-piece .building-window {
+  border: 1px solid rgba(255,255,255,.62);
+  box-shadow: 1px 2px 0 rgba(28,34,28,.42),0 0 7px #fff1a5;
+}
+.building-city .city-hut-roof {
+  filter: brightness(.88) drop-shadow(3px 4px 0 color-mix(in srgb,currentColor 54%,#18231f));
+}
+.building-city .building-flag {
+  filter: drop-shadow(2px 3px 1px rgba(18,31,27,.46));
+}
+.building-goldmine .building-roof {
+  background: linear-gradient(115deg,color-mix(in srgb,currentColor 62%,white),currentColor 46%,color-mix(in srgb,currentColor 55%,#5d461f));
+}
+.building-goldmine .building-body {
+  background: linear-gradient(90deg,color-mix(in srgb,currentColor 66%,white),color-mix(in srgb,currentColor 82%,#7a5622) 43%,color-mix(in srgb,currentColor 48%,#302719));
+}
 @keyframes city-flag-wave { 0%,100% { transform: skewY(-4deg) scaleX(1); } 50% { transform: skewY(7deg) scaleX(.78); } }
 .victory-target-chip { justify-self: center; padding: 4px 9px; border: 1px solid #d9b66f; border-radius: 999px; background: #fff7df; color: #81591f; font-size: 10px; font-style: normal; font-weight: 900; letter-spacing: .04em; }
 .road-carriage-html { position: absolute; z-index: 30; width: 34px; height: 25px; overflow: visible; pointer-events: none; color: #111; filter: drop-shadow(0 3px 3px #17211d66); transform-origin: center; will-change: left,top,transform; }
@@ -788,12 +840,15 @@ button, a { font: inherit; }
 .carriage-body { fill: #111; stroke: #d8d8d2; stroke-width: 1.5; }
 .carriage-roof { fill: #050505; stroke: #d8d8d2; stroke-width: 1; }
 .carriage-wheel { fill: #050505; stroke: #777; stroke-width: 1.5; }
-.robber-marker { pointer-events: none; filter: drop-shadow(0 2px 3px #17211d99); }
+.robber-marker { pointer-events: none; filter: drop-shadow(6px 10px 4px rgba(12,25,22,.66)); }
 .robber-walk { transform-origin: center bottom; }
-.robber-shadow { fill: #1118; }
-.robber-sack { fill: #5b5142; stroke: #161a18; stroke-width: 2; }
-.robber-cloak,.robber-hood { fill: #141a18; stroke: #eef1e8; stroke-width: .7; }
-.robber-marker .robber-head { fill: #b99a76; stroke: #151a18; stroke-width: 1; }
+.robber-shadow { fill: rgba(8,18,15,.62); transform: translate(6px,4px) rotate(-8deg); transform-origin: center; filter: blur(1.5px); }
+.robber-sack { fill: url(#robber-sack-fill); stroke: #161a18; stroke-width: 2; filter: drop-shadow(2px 3px 1px rgba(5,12,10,.48)); }
+.robber-sack-highlight { fill: rgba(255,225,175,.24); pointer-events: none; }
+.robber-cloak,.robber-hood { fill: url(#robber-cloak-fill); stroke: #eef1e8; stroke-width: .7; }
+.robber-cloak { filter: drop-shadow(3px 4px 0 #070b0a); }
+.robber-cloak-highlight { fill: rgba(255,255,240,.15); pointer-events: none; }
+.robber-marker .robber-head { fill: url(#robber-head-fill); stroke: #151a18; stroke-width: 1; filter: drop-shadow(2px 2px 0 rgba(6,12,10,.5)); }
 @keyframes goldmine-glow { 50% { filter: drop-shadow(0 3px 2px #18231f88) drop-shadow(0 0 9px #ffd54f) brightness(1.25); } }
 @keyframes goldmine-halo { 50% { opacity: .65; transform: scale(1.18); } }
 @keyframes goldmine-smoke { 0% { opacity: 0; transform: translate(0,2px) scale(.55); } 25% { opacity: .75; } 100% { opacity: 0; transform: translate(6px,-25px) scale(1.55); } }
@@ -2281,4 +2336,24 @@ body:has(.online-shell) {
   .online-shell {
     height: calc(100lvh - 8px) !important;
   }
+}
+
+/* Abendlicht über dem Meer. Die Sonne oben links bestimmt zugleich die
+   Schattenrichtung der Figuren nach rechts unten. */
+.online-board-area::before,
+.lobby-board::before {
+  content: "";
+  display: block !important;
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  opacity: .9;
+  background:
+    radial-gradient(circle at 7% 1%,#ffe878 0 23px,#ffc04d 24px 34px,rgba(226,82,38,.62) 35px 44px,rgba(207,73,38,.2) 45px 68px,transparent 92px),
+    linear-gradient(to bottom,rgba(244,129,61,.3) 0,rgba(255,202,105,.2) 13px,rgba(113,91,82,.18) 14px,rgba(255,222,152,.12) 17px,transparent 48px);
+  filter: none;
+  transform: none;
 }
