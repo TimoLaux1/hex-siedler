@@ -851,38 +851,48 @@ function OrientationPrompt() {
   );
 }
 
-const introFishTiles: FishTile[] = [
-  { slot: 0, number: 4 },
-  { slot: 1, number: 9 },
-  { slot: 2, number: 10 },
-  { slot: 3, number: 5 },
-];
-
-const introRoom: Room = {
-  id: "intro",
-  join_code: "INTRO",
-  status: "playing",
-  created_by: "",
-  board_tiles: terrain,
-  fish_tiles: introFishTiles,
-  state: {
-    robber_tile: 9,
-    settlements: [
-      { vertex: 7, player: 0, building: "settlement" },
-      { vertex: 20, player: 1, building: "city" },
-      { vertex: 31, player: 2, building: "goldmine" },
-      { vertex: 44, player: 3, building: "settlement" },
-    ],
-    roads: [],
-  },
-};
+function IntroIsland() {
+  const fish = (x: number, y: number, scale: number, flip = false, delay = 0) => <g className="intro-island-fish" style={{ animationDelay: `${delay}s` }} transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
+    <path d="M-18 0C-7-12 12-12 24 0 12 12-7 12-18 0Z"/><path d="m-17 0-15-11v22Z"/><circle cx="15" cy="-2" r="1.8"/>
+  </g>;
+  return <div className="opening-intro-island">
+    <svg viewBox="0 0 760 620" role="img" aria-label="Insel mit Wüste, Wald, Lehm, Goldmine und Weide in fischreichem Wasser">
+      <defs>
+        <linearGradient id="intro-ocean" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#78d8dc"/><stop offset="1" stopColor="#197e9b"/></linearGradient>
+        <linearGradient id="intro-cliff" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#82623e"/><stop offset="1" stopColor="#3e4037"/></linearGradient>
+        <linearGradient id="intro-gold" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff09a"/><stop offset=".5" stopColor="#e7b72e"/><stop offset="1" stopColor="#9c6417"/></linearGradient>
+        <clipPath id="intro-island-clip"><path d="M127 272C155 172 282 112 414 125c127 13 232 95 230 202-2 104-104 178-226 189-133 12-275-37-307-132-12-36-5-78 16-112Z"/></clipPath>
+      </defs>
+      <ellipse className="intro-island-water" cx="386" cy="349" rx="350" ry="240" fill="url(#intro-ocean)"/>
+      <g className="intro-water-ripples"><path d="M42 250q54-17 108 0M554 195q69-18 137 2M37 427q74 20 147-2M566 476q71 17 139-6M235 555q116 19 225-3"/></g>
+      {fish(75, 335, 1.15, false, -1)}{fish(665, 290, .9, true, -3)}{fish(625, 430, 1.2, true, -5)}{fish(170, 505, .78, false, -2)}{fish(690, 520, .7, true, -6)}{fish(105, 190, .72, false, -4)}{fish(540, 550, .68, false, -7)}{fish(260, 70, .62, true, -2.5)}
+      <ellipse className="intro-island-shadow" cx="390" cy="415" rx="276" ry="125"/>
+      <path className="intro-island-cliff" d="M111 363c32 95 174 144 307 132 122-11 224-85 226-189l-2 54c-5 105-105 180-225 195-136 17-282-37-313-132Z" fill="url(#intro-cliff)"/>
+      <g clipPath="url(#intro-island-clip)">
+        <path className="intro-biome-desert" d="M72 90h260v270H72Z"/>
+        <path className="intro-biome-meadow" d="m282 90 250 15 6 250-225 45-82-126Z"/>
+        <path className="intro-biome-forest" d="m486 77 235 44-8 279-205-42-69-116Z"/>
+        <path className="intro-biome-clay" d="m445 335 272-21-7 271-305 9-72-126Z"/>
+        <path className="intro-biome-gold" d="m82 335 268-85 132 123-59 226-324-32Z"/>
+        <path className="intro-biome-divider" d="M231 274 350 250m-37 150 20 68m106-226 69 116m-23-23-80 39"/>
+      </g>
+      <path className="intro-island-shore" d="M127 272C155 172 282 112 414 125c127 13 232 95 230 202-2 104-104 178-226 189-133 12-275-37-307-132-12-36-5-78 16-112Z"/>
+      <g className="intro-dunes"><path d="M148 265q50-48 102 0M165 296q39-34 78 0M202 220q34-29 68 0"/></g>
+      <g className="intro-forest-trees"><path d="m520 265 28-64 28 64h-16l24 46h-72l24-46Zm65 12 23-54 24 54h-13l19 39h-61l20-39Zm-101 34 20-47 21 47h-12l18 35h-55l17-35Z"/></g>
+      <g className="intro-meadow-details"><path d="M342 229q12-32 22 0m32 34q11-30 22 0m-69 57q10-27 20 0"/><g className="intro-sheep"><ellipse cx="390" cy="205" rx="24" ry="16"/><circle cx="414" cy="209" r="10"/><path d="M378 218v17m22-16v17"/></g></g>
+      <g className="intro-clay-details"><path d="M483 400h48v25h-48Zm52 0h48v25h-48Zm25 29h48v25h-48Zm-52 0h48v25h-48Zm-28 58q73-29 151 2"/></g>
+      <g className="intro-goldmine"><path className="intro-mine-rock" d="m244 413 33-74 55-18 67 42 18 96-181 8Z"/><path className="intro-mine-entry" d="M286 460v-48q0-49 41-49t42 49v48Z"/><path className="intro-mine-rail" d="m307 459 20-91 19 91M296 423h66"/><path className="intro-gold-vein" d="m257 392 22-12 12-28m86 41 18 20-8 30"/><circle cx="278" cy="375" r="8"/><circle cx="394" cy="425" r="9"/></g>
+      <g className="intro-foam"><path d="M103 337q-22 34 4 69m535-122q25 36 2 79M196 484q36 28 80 24m250-13q40-12 67-42"/></g>
+    </svg>
+  </div>;
+}
 
 function OpeningIntro({ fading }: { fading: boolean }) {
   return (
     <main className={`opening-intro ${fading ? "is-fading" : ""}`} aria-label="New Katan Intro">
       <div className="opening-intro-water" aria-hidden="true">
         <SwimmingFishLayer />
-        <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} /></BoardFit></div>
+        <IntroIsland />
         <div className="opening-intro-glow" />
       </div>
       <section className="opening-intro-title">
