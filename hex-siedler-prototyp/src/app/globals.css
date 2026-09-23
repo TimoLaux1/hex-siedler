@@ -2338,8 +2338,8 @@ body:has(.online-shell) {
   }
 }
 
-/* Abendlicht über dem Meer. Die Sonne oben links bestimmt zugleich die
-   Schattenrichtung der Figuren nach rechts unten. */
+/* Abendlicht über dem Meer: ein schmaler Himmel, eine tief stehende Sonne
+   oben links und ihr flimmernder Lichtweg auf dem Wasser. */
 .online-board-area::before,
 .lobby-board::before {
   content: "";
@@ -2350,10 +2350,33 @@ body:has(.online-shell) {
   width: auto;
   height: auto;
   pointer-events: none;
-  opacity: .9;
+  opacity: .96;
   background:
-    radial-gradient(circle at 7% 1%,#ffe878 0 23px,#ffc04d 24px 34px,rgba(226,82,38,.62) 35px 44px,rgba(207,73,38,.2) 45px 68px,transparent 92px),
-    linear-gradient(to bottom,rgba(244,129,61,.3) 0,rgba(255,202,105,.2) 13px,rgba(113,91,82,.18) 14px,rgba(255,222,152,.12) 17px,transparent 48px);
+    radial-gradient(circle at 11% 76px,#fffbd5 0 33px,#ffe67c 34px 48px,#ffc04f 49px 60px,#ed743a 61px 68px,transparent 69px),
+    linear-gradient(to bottom,transparent 0 84px,rgba(91,70,68,.42) 85px,rgba(255,224,154,.48) 87px,transparent 91px),
+    linear-gradient(to bottom,rgba(181,57,45,.72) 0,rgba(229,87,48,.64) 30px,rgba(247,143,65,.5) 59px,rgba(255,197,94,.24) 84px,transparent 116px);
   filter: none;
   transform: none;
+}
+
+.online-board-area::after,
+.lobby-board::after {
+  content: "";
+  display: block !important;
+  position: absolute;
+  z-index: 1;
+  top: 82px;
+  left: calc(11% - 92px);
+  width: 184px;
+  height: 250px;
+  pointer-events: none;
+  opacity: .72;
+  background:
+    repeating-linear-gradient(176deg,rgba(255,244,171,.82) 0 3px,rgba(255,194,79,.55) 4px 7px,rgba(229,91,48,.2) 8px 10px,transparent 11px 17px);
+  clip-path: polygon(38% 0,62% 0,67% 10%,82% 18%,63% 27%,88% 38%,59% 47%,93% 59%,64% 69%,81% 80%,55% 100%,35% 100%,46% 79%,17% 69%,43% 57%,8% 46%,39% 35%,20% 24%,42% 14%);
+  filter: blur(.45px) drop-shadow(0 0 9px rgba(255,187,69,.38));
+  transform: rotate(-3deg);
+  transform-origin: 50% 0;
+  -webkit-mask-image: linear-gradient(to bottom,#000 0 58%,transparent 100%);
+  mask-image: linear-gradient(to bottom,#000 0 58%,transparent 100%);
 }
