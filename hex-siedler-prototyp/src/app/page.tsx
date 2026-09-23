@@ -509,9 +509,11 @@ function SeaVisitor() {
   useEffect(() => {
     let hideTimer: ReturnType<typeof setTimeout> | undefined;
     const showVisitor = () => {
-      const verticalSide = Math.random() < .72;
-      const left = verticalSide ? (Math.random() < .5 ? 4 + Math.random() * 13 : 83 + Math.random() * 12) : 20 + Math.random() * 60;
-      const top = verticalSide ? 14 + Math.random() * 70 : (Math.random() < .5 ? 5 + Math.random() * 10 : 85 + Math.random() * 9);
+      // Links oben bleibt der Lichtweg der Sonne frei. Besucher erscheinen
+      // deshalb rechts, links erst unterhalb der Spiegelung oder ganz unten.
+      const zone = Math.random();
+      const left = zone < .5 ? 83 + Math.random() * 12 : zone < .76 ? 3 + Math.random() * 14 : 24 + Math.random() * 60;
+      const top = zone < .5 ? 14 + Math.random() * 68 : zone < .76 ? 55 + Math.random() * 28 : 86 + Math.random() * 8;
       setVisitor({ id: Date.now(), kind: Math.random() < .65 ? "fish" : "whale", left, top, flip: Math.random() < .5 });
       hideTimer = setTimeout(() => setVisitor(null), 10500);
     };
@@ -527,9 +529,9 @@ function SeaVisitor() {
 
 function SwimmingFishLayer() {
   const swimmers = [
-    { left: "8%", top: "18%", size: 34, motion: 1, flip: false },
+    { left: "27%", top: "18%", size: 34, motion: 1, flip: false },
     { left: "88%", top: "15%", size: 25, motion: 2, flip: true },
-    { left: "13%", top: "43%", size: 23, motion: 3, flip: false },
+    { left: "25%", top: "43%", size: 23, motion: 3, flip: false },
     { left: "91%", top: "39%", size: 31, motion: 4, flip: true },
     { left: "7%", top: "72%", size: 28, motion: 2, flip: false },
     { left: "87%", top: "76%", size: 22, motion: 3, flip: true },
@@ -547,6 +549,31 @@ function SwimmingFishLayer() {
       <path d="M14 17 2 6v22Z" />
       <circle cx="45" cy="14" r="1.7" />
     </svg>)}
+  </div>;
+}
+
+function JumpingFishLayer() {
+  const [jumper, setJumper] = useState<{ id: number; left: number; size: number; flip: boolean } | null>(null);
+  useEffect(() => {
+    let nextTimer: ReturnType<typeof setTimeout> | undefined;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      nextTimer = setTimeout(() => {
+        setJumper({ id: Date.now(), left: 28 + Math.random() * 66, size: 15 + Math.random() * 9, flip: Math.random() < .5 });
+        hideTimer = setTimeout(() => {
+          setJumper(null);
+          schedule();
+        }, 1900);
+      }, 3500 + Math.random() * 6000);
+    };
+    schedule();
+    return () => { if (nextTimer) clearTimeout(nextTimer); if (hideTimer) clearTimeout(hideTimer); };
+  }, []);
+  return <div className="jumping-fish-layer" aria-hidden="true">
+    {jumper && <span key={jumper.id} className={`jumping-fish ${jumper.flip ? "jumping-fish-flip" : ""}`} style={{ left: `${jumper.left}%`, width: jumper.size }}>
+      <svg viewBox="0 0 64 34"><path d="M13 17C22 5 43 5 53 17 43 29 22 29 13 17Z"/><path d="M14 17 2 6v22Z"/><circle cx="45" cy="14" r="1.7"/></svg>
+      <i className="jump-splash jump-splash-one"/><i className="jump-splash jump-splash-two"/>
+    </span>}
   </div>;
 }
 
@@ -2566,6 +2593,7 @@ export default function Home() {
         <section className="online-board-area">
           <SeaVisitor />
           <SwimmingFishLayer />
+          <JumpingFishLayer />
           <BoardFit><FullBoard
             room={room}
             myIndex={me?.player_index}
