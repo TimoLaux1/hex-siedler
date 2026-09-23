@@ -1090,7 +1090,8 @@ button, a { font: inherit; }
   .highscore-heading > span { width: 27px; height: 27px; font-size: 15px; }
   .highscore-list { max-height: 52px; }
   .highscore-row { min-height: 28px; padding-block: 3px; }
-  .lobby-board { height: 100dvh; min-height: 0; padding-right: max(12px,env(safe-area-inset-right)); }
+  .lobby-board { height: 100dvh; min-height: 0; padding-right: max(58px,calc(env(safe-area-inset-right) + 50px)); }
+  .lobby-board > .board-fit { position: absolute; inset: 6px; width: auto; height: auto; }
   .lobby-board .full-board { top: -32px; transform: scale(.39); }
   .online-shell { position: fixed; inset: 0; width: 100vw; height: 100dvh; min-height: 0; overflow: hidden; }
   .online-topbar { height: 46px; padding: 0 max(58px,calc(env(safe-area-inset-right) + 50px)) 0 max(10px,env(safe-area-inset-left)); }
