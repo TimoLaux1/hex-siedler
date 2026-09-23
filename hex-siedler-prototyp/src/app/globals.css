@@ -899,9 +899,9 @@ button, a { font: inherit; }
 .carriage-body { fill: #111; stroke: #d8d8d2; stroke-width: 1.5; }
 .carriage-roof { fill: #050505; stroke: #d8d8d2; stroke-width: 1; }
 .carriage-wheel { fill: #050505; stroke: #777; stroke-width: 1.5; }
-.robber-marker { pointer-events: none; filter: drop-shadow(6px 10px 4px rgba(12,25,22,.66)); }
+.robber-marker { pointer-events: none; }
 .robber-walk { transform-origin: center bottom; }
-.robber-shadow { fill: rgba(8,18,15,.62); transform: translate(6px,4px) rotate(-8deg); transform-origin: center; filter: blur(1.5px); }
+.robber-shadow { fill: rgba(8,18,15,.5); transform: translate(3px,2px) rotate(-7deg); transform-origin: center; filter: blur(.8px); }
 .robber-sack { fill: url(#robber-sack-fill); stroke: #161a18; stroke-width: 2; filter: drop-shadow(2px 3px 1px rgba(5,12,10,.48)); }
 .robber-sack-highlight { fill: rgba(255,225,175,.24); pointer-events: none; }
 .robber-cloak,.robber-hood { fill: url(#robber-cloak-fill); stroke: #eef1e8; stroke-width: .7; }
