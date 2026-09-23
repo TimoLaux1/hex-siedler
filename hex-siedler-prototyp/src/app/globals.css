@@ -1099,6 +1099,9 @@ button, a { font: inherit; }
   .lobby-account strong { font-size: 13px; line-height: 1.1; }
   .lobby-options-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6px; margin-top: 6px; }
   .fish-option,.victory-option { min-width: 0; min-height: 48px; margin-top: 0; padding: 5px 7px; gap: 5px; }
+  .victory-option { position: relative; padding-right: 42px; overflow: hidden; }
+  .victory-option > span { min-width: 0; }
+  .victory-option > strong { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
   .fish-option b,.victory-option b { font-size: 11px; }
   .fish-option small,.victory-option small { margin: 0; font-size: 7px; line-height: 1.12; }
   .fish-option > strong,.victory-option > strong { min-width: 31px; padding: 5px; font-size: 10px; }
