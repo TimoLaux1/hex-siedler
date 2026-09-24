@@ -201,15 +201,90 @@ begin
   return score+random();
 end; $$;
 
+-- Merkt sich gezielte Angriffe eines Menschen. Nach drei aufeinanderfolgenden
+-- Angriffen auf denselben Bot entsteht eine dauerhafte Rivalität.
+create or replace function public.record_bot_attack(p_game_id uuid,p_target_bot integer)
+returns public.games language plpgsql security definer set search_path=public
+as $$
+declare
+  g public.games; attacker public.game_players; target_bot public.game_players;
+  streaks jsonb; previous_streak jsonb; grudges jsonb; next_count integer; next_state jsonb;
+begin
+  select * into g from public.games where id=p_game_id for update;
+  if g.id is null or g.status<>'playing' then raise exception 'Das Spiel ist nicht aktiv.'; end if;
+  select * into attacker from public.game_players where game_id=p_game_id and user_id=auth.uid();
+  if attacker.player_index is null or attacker.is_bot then raise exception 'Nur menschliche Spieler können einen Bot provozieren.'; end if;
+  select * into target_bot from public.game_players where game_id=p_game_id and player_index=p_target_bot and is_bot;
+  if target_bot.player_index is null then raise exception 'Das Angriffsziel ist kein Bot.'; end if;
+
+  streaks:=coalesce(g.state->'bot_attack_streaks','{}'::jsonb);
+  previous_streak:=streaks->attacker.player_index::text;
+  next_count:=case when coalesce((previous_streak->>'target')::integer,-1)=p_target_bot
+    then coalesce((previous_streak->>'count')::integer,0)+1 else 1 end;
+  streaks:=jsonb_set(streaks,array[attacker.player_index::text],jsonb_build_object('target',p_target_bot,'count',next_count),true);
+  next_state:=jsonb_set(g.state,'{bot_attack_streaks}',streaks,true);
+  if next_count>=3 then
+    grudges:=coalesce(next_state->'bot_grudges','{}'::jsonb);
+    grudges:=jsonb_set(grudges,array[p_target_bot::text],to_jsonb(attacker.player_index),true);
+    next_state:=jsonb_set(next_state,'{bot_grudges}',grudges,true);
+  end if;
+  update public.games set state=next_state,version=version+1 where id=p_game_id returning * into g;
+  return g;
+end; $$;
+
+create or replace function public.bot_revenge_target(p_game_id uuid,p_bot_index integer)
+returns integer language plpgsql security definer set search_path=public
+as $$
+declare g public.games; target_index integer;
+begin
+  select * into g from public.games where id=p_game_id;
+  target_index:=nullif(g.state->'bot_grudges'->>p_bot_index::text,'')::integer;
+  if target_index is null then return null; end if;
+  if not exists(select 1 from public.game_players where game_id=p_game_id and player_index=target_index and not is_bot)
+     or coalesce(g.state->'eliminated_players','[]'::jsonb) @> jsonb_build_array(target_index) then
+    return null;
+  end if;
+  return target_index;
+end; $$;
+
+-- Eine normale Bot-Straße wird nur gebaut, wenn ihr neues Ende bereits ein
+-- legaler freier Siedlungsplatz ist. So werden keine Sackgassen gekauft.
+create or replace function public.bot_best_settlement_road_edge(p_game_id uuid,p_bot_index integer)
+returns integer language plpgsql security definer set search_path=public
+as $$
+declare g public.games; chosen integer;
+begin
+  select * into g from public.games where id=p_game_id;
+  select e.edge_id into chosen
+  from public.board_edges e
+  cross join lateral (
+    values (e.vertex_a,e.vertex_b),(e.vertex_b,e.vertex_a)
+  ) direction(connection_vertex,settlement_vertex)
+  where not exists(select 1 from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'edge')::integer=e.edge_id)
+    and exists(select 1 from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'player')::integer=p_bot_index and ((r->>'a')::integer=direction.connection_vertex or (r->>'b')::integer=direction.connection_vertex))
+    and not exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=direction.connection_vertex and (b->>'player')::integer<>p_bot_index)
+    and not exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=direction.settlement_vertex)
+    and not exists(
+      select 1 from public.board_vertex_neighbors n
+      cross join lateral unnest(n.neighbor_vertices) near(vertex_id)
+      join jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b on (b->>'vertex')::integer=near.vertex_id
+      where n.vertex_id=direction.settlement_vertex
+    )
+  order by public.bot_vertex_score(p_game_id,p_bot_index,direction.settlement_vertex) desc,e.edge_id
+  limit 1;
+  return chosen;
+end; $$;
+
 -- Waehlt das Feld mit dem groessten blockierten Produktionsertrag. Eine Stadt
 -- zaehlt doppelt; 6/8 werden staerker bewertet als seltene Zahlen. Felder mit
 -- einem eigenen Bot-Gebaeude sind immer ausgeschlossen.
 create or replace function public.bot_best_robber_tile(p_game_id uuid,p_bot_index integer)
 returns integer language plpgsql security definer set search_path=public
 as $$
-declare g public.games; chosen integer;
+declare g public.games; chosen integer; revenge_target integer;
 begin
   select * into g from public.games where id=p_game_id;
+  revenge_target:=public.bot_revenge_target(p_game_id,p_bot_index);
   select candidate.tile_id into chosen
   from generate_series(0,jsonb_array_length(g.board_tiles)-1) candidate(tile_id)
   where candidate.tile_id<>coalesce((g.state->>'robber_tile')::integer,-1)
@@ -226,6 +301,7 @@ begin
     and exists (
       select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) opponent_building
       where (opponent_building->>'player')::integer<>p_bot_index
+        and (revenge_target is null or (opponent_building->>'player')::integer=revenge_target)
         and exists (
           select 1 from public.board_vertex_tiles mapping
           cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
@@ -243,6 +319,7 @@ begin
     ),0)
     from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) opponent_building
     where (opponent_building->>'player')::integer<>p_bot_index
+      and (revenge_target is null or (opponent_building->>'player')::integer=revenge_target)
       and exists (
         select 1 from public.board_vertex_tiles mapping
         cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
@@ -368,7 +445,7 @@ declare
   latest_vertex integer; setup_step integer; setup_total integer; next_index integer; die1 integer; die2 integer; rolled integer;
   placed jsonb; tile_index integer; bot_resource_name text; multiplier integer; fish jsonb; reward integer;
   total_cards integer; discard_entry jsonb; discard_resource text; trade jsonb; accept_trade boolean; discard_queue jsonb:='[]'::jsonb;
-  have_resource text; need_resource text; target_index integer; current_round integer; action_done boolean:=false;
+  have_resource text; need_resource text; target_index integer; revenge_target integer; current_round integer; action_done boolean:=false;
   own_city_count integer; own_settlement_count integer; own_road_count integer; road_limit integer; settlement_limit integer;
   bot_card public.game_cards%rowtype; drawn_type text; strongest_resource text; card_roll double precision;
 begin
@@ -452,6 +529,7 @@ begin
   end if;
   select * into bot from public.game_players where game_id=p_game_id and player_index=bot_index and is_bot for update;
   if bot.player_index is null then return g; end if;
+  revenge_target:=public.bot_revenge_target(p_game_id,bot_index);
 
   -- Mehrere geöffnete Browser dürfen den Bot anstoßen. Die gesperrte Spielzeile
   -- und dieser serverseitige Zeitstempel verhindern Doppelzüge und garantieren
@@ -571,6 +649,7 @@ begin
     from public.game_players p
     join jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b on (b->>'player')::integer=p.player_index
     where p.game_id=p_game_id and p.player_index<>bot_index
+      and (revenge_target is null or p.player_index=revenge_target)
       and exists (
         select 1 from public.board_vertex_tiles mapping
         cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
@@ -596,8 +675,8 @@ begin
       update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb((resources->>bot_resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
       update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
     end if;
-    update public.game_players set knight_points=coalesce(knight_points,0)+1
-    where game_id=p_game_id and player_index=bot_index;
+    -- Eine gewürfelte 7 versetzt nur den Räuber. Ritterpunkte gibt es
+    -- ausschließlich durch die Klaus-Karte "Böser Klaus".
     update public.games set version=version+1,state=(state||jsonb_build_object('robber_tile',tile_index,'phase','build')) where id=p_game_id returning * into g;
     select * into g from public.refresh_largest_army(p_game_id);
     perform public.record_bot_game_activity(p_game_id,bot_index,'robber');
@@ -609,20 +688,25 @@ begin
     select * into bot_card from public.game_cards c
     where c.game_id=p_game_id and c.owner_player_index=bot_index and c.status='hand'
       and (coalesce(c.must_play,false) or coalesce(c.bought_round,0)<current_round)
+      and (revenge_target is null or c.card_type<>'proud')
       and not exists(select 1 from public.game_cards used where used.game_id=p_game_id and used.owner_player_index=bot_index and used.played_round=current_round and used.status='played')
     order by coalesce(c.must_play,false) desc,c.created_at limit 1 for update;
     if bot_card.id is not null then
       if bot_card.card_type='disappointed' then
         select player_index into target_index from public.game_players
-        where game_id=p_game_id and player_index<>bot_index order by victory_points desc,player_index limit 1;
+        where game_id=p_game_id and player_index<>bot_index
+          and (revenge_target is null or player_index=revenge_target)
+        order by victory_points desc,player_index limit 1;
         update public.game_players set victory_points=greatest(0,victory_points-1)
         where game_id=p_game_id and player_index=target_index;
+        action_done:=target_index is not null;
       elsif bot_card.card_type='angry' then
         tile_index:=public.bot_best_robber_tile(p_game_id,bot_index);
         select p.player_index into target_index
         from public.game_players p
         join jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b on (b->>'player')::integer=p.player_index
         where p.game_id=p_game_id and p.player_index<>bot_index
+          and (revenge_target is null or p.player_index=revenge_target)
           and exists (
             select 1 from public.board_vertex_tiles mapping
             cross join lateral unnest(mapping.tile_indices) adjacent(tile_id)
@@ -651,6 +735,7 @@ begin
         end if;
         update public.game_players set knight_points=coalesce(knight_points,0)+1 where game_id=p_game_id and player_index=bot_index;
         update public.games set state=state||jsonb_build_object('robber_tile',tile_index),version=version+1 where id=p_game_id returning * into g;
+        action_done:=tile_index is not null;
       elsif bot_card.card_type='proud' then
         select key into strongest_resource from jsonb_each_text(bot.resources) order by value::integer asc,key limit 1;
         select coalesce(sum((resources->>strongest_resource)::integer),0)::integer into total_cards
@@ -660,27 +745,54 @@ begin
         update public.game_players set resources=jsonb_set(resources,array[strongest_resource],to_jsonb(
           coalesce((resources->>strongest_resource)::integer,0)+total_cards
         ),true) where game_id=p_game_id and player_index=bot_index;
+        action_done:=true;
       elsif bot_card.card_type='stupid' then
         select (r->>'edge')::integer into chosen_edge from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r
         where (r->>'player')::integer=bot_index order by random() limit 1;
         if chosen_edge is not null then
           update public.games set state=jsonb_set(state,'{roads}',coalesce((select jsonb_agg(r) from jsonb_array_elements(state->'roads') r where (r->>'edge')::integer<>chosen_edge),'[]'::jsonb)),version=version+1 where id=p_game_id returning * into g;
+          action_done:=true;
+        end if;
+      elsif bot_card.card_type='sneaky' then
+        select candidate.vertex_id into chosen_vertex from public.board_vertex_neighbors candidate
+        where exists(select 1 from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'player')::integer=bot_index and ((r->>'a')::integer=candidate.vertex_id or (r->>'b')::integer=candidate.vertex_id))
+          and not exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=candidate.vertex_id)
+          and exists(select 1 from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'vertex')::integer=any(candidate.neighbor_vertices))
+        order by public.bot_vertex_score(p_game_id,bot_index,candidate.vertex_id) desc limit 1;
+        select count(*) into own_settlement_count from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b
+        where (b->>'player')::integer=bot_index and coalesce(b->>'building','settlement')='settlement';
+        settlement_limit:=case when coalesce(g.victory_target,10)>=13 then 6 else 5 end+coalesce(bot.settlement_limit_bonus,0);
+        if chosen_vertex is not null and own_settlement_count<settlement_limit
+           and coalesce((bot.resources->>'wood')::integer,0)>=1 and coalesce((bot.resources->>'brick')::integer,0)>=1
+           and coalesce((bot.resources->>'wool')::integer,0)>=1 and coalesce((bot.resources->>'grain')::integer,0)>=1 then
+          update public.game_players set resources=resources||jsonb_build_object(
+            'wood',(resources->>'wood')::integer-1,'brick',(resources->>'brick')::integer-1,
+            'wool',(resources->>'wool')::integer-1,'grain',(resources->>'grain')::integer-1
+          ),victory_points=victory_points+1 where game_id=p_game_id and player_index=bot_index;
+          update public.games set version=version+1,state=jsonb_set(state,'{settlements}',coalesce(state->'settlements','[]'::jsonb)||jsonb_build_array(jsonb_build_object('vertex',chosen_vertex,'player',bot_index,'building','settlement'))) where id=p_game_id returning * into g;
+          if (select victory_points from public.game_players where game_id=p_game_id and player_index=bot_index)>=coalesce(g.victory_target,10) then
+            update public.games set status='finished',state=state||jsonb_build_object('phase','finished','winner_player',bot_index),version=version+1 where id=p_game_id returning * into g;
+          end if;
+          action_done:=true;
         end if;
       elsif bot_card.card_type='rich' then
         update public.game_players set road_limit_bonus=road_limit_bonus+2,settlement_limit_bonus=settlement_limit_bonus+1
         where game_id=p_game_id and player_index=bot_index;
+        action_done:=true;
       end if;
-      update public.game_cards set status='played',must_play=false,played_round=current_round where id=bot_card.id;
-      update public.games set version=version+1,state=jsonb_set(state,'{bot_card_reveal}',jsonb_build_object(
-        'card_type',bot_card.card_type,'player',bot_index,'resolve_at',clock_timestamp()+interval '3 seconds'
-      ),true) where id=p_game_id returning * into g;
-      if bot_card.card_type='angry' then select * into g from public.refresh_largest_army(p_game_id); end if;
-      perform public.record_bot_game_activity(p_game_id,bot_index,'klaus_card',case bot_card.card_type
-        when 'disappointed' then 'Enttäuschter Klaus' when 'angry' then 'Böser Klaus'
-        when 'proud' then 'Stolzer Klaus' when 'stupid' then 'Blöder Klaus'
-        when 'sneaky' then 'Hinterlistiger Klaus' when 'desert' then 'Wüster Klaus'
-        when 'rich' then 'Reicher Klaus' else 'Klaus-Karte' end);
-      return g;
+      if action_done then
+        update public.game_cards set status='played',must_play=false,played_round=current_round where id=bot_card.id;
+        update public.games set version=version+1,state=jsonb_set(state,'{bot_card_reveal}',jsonb_build_object(
+          'card_type',bot_card.card_type,'player',bot_index,'resolve_at',clock_timestamp()+interval '3 seconds'
+        ),true) where id=p_game_id returning * into g;
+        if bot_card.card_type='angry' then select * into g from public.refresh_largest_army(p_game_id); end if;
+        perform public.record_bot_game_activity(p_game_id,bot_index,'klaus_card',case bot_card.card_type
+          when 'disappointed' then 'Enttäuschter Klaus' when 'angry' then 'Böser Klaus'
+          when 'proud' then 'Stolzer Klaus' when 'stupid' then 'Blöder Klaus'
+          when 'sneaky' then 'Hinterlistiger Klaus' when 'desert' then 'Wüster Klaus'
+          when 'rich' then 'Reicher Klaus' else 'Klaus-Karte' end);
+        return g;
+      end if;
     end if;
 
     -- Bots kaufen regelmäßig Klaus-Karten. In den ersten 20 Runden haben
@@ -739,13 +851,7 @@ begin
     select count(*) into own_road_count from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'player')::integer=bot_index;
     road_limit:=case when coalesce(g.victory_target,10)>=13 then 17 else 15 end+coalesce(bot.road_limit_bonus,0);
     if (bot.resources->>'wood')::integer>=1 and (bot.resources->>'brick')::integer>=1 and own_road_count<road_limit then
-      select e.edge_id into chosen_edge from public.board_edges e where not exists(select 1 from jsonb_array_elements(g.state->'roads') r where (r->>'edge')::integer=e.edge_id)
-       and exists(
-         select 1 from unnest(array[e.vertex_a,e.vertex_b]) endpoint(vertex_id)
-         where not exists(select 1 from jsonb_array_elements(g.state->'settlements') b where (b->>'vertex')::integer=endpoint.vertex_id and (b->>'player')::integer<>bot_index)
-           and exists(select 1 from jsonb_array_elements(g.state->'roads') r where (r->>'player')::integer=bot_index and ((r->>'a')::integer=endpoint.vertex_id or (r->>'b')::integer=endpoint.vertex_id))
-       )
-      order by greatest(public.bot_vertex_score(p_game_id,bot_index,e.vertex_a),public.bot_vertex_score(p_game_id,bot_index,e.vertex_b)) desc limit 1;
+      chosen_edge:=public.bot_best_settlement_road_edge(p_game_id,bot_index);
       if chosen_edge is not null then
         update public.game_players set resources=resources||jsonb_build_object('wood',(resources->>'wood')::integer-1,'brick',(resources->>'brick')::integer-1) where game_id=p_game_id and player_index=bot_index;
         update public.games set version=version+1,state=jsonb_set(state,'{roads}',state->'roads'||jsonb_build_array(jsonb_build_object('edge',chosen_edge,'a',(select vertex_a from public.board_edges where edge_id=chosen_edge),'b',(select vertex_b from public.board_edges where edge_id=chosen_edge),'player',bot_index))) where id=p_game_id returning * into g;
