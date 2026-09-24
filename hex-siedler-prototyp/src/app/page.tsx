@@ -20,7 +20,9 @@ type BotCardReveal = { card_type: KlausKind; player: number; resolve_at: string 
 type GameSoundEvent = { id: number; player_index: number | null; kind: "build" | "klaus"; message: string; card_type?: KlausKind | null };
 type ActivityKind = "info" | "turn" | "dice" | "build" | "trade" | "klaus" | "win";
 type GameActivity = { message: string; kind: ActivityKind; created_at: string };
-type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
+type RobberyEvent = { thief: number; victim: number; at: string };
+type RoadDecayEvent = { id: string; player: number; player_name: string; occurred_at: string };
+type GameState = { round?: number; phase?: string; setup_step?: number; setup_order?: number[]; active_player?: number; winner_player?: number; robber_tile?: number; robber_roller?: number; goldmine_unlocked?: boolean; goldmine_queue?: number[]; discard_queue?: DiscardEntry[]; discard_deadline?: string; player_time_remaining?: Record<string, number>; player_timer_started_at?: string; player_timer_active?: number; eliminated_players?: number[]; turn_deadline?: string; timer_player?: number; timer_paused_at?: string; timer_pause_reason?: string; trade_offer?: TradeOffer; trade_expires_at?: string; dice_stats?: Record<string, number>; longest_road_holder?: number; longest_road_length?: number; largest_army_holder?: number; largest_army_size?: number; card_event?: CardEvent; bot_card_reveal?: BotCardReveal; last_robbery?: RobberyEvent; road_decay_event?: RoadDecayEvent; settlements?: Settlement[]; roads?: Road[]; dice?: number[] };
 type Room = { id: string; join_code: string; status: string; created_by: string; state?: GameState; fish_tiles?: FishTile[]; board_tiles?: BoardTile[]; victory_target?: number; version?: number };
 type BuildMode = "road" | "settlement" | "city" | "goldmine" | null;
 type KlausMapMode = "robber" | "destroy_road" | "sneaky" | "desert" | null;
@@ -942,6 +944,7 @@ export default function Home() {
   const [selectedCard, setSelectedCard] = useState<KlausCard | null>(null);
   const [selectedRobberTile, setSelectedRobberTile] = useState<number | null>(null);
   const [showGoldmineUnlock, setShowGoldmineUnlock] = useState(false);
+  const [dismissedRoadDecayId, setDismissedRoadDecayId] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [localDiscardDeadline, setLocalDiscardDeadline] = useState<number | null>(null);
@@ -975,6 +978,8 @@ export default function Home() {
   const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
   const automaticDiscardPending = useRef(false);
+  const discardTotal = useRef<Record<string, number>>({});
+  const roadDecayChecks = useRef(new Set<string>());
 
   useEffect(() => {
     const fadeTimer = window.setTimeout(() => setOpeningIntroFading(true), 9000);
@@ -1153,6 +1158,35 @@ export default function Home() {
     )
   );
   const robberVictims = selectedRobberTile === null ? [] : robberVictimsForTile(selectedRobberTile);
+  const otherPlayers = players.filter((player) => player.player_index !== me?.player_index);
+  const ownRoads = (room?.state?.roads ?? []).filter((road) => road.player === me?.player_index);
+  const ownRoadVertices = new Set(ownRoads.flatMap((road) => [road.a, road.b]));
+  const occupiedVertices = new Set((room?.state?.settlements ?? []).map((building) => building.vertex));
+  const sneakyTargets = topology.vertices.filter((vertex) => ownRoadVertices.has(vertex.id) && !occupiedVertices.has(vertex.id));
+  const desertTargets = (room?.board_tiles ?? terrain).flatMap((tile, tileIndex) =>
+    tile.resource !== "none" && !(room?.state?.settlements ?? []).some((building) => topology.tileVertices[tileIndex]?.includes(building.vertex))
+      ? [tileIndex]
+      : []
+  );
+  const pendingTradeForMe = Boolean(
+    tradeOffer && tradeOffer.from !== me?.player_index &&
+    (tradeOffer.to == null || tradeOffer.to === me?.player_index) &&
+    !tradeOffer.rejected_by?.includes(me?.player_index ?? -1)
+  );
+  const robberyAge = room?.state?.last_robbery?.at ? clockNow - new Date(room.state.last_robbery.at).getTime() : Number.POSITIVE_INFINITY;
+  const robberyEvent = robberyAge >= 0 && robberyAge < 9000 ? room?.state?.last_robbery : undefined;
+  const robberyThief = players.find((player) => player.player_index === robberyEvent?.thief)?.player_name ?? "Ein Spieler";
+  const robberyVictim = players.find((player) => player.player_index === robberyEvent?.victim)?.player_name ?? "einen Mitspieler";
+  const personalizedActivity: GameActivity = me?.player_name && activity.message.includes(`hat ${me.player_name} beklaut.`)
+    ? { ...activity, message: activity.message.replace(`hat ${me.player_name} beklaut.`, "hat dich beklaut.") }
+    : activity;
+  const displayedActivity: GameActivity = pendingTradeForMe
+    ? { message: "Du musst das Handelsangebot noch beantworten.", kind: "trade", created_at: activity.created_at }
+    : myDiscard
+      ? { message: `Du musst noch ${myDiscard.remaining} Rohstoff${myDiscard.remaining === 1 ? "" : "e"} abgeben.`, kind: "klaus", created_at: activity.created_at }
+      : robberyEvent
+        ? { message: robberyEvent.victim === me?.player_index ? `${robberyThief} hat dich beklaut.` : `${robberyThief} hat ${robberyVictim} beklaut.`, kind: "klaus", created_at: robberyEvent.at }
+        : personalizedActivity;
 
   function unlockAudio() {
     if (typeof window === "undefined") return null;
@@ -1463,6 +1497,22 @@ export default function Home() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [goldmineUnlocked, room, me]);
+
+  useEffect(() => {
+    if (!room?.id || !myDiscard) return;
+    const key = `${room.id}-${me?.player_index ?? -1}`;
+    discardTotal.current[key] = Math.max(discardTotal.current[key] ?? 0, myDiscard.remaining);
+  }, [room?.id, me?.player_index, myDiscard]);
+
+  useEffect(() => {
+    if (!supabase || !room?.id || room.status !== "playing" || (room.state?.round ?? 0) <= 10 || !me?.user_id) return;
+    const checkKey = `${room.id}-${room.state?.round ?? 0}`;
+    if (roadDecayChecks.current.has(checkKey)) return;
+    roadDecayChecks.current.add(checkKey);
+    void supabase.rpc("trigger_marode_roads", { p_game_id: room.id }).then(({ data, error: decayError }) => {
+      if (!decayError && data) setRoom(normalizedRoom(data));
+    });
+  }, [room?.id, room?.status, room?.state?.round, me?.user_id]);
 
   function toggleFishTiles() {
     if (fishTiles.length === 4) {
@@ -2102,7 +2152,8 @@ export default function Home() {
       }
       setRoom(nextRoom);
       setSelectedRobberTile(null);
-      announceActivity("robber", `${me?.player_name ?? name} versetzt den Ritter.`, "klaus");
+      const victimName = players.find((player) => player.player_index === targetPlayer)?.player_name;
+      announceActivity("robber", victimName ? `${me?.player_name ?? name} hat ${victimName} beklaut.` : `${me?.player_name ?? name} versetzt den Räuber.`, "klaus", victimName);
       await loadPlayerData(room.id);
     }
     setBusy(false);
@@ -2204,7 +2255,16 @@ export default function Home() {
     if (!supabase || !room || !myDiscard || (myResources[resource] ?? 0) < 1) return;
     setBusy(true); setError("");
     const { data, error: discardError } = await supabase.rpc("discard_seven_resource", { p_game_id: room.id, p_resource: resource });
-    if (discardError) setError(discardError.message); else { setRoom(normalizedRoom(data)); announceActivity("discard", `${me?.player_name ?? name} gibt einen Rohstoff ab.`, "klaus"); await loadPlayerData(room.id); }
+    if (discardError) setError(discardError.message); else {
+      setRoom(normalizedRoom(data));
+      if (myDiscard.remaining === 1) {
+        const key = `${room.id}-${me?.player_index ?? -1}`;
+        const total = discardTotal.current[key] ?? 1;
+        announceActivity("discard", `${me?.player_name ?? name} hat ${total} Rohstoff${total === 1 ? "" : "e"} abgegeben.`, "klaus", String(total));
+        delete discardTotal.current[key];
+      }
+      await loadPlayerData(room.id);
+    }
     setBusy(false);
   }
 
@@ -2245,11 +2305,12 @@ export default function Home() {
     setBusy(false);
   }
 
-  async function playKlausCard(payload: Record<string, unknown>) {
-    if (!supabase || !room || !activeCard || !isMyTurn) return;
+  async function playKlausCard(payload: Record<string, unknown>, cardOverride?: KlausCard) {
+    const cardToPlay = cardOverride ?? activeCard;
+    if (!supabase || !room || !cardToPlay || !isMyTurn) return;
     setBusy(true); setError("");
-    const playedCard = activeCard;
-    const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: activeCard.id, p_payload: payload });
+    const playedCard = cardToPlay;
+    const { data, error: cardError } = await supabase.rpc("play_klaus_card", { p_game_id: room.id, p_card_id: cardToPlay.id, p_payload: payload });
     if (cardError) setError(cardError.message);
     else {
       let nextRoom = normalizedRoom(data);
@@ -2261,7 +2322,7 @@ export default function Home() {
         else if (attackData) nextRoom = normalizedRoom(attackData);
       }
       setRoom(nextRoom);
-      setMyCards((current) => current.filter((card) => card.id !== activeCard.id));
+      setMyCards((current) => current.filter((card) => card.id !== cardToPlay.id));
       setSelectedCard(null);
       setSelectedRobberTile(null);
       if (nextRoom.state?.winner_player === me?.player_index) announceActivity("win", `${me?.player_name ?? name} gewinnt das Spiel!`, "win");
@@ -2274,6 +2335,26 @@ export default function Home() {
   function chooseKlausCard(card: KlausCard) {
     setBuildMode(null);
     setSelectedRobberTile(null);
+    if (card.card_type === "rich") {
+      void playKlausCard({}, card);
+      return;
+    }
+    if (card.card_type === "disappointed" && otherPlayers.length === 1) {
+      void playKlausCard({ target_player: otherPlayers[0].player_index }, card);
+      return;
+    }
+    if (card.card_type === "stupid" && ownRoads.length === 1) {
+      void playKlausCard({ edge: ownRoads[0].edge }, card);
+      return;
+    }
+    if (card.card_type === "sneaky" && sneakyTargets.length === 1) {
+      void playKlausCard({ vertex: sneakyTargets[0].id }, card);
+      return;
+    }
+    if (card.card_type === "desert" && desertTargets.length === 1) {
+      void playKlausCard({ tile: desertTargets[0] }, card);
+      return;
+    }
     setSelectedCard(card);
   }
 
@@ -2429,7 +2510,7 @@ export default function Home() {
         <div className="online-sidebar">
         <div className="game-command-stack sidebar-command-stack">
           <div className="brand"><span className="brand-mark">⬡</span> NEW KATAN</div>
-          <div className={`game-activity activity-${activity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{activity.message}</strong></div>
+          <div className={`game-activity activity-${displayedActivity.kind}`} aria-live="polite"><span aria-hidden="true" /><strong>{displayedActivity.message}</strong></div>
           {room.status === "playing" && (
             <button
               type="button"
@@ -2631,6 +2712,7 @@ export default function Home() {
       {room.state?.bot_card_reveal && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.bot_card_reveal?.player)?.player_name ?? "Ein Bot"} spielt</span><KlausCardView kind={room.state.bot_card_reveal.card_type} /></div></div>}
       {remoteCardReveal && !room.state?.card_event && !room.state?.bot_card_reveal && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === remoteCardReveal.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={remoteCardReveal.card_type} /></div></div>}
       {showGoldmineUnlock && <div className="goldmine-unlock-overlay"><div className="goldmine-unlock-card"><span className="goldmine-icon">⛏</span><strong>Goldmine für alle freigeschaltet</strong><p>Die Goldmine wurde für alle Spieler freigeschaltet. Eigene Siedlungen, die an eine Wüste grenzen, können zur Goldmine ausgebaut werden. Die Würfelzahl 7 gibt dem Besitzer der Goldmine einen beliebigen Rohstoff.</p><small>Kosten: 2 Lehm · 2 Holz</small><button onClick={closeGoldmineMessage}>Verstanden</button></div></div>}
+      {room.state?.road_decay_event && room.state.road_decay_event.id !== dismissedRoadDecayId && <div className="goldmine-unlock-overlay road-decay-overlay"><div className="goldmine-unlock-card road-decay-card"><span className="road-decay-icon" aria-hidden="true">🏚️</span><strong>Alle Straßen abgerissen</strong><p>Deine Straßen sind marode und sollten dringend erneuert werden. <b>{room.state.road_decay_event.player_name}</b>, bitte baue deine Straßen beim nächsten Mal stabiler.</p><button onClick={() => setDismissedRoadDecayId(room.state?.road_decay_event?.id ?? null)}>Verstanden</button></div></div>}
       <MobileFullscreenButton onClick={() => void openMobileFullscreen()} />
       <MobileInstallPrompt open={showInstallPrompt} showInstructions={showInstallInstructions} canInstall={Boolean(installPromptEvent)} onInstall={() => void installToHomeScreen()} onDismiss={dismissInstallPrompt} />
     </main>
