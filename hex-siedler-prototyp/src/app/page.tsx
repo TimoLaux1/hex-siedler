@@ -1158,7 +1158,7 @@ export default function Home() {
     )
   );
   const robberVictims = selectedRobberTile === null ? [] : robberVictimsForTile(selectedRobberTile);
-  const otherPlayers = players.filter((player) => player.player_index !== me?.player_index);
+  const otherPlayers = players.filter((player) => player.player_index !== me?.player_index && !eliminatedPlayers.includes(player.player_index));
   const ownRoads = (room?.state?.roads ?? []).filter((road) => road.player === me?.player_index);
   const ownRoadVertices = new Set(ownRoads.flatMap((road) => [road.a, road.b]));
   const occupiedVertices = new Set((room?.state?.settlements ?? []).map((building) => building.vertex));
@@ -2599,7 +2599,7 @@ export default function Home() {
                 {activeCard ? (
                   <div className="klaus-action-panel">
                     <KlausCardView kind={activeCard.card_type} compact />
-                    {activeCard.card_type === "disappointed" && <><span>Welcher Mitspieler verliert einen Siegpunkt?</span><div className="choice-grid">{players.filter((player) => player.player_index !== me?.player_index).map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ target_player: player.player_index })}>{player.player_name}</button>)}</div></>}
+                    {activeCard.card_type === "disappointed" && <><span>Welcher Mitspieler verliert einen Siegpunkt?</span><div className="choice-grid">{otherPlayers.map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ target_player: player.player_index })}>{player.player_name}</button>)}</div></>}
                     {activeCard.card_type === "proud" && <><span>Welchen Rohstoff soll Klaus einsammeln?</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void playKlausCard({ resource: resource.key })}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></>}
                     {activeCard.card_type === "angry" && selectedRobberTile === null && <span>Wähle auf dem Spielfeld das neue Ritterfeld.</span>}
                     {activeCard.card_type === "angry" && selectedRobberTile !== null && <><span>{robberVictims.length ? "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?" : "An diesem Feld ist kein Mitspieler betroffen."}</span><div className="choice-grid">{robberVictims.map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ tile: selectedRobberTile, target_player: player.player_index })}>{player.player_name}</button>)}{robberVictims.length === 0 && <button onClick={() => void playKlausCard({ tile: selectedRobberTile })}>Ritter hier setzen</button>}<button onClick={() => setSelectedRobberTile(null)}>Anderes Feld</button></div></>}
