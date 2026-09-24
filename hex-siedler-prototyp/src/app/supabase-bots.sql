@@ -131,7 +131,7 @@ begin
   values(
     p_game_id,
     null,
-    (array['Settler.exe','CatanGPT'])[bot_number+1],
+    (array['Settler.exe','Katan.error'])[bot_number+1],
     next_index,
     (array['blue','coral','gold','green'])[next_index+1],
     true
