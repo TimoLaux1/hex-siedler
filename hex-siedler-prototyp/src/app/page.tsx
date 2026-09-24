@@ -746,8 +746,6 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
               <g className="robber-walk">
                 <animateTransform attributeName="transform" type="translate" values="-7 1;-7 1;7 1;7 1;-7 1" keyTimes="0;.2857;.5;.7857;1" dur="70s" repeatCount="indefinite"/>
                 <ellipse className="robber-shadow" cx="1" cy="15" rx="16" ry="4"/>
-                <ellipse className="robber-sack" cx="10" cy="-1" rx="11" ry="14" transform="rotate(-24 10 -1)"/>
-                <ellipse className="robber-sack-highlight" cx="7" cy="-5" rx="3" ry="7" transform="rotate(-24 7 -5)"/>
                 <path className="robber-cloak" d="M-9-5Q-3-14 5-8L10 12H-11Z"/>
                 <path className="robber-cloak-highlight" d="M-7-5Q-3-10 0-8L1 9H-7Z"/>
                 <circle className="robber-head" cx="-5" cy="-14" r="6"/>
