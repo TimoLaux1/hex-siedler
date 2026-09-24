@@ -367,8 +367,8 @@ begin
       update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb((resources->>bot_resource_name)::integer-1)) where game_id=p_game_id and player_index=target_index;
       update public.game_players set resources=jsonb_set(resources,array[bot_resource_name],to_jsonb(coalesce((resources->>bot_resource_name)::integer,0)+1),true) where game_id=p_game_id and player_index=bot_index;
     end if;
-    update public.game_players set knight_points=coalesce(knight_points,0)+1
-    where game_id=p_game_id and player_index=bot_index;
+    -- Eine gewürfelte 7 versetzt nur den Räuber. Ritterpunkte gibt es
+    -- ausschließlich durch die Klaus-Karte "Böser Klaus".
     update public.games set version=version+1,state=(state||jsonb_build_object('robber_tile',tile_index,'phase','build')) where id=p_game_id returning * into g;
     select * into g from public.refresh_largest_army(p_game_id);
     perform public.record_bot_game_activity(p_game_id,bot_index,'robber');
@@ -607,4 +607,3 @@ revoke all on function public.run_game_bot(uuid) from public;
 
 grant execute on function public.record_bot_attack(uuid,integer) to authenticated;
 grant execute on function public.run_game_bot(uuid) to authenticated;
-
