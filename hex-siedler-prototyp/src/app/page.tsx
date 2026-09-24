@@ -886,7 +886,7 @@ function OpeningIntro({ fading }: { fading: boolean }) {
       </div>
       <section className="opening-intro-title">
         <div className="opening-intro-logo"><span className="opening-intro-mark">⬡</span><b>NEW KATAN</b></div>
-        <p>Die Rache des Klaus Teuber</p>
+        <p>Die Rache des Klaus Teuber.</p>
       </section>
       <div className="opening-intro-mist" aria-hidden="true" />
     </main>
@@ -946,7 +946,6 @@ export default function Home() {
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [localDiscardDeadline, setLocalDiscardDeadline] = useState<number | null>(null);
   const [tradeMode, setTradeMode] = useState<"bank" | "player" | null>(null);
-  const [tradeTarget, setTradeTarget] = useState<number | "all" | null>(null);
   const [tradeGive, setTradeGive] = useState<ResourceKind | null>(null);
   const [tradeWant, setTradeWant] = useState<ResourceKind | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1117,19 +1116,18 @@ export default function Home() {
   const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const activePlayerIndex = room?.state?.active_player;
-  const myPlayerIndex = me?.player_index;
-  const myRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
-  const mySettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
-  const myRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === myPlayerIndex).length;
-  const mySettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === myPlayerIndex && (building.building === undefined || building.building === "settlement")
+  const activeRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
+  const activeSettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
+  const activeRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === activePlayerIndex).length;
+  const activeSettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === activePlayerIndex && (building.building === undefined || building.building === "settlement")
   ).length;
-  const myCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === myPlayerIndex && building.building === "city"
+  const activeCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === activePlayerIndex && building.building === "city"
   ).length;
-  const myRoadsRemaining = Math.max(0, myRoadLimit + (me?.road_limit_bonus ?? 0) - myRoadsBuilt);
-  const mySettlementsRemaining = Math.max(0, mySettlementLimit + (me?.settlement_limit_bonus ?? 0) - mySettlementsBuilt);
-  const myCitiesRemaining = Math.max(0, 4 - myCitiesBuilt);
+  const activeRoadsRemaining = Math.max(0, activeRoadLimit + (activePlayer?.road_limit_bonus ?? 0) - activeRoadsBuilt);
+  const activeSettlementsRemaining = Math.max(0, activeSettlementLimit + (activePlayer?.settlement_limit_bonus ?? 0) - activeSettlementsBuilt);
+  const activeCitiesRemaining = Math.max(0, 4 - activeCitiesBuilt);
   const playerTimersReady = Boolean(room?.state?.player_time_remaining);
   const activePlayerIsBot = Boolean(activePlayer?.is_bot);
   const playerClockPaused = Boolean(activePlayerIsBot || room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
@@ -1893,16 +1891,33 @@ export default function Home() {
 
   async function createRoom(event: FormEvent) {
     event.preventDefault();
-    if (!supabase || !name.trim()) return;
+    if (!supabase || !name.trim() || busy) return;
     setBusy(true); setError("");
-    const { data, error: rpcError } = await supabase.rpc("create_game_room_with_options", { p_player_name: name.trim(), p_fish_tiles: fishTiles, p_victory_target: victoryTarget, p_board_tiles: boardTiles });
-    if (rpcError) setError(rpcError.message);
-    else {
-      const result = data[0];
+    const createController = new AbortController();
+    const createTimeout = window.setTimeout(() => createController.abort(), 12000);
+    try {
+      const { data, error: rpcError } = await supabase
+        .rpc("create_game_room_with_options", { p_player_name: name.trim(), p_fish_tiles: fishTiles, p_victory_target: victoryTarget, p_board_tiles: boardTiles })
+        .abortSignal(createController.signal);
+      if (rpcError) {
+        setError(createController.signal.aborted ? "Das Erstellen dauert zu lange. Bitte versuche es erneut." : rpcError.message);
+        return;
+      }
+      const result = (Array.isArray(data) ? data[0] : data) as { game_id?: string; join_code?: string } | null;
+      if (!result?.game_id || !result.join_code) {
+        setError("Das Spiel konnte nicht erstellt werden. Bitte versuche es erneut.");
+        return;
+      }
       setJoinedAsSpectator(false);
       setRoom({ id: result.game_id, join_code: result.join_code, status: "waiting", created_by: userId, fish_tiles: fishTiles, board_tiles: boardTiles, victory_target: victoryTarget });
+    } catch (createFailure) {
+      setError(createController.signal.aborted
+        ? "Das Erstellen dauert zu lange. Bitte versuche es erneut."
+        : createFailure instanceof Error ? createFailure.message : "Das Spiel konnte nicht erstellt werden.");
+    } finally {
+      window.clearTimeout(createTimeout);
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function joinRoom(event: FormEvent) {
@@ -2127,7 +2142,6 @@ export default function Home() {
   }
 
   function resetTradeSelection() {
-    setTradeTarget(null);
     setTradeGive(null);
     setTradeWant(null);
   }
@@ -2148,9 +2162,9 @@ export default function Home() {
   }
 
   async function offerPlayerTrade() {
-    if (!supabase || !room || tradeTarget === null || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
+    if (!supabase || !room || !tradeGive || !tradeWant || tradeGive === tradeWant) return;
     setBusy(true); setError("");
-    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: tradeTarget === "all" ? null : tradeTarget, p_give: tradeGive, p_want: tradeWant });
+    const { data, error: tradeError } = await supabase.rpc("offer_player_trade", { p_game_id: room.id, p_target_player: null, p_give: tradeGive, p_want: tradeWant });
     if (tradeError) setError(tradeError.message);
     else {
       let nextRoom = normalizedRoom(data);
@@ -2172,30 +2186,9 @@ export default function Home() {
 
   async function respondToTrade(accept: boolean) {
     if (!supabase || !room) return;
-    const offerBeforeResponse = room.state?.trade_offer;
-    const openOfferFrom = offerBeforeResponse?.to == null ? offerBeforeResponse?.from ?? null : null;
-    const alreadyRejected = offerBeforeResponse?.rejected_by ?? [];
-    const allOthersRejected = !accept && openOfferFrom !== null && players.every((player) =>
-      player.player_index === openOfferFrom
-      || player.player_index === me?.player_index
-      || eliminatedPlayers.includes(player.player_index)
-      || alreadyRejected.includes(player.player_index)
-    );
     setBusy(true); setError("");
     const { data, error: tradeError } = await supabase.rpc("respond_player_trade", { p_game_id: room.id, p_accept: accept });
-    if (tradeError) setError(tradeError.message); else {
-      setRoom(normalizedRoom(data));
-      announceActivity(
-        accept ? "trade_accept" : "trade_reject",
-        accept
-          ? `${me?.player_name ?? name} nimmt den Handel an.`
-          : allOthersRejected
-            ? "Alle anderen Spieler haben das Handelsangebot abgelehnt."
-            : `${me?.player_name ?? name} lehnt den Handel ab.`,
-        "trade"
-      );
-      await loadPlayerData(room.id);
-    }
+    if (tradeError) setError(tradeError.message); else { setRoom(normalizedRoom(data)); announceActivity(accept ? "trade_accept" : "trade_reject", `${me?.player_name ?? name} ${accept ? "nimmt den Handel an" : "lehnt den Handel ab"}.`, "trade"); await loadPlayerData(room.id); }
     setBusy(false);
   }
 
@@ -2369,7 +2362,7 @@ export default function Home() {
               <strong>{victoryTarget}</strong>
             </button>
           </div>
-          <form onSubmit={createRoom}><button className="lobby-primary" disabled={busy || !name.trim()}>Neues Spiel erstellen</button></form>
+          <form onSubmit={createRoom}><button className="lobby-primary" type="submit" disabled={busy || !name.trim()}>{busy ? "Spiel wird erstellt …" : "Neues Spiel erstellen"}</button></form>
           <div className="lobby-divider"><span>oder beitreten</span></div>
           <form className="join-form" onSubmit={joinRoom}>
             <input value={code} onChange={(event) => setCode(event.target.value.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase())} placeholder="SPIELCODE" />
@@ -2544,10 +2537,10 @@ export default function Home() {
                   </div>
                   {tradeMode && <div className="trade-panel">
                     <div className="trade-tabs"><button className={tradeMode === "bank" ? "active" : ""} onClick={() => { setTradeMode("bank"); resetTradeSelection(); }}>Vorrat {bankTradeRate}:1</button><button className={tradeMode === "player" ? "active" : ""} onClick={() => { setTradeMode("player"); resetTradeSelection(); }}>Spieler 1:1</button></div>
-                    {tradeMode === "player" && <div className="trade-step"><span>Handelspartner wählen</span><div className="choice-grid"><button className={tradeTarget === "all" ? "selected" : ""} onClick={() => setTradeTarget("all")}>Alle Spieler</button>{players.filter((player) => player.player_index !== me?.player_index && !eliminatedPlayers.includes(player.player_index)).map((player) => <button className={tradeTarget === player.player_index ? "selected" : ""} key={player.player_index} onClick={() => setTradeTarget(player.player_index)}>{player.player_name}{player.is_bot ? " 🤖" : ""}</button>)}</div></div>}
+                    {tradeMode === "player" && <div className="trade-step"><span>Das Angebot wird allen Mitspielern und Bots angezeigt. Die erste Annahme zählt.</span></div>}
                     <div className="trade-step"><span>{tradeMode === "bank" ? `${bankTradeRate} gleiche Rohstoffe abgeben` : "1 Rohstoff anbieten"}</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeGive === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeGive(resource.key)} disabled={(myResources[resource.key] ?? 0) < (tradeMode === "bank" ? bankTradeRate : 1)}><ResourceIcon kind={resource.key} />{resource.label} ({myResources[resource.key] ?? 0})</button>)}</div></div>
                     <div className="trade-step"><span>Gewünschten Rohstoff wählen</span><div className="choice-grid resources-choice">{resourceCards.map((resource) => <button className={tradeWant === resource.key ? "selected" : ""} key={resource.key} onClick={() => setTradeWant(resource.key)} disabled={tradeGive === resource.key}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div></div>
-                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || tradeTarget === null || !tradeGive || !tradeWant}>Angebot an {tradeTarget === "all" ? "alle Spieler" : players.find((player) => player.player_index === tradeTarget)?.player_name ?? "Spieler"} senden</button>}
+                    {tradeMode === "bank" ? <button className="trade-confirm" onClick={() => void tradeWithBank()} disabled={busy || !tradeGive || !tradeWant}>{`${bankTradeRate}:1 mit Vorrat tauschen`}</button> : <button className="trade-confirm" onClick={() => void offerPlayerTrade()} disabled={busy || !tradeGive || !tradeWant}>Angebot an alle senden</button>}
                   </div>}
                 </>}
               </>}
@@ -2604,15 +2597,14 @@ export default function Home() {
             })}
           </div>
         </div>}
-        {room.status !== "waiting" && me && <div className="active-piece-reserve">
-          <div><strong>Vorrat · {me.player_name}</strong><span>dein Vorrat</span></div>
+        {room.status !== "waiting" && activePlayer && <div className="active-piece-reserve">
+          <div><strong>Vorrat · {activePlayer.player_name}</strong><span>aktiver Spieler</span></div>
           <ul>
-            <li><span>🛣</span><b>{myRoadsRemaining}</b><small>Straßen</small></li>
-            <li><span>🏠</span><b>{mySettlementsRemaining}</b><small>Siedlungen</small></li>
-            <li><span>🏰</span><b>{myCitiesRemaining}</b><small>Städte</small></li>
+            <li><span>🛣</span><b>{activeRoadsRemaining}</b><small>Straßen</small></li>
+            <li><span>🏠</span><b>{activeSettlementsRemaining}</b><small>Siedlungen</small></li>
+            <li><span>🏰</span><b>{activeCitiesRemaining}</b><small>Städte</small></li>
           </ul>
         </div>}
-        <div className="sidebar-room-code">Raumcode: <strong>{room.join_code}</strong></div>
         </div>
         <section className="online-board-area">
           <SeaAtmosphere />
