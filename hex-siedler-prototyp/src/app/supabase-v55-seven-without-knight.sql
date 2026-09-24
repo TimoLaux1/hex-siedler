@@ -71,6 +71,14 @@ begin
   ) owner;
 
   new_state := jsonb_set(game_row.state,'{robber_tile}',to_jsonb(p_tile));
+  if stolen_resource is not null and p_target_player is not null then
+    new_state := jsonb_set(
+      new_state,
+      '{last_robbery}',
+      jsonb_build_object('thief',my_index,'victim',p_target_player,'at',clock_timestamp()),
+      true
+    );
+  end if;
   if jsonb_array_length(goldmine_queue) > 0 then
     new_state := jsonb_set(
       jsonb_set(new_state,'{phase}','"goldmine"'::jsonb),
