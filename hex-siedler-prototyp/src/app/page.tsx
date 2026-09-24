@@ -1823,7 +1823,10 @@ export default function Home() {
           return;
         }
         if (data) setRoom(normalizedRoom(data));
-        announceActivity("discard", `${me?.player_name ?? name} gibt die übrigen Rohstoffe automatisch ab.`, "klaus");
+        const key = `${room.id}-${me?.player_index ?? -1}`;
+        const total = discardTotal.current[key] ?? myDiscard.remaining;
+        announceActivity("discard", `${me?.player_name ?? name} hat ${total} Rohstoff${total === 1 ? "" : "e"} abgegeben.`, "klaus", String(total));
+        delete discardTotal.current[key];
         await loadPlayerData(room.id);
       } finally {
         automaticDiscardPending.current = false;
@@ -2297,7 +2300,7 @@ export default function Home() {
       if (card) {
         const boughtCard = { ...card, bought_round: room.state?.round ?? 1 };
         setMyCards((current) => [...current, boughtCard]);
-        if (card.must_play) setSelectedCard(card);
+        if (card.must_play) chooseKlausCard(boughtCard);
         announceActivity("klaus_buy", `${me?.player_name ?? name} kauft eine Klaus-Karte.`, "klaus");
         await loadPlayerData(room.id);
       }
