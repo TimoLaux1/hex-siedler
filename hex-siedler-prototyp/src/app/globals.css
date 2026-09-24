@@ -646,7 +646,7 @@ button, a { font: inherit; }
 .opening-intro-logo { display: flex; align-items: center; justify-content: center; gap: clamp(10px,1.5vw,18px); margin: 0 0 18px; color: #fff4cf; font-family: Arial,Helvetica,sans-serif; font-size: clamp(24px,5vw,58px); font-weight: 950; letter-spacing: .11em; white-space: nowrap; }
 .opening-intro-mark { color: #ffd673; font-size: clamp(42px,6vw,72px); font-weight: 400; line-height: 1; }
 .opening-intro-title h1 { margin: 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(42px,7vw,92px); line-height: .98; letter-spacing: -.04em; }
-.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(19px,3vw,38px); font-weight: 700; letter-spacing: .01em; }
+.opening-intro-title p { margin: 15px 0 0; font-family: Georgia,"Times New Roman",serif; font-size: clamp(17px,2.25vw,32px); font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
 .opening-intro-mist {
   position: absolute;
   z-index: 30;
