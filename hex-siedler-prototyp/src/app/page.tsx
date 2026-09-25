@@ -79,7 +79,7 @@ const englishUi: Record<string, string> = {
   "Musik ausschalten": "Turn music off", "Musik einschalten": "Turn music on", "Ton ausschalten": "Turn sound off", "Ton einschalten": "Turn sound on",
   "New Katan installieren": "Install New Katan", "Tippe in Safari unten auf": "In Safari, tap", "Teilen": "Share", "und danach auf": "and then", "„Zum Home-Bildschirm“": "‘Add to Home Screen’",
   "Zum Homebildschirm hinzufügen?": "Add to Home Screen?", "Starte New Katan künftig direkt wie eine App.": "Launch New Katan directly like an app.", "Lege New Katan für den schnellen Zugriff auf deinem Homebildschirm ab.": "Add New Katan to your Home Screen for quick access.", "Hinzufügen": "Add", "Vollbild": "Fullscreen",
-  "Die Rache des Klaus Teuber.": "The Revenge of Klaus Teuber."
+  "Die Rache des Klaus Teuber": "The Revenge of Klaus Teuber"
 };
 
 function translateUiText(raw: string) {
@@ -888,7 +888,7 @@ function OpeningIntro({ fading }: { fading: boolean }) {
       </div>
       <section className="opening-intro-title">
         <div className="opening-intro-logo"><span className="opening-intro-mark">⬡</span><b>NEW KATAN</b></div>
-        <p>Die Rache des Klaus Teuber.</p>
+        <p>Die Rache des Klaus Teuber</p>
       </section>
       <div className="opening-intro-mist" aria-hidden="true" />
     </main>
