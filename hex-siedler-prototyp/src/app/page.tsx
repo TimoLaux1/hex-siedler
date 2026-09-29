@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { FormEvent, ReactNode, memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Resources = { wood: number; brick: number; wool: number; grain: number; ore: number };
@@ -633,7 +633,9 @@ function RoadCarriage({ route }: { route: CarriageRoute }) {
   </svg>;
 }
 
-function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void }) {
+type FullBoardProps = { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void };
+
+const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: FullBoardProps) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const visibleTerrain = room?.board_tiles ?? previewTiles ?? terrain;
@@ -790,7 +792,18 @@ function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMod
       })}
     </div>
   );
-}
+}, (previous, next) =>
+  previous.room?.id === next.room?.id &&
+  previous.room?.version === next.room?.version &&
+  previous.room?.status === next.room?.status &&
+  previous.fishTiles === next.fishTiles &&
+  previous.previewTiles === next.previewTiles &&
+  previous.myIndex === next.myIndex &&
+  previous.buildMode === next.buildMode &&
+  previous.klausMode === next.klausMode &&
+  previous.robberPreviewTile === next.robberPreviewTile &&
+  previous.isActiveTurn === next.isActiveTurn
+);
 
 function MobileInstallPrompt({
   open,
@@ -1098,6 +1111,7 @@ export default function Home() {
   const canCallKlaus = myResources.ore >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const forcedCard = myCards.find((card) => card.must_play);
   const activeCard = selectedCard ?? forcedCard ?? null;
+  const canResolveActiveKlausCard = room?.state?.phase === "build" || (room?.state?.phase === "turn" && activeCard?.card_type === "angry");
   const klausMode: KlausMapMode = room?.state?.phase === "robber" && isMyTurn && selectedRobberTile === null
     ? "robber"
     : activeCard?.card_type === "angry" && selectedRobberTile === null
@@ -1796,7 +1810,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!roomId || room?.status !== "playing") return;
-    const clock = window.setInterval(() => setClockNow(Date.now()), 250);
+    const clock = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(clock);
   }, [roomId, room?.status]);
 
@@ -2522,7 +2536,7 @@ export default function Home() {
               disabled={
                 !isMyTurn || busy || isEliminated ||
                 (room.state?.phase !== "turn" && room.state?.phase !== "build") ||
-                (room.state?.phase === "build" && (Boolean(activeCard) || Boolean(room.state?.card_event)))
+                Boolean(activeCard) || Boolean(room.state?.card_event)
               }
             >
               {room.state?.phase === "turn" ? "Würfeln" : "Zug beenden"}
@@ -2595,7 +2609,7 @@ export default function Home() {
                 {tradeOffer.from !== me?.player_index && (tradeOffer.to == null || tradeOffer.to === me?.player_index) && tradeOffer.rejected_by?.includes(me?.player_index ?? -1) && <small>Du hast dieses Angebot abgelehnt.</small>}
                 {tradeOffer.from === me?.player_index && <button className="cancel-card" onClick={() => void cancelTrade()} disabled={isEliminated || busy}>Angebot zurückziehen</button>}
               </div>}
-              {room.state?.phase === "build" && <>
+              {canResolveActiveKlausCard && <>
                 {activeCard ? (
                   <div className="klaus-action-panel">
                     <KlausCardView kind={activeCard.card_type} compact />
@@ -2660,7 +2674,8 @@ export default function Home() {
               <div className="klaus-hand-list">
                 {myCards.map((card) => {
                   const playableThisTurn = card.must_play || card.bought_round === undefined || card.bought_round < (room.state?.round ?? 1);
-                  return <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || room.state?.phase !== "build" || Boolean(room.state?.card_event) || !playableThisTurn}>
+                  const playableInCurrentPhase = room.state?.phase === "build" || (room.state?.phase === "turn" && card.card_type === "angry");
+                  return <button key={card.id} className={card.must_play ? "must-play" : ""} onClick={() => chooseKlausCard(card)} disabled={!isMyTurn || !playableInCurrentPhase || Boolean(room.state?.card_event) || !playableThisTurn}>
                   <KlausCardView kind={card.card_type} compact />
                   <span>{card.must_play ? "Muss sofort gespielt werden" : playableThisTurn ? "Karte spielen" : "Ab deinem nächsten Zug spielbar"}</span>
                 </button>;})}
