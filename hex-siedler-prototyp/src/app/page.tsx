@@ -1129,8 +1129,12 @@ export default function Home() {
           ? "desert"
         : null;
   const shareUrl = useMemo(() => room && typeof window !== "undefined" ? `${window.location.origin}?room=${room.join_code}` : "", [room]);
-  const goldmineChooser = room?.state?.goldmine_queue?.[0];
-  const isGoldmineChooser = goldmineChooser !== undefined && goldmineChooser === me?.player_index;
+  const goldmineQueue = room?.state?.goldmine_queue ?? [];
+  const myGoldmineChoices = goldmineQueue.filter((playerIndex) => playerIndex === me?.player_index).length;
+  const isGoldmineChooser = myGoldmineChoices > 0;
+  const waitingGoldmineNames = [...new Set(goldmineQueue)]
+    .filter((playerIndex) => playerIndex !== me?.player_index)
+    .map((playerIndex) => players.find((player) => player.player_index === playerIndex)?.player_name ?? "Ein Spieler");
   const longestRoadHolder = players.find((player) => player.player_index === room?.state?.longest_road_holder);
   const largestArmyHolder = players.find((player) => player.player_index === room?.state?.largest_army_holder);
   const myDiscard = room?.state?.discard_queue?.find((entry) => entry.player === me?.player_index);
@@ -2672,7 +2676,13 @@ export default function Home() {
               </div>}
               {room.state?.phase === "goldmine" && <div className="goldmine-choice-panel">
                 <strong>⛏ Goldmine fördert</strong>
-                <span>{isGoldmineChooser ? "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff." : `${players.find((player) => player.player_index === goldmineChooser)?.player_name ?? "Ein Spieler"} wählt einen Goldminen-Rohstoff.`}</span>
+                <span>{isGoldmineChooser
+                  ? myGoldmineChoices > 1
+                    ? `Deine Goldminen geben dir noch ${myGoldmineChoices} Wunschrohstoffe. Wähle sie jetzt aus.`
+                    : "Die 7 aktiviert deine Goldmine. Wähle einen beliebigen Rohstoff."
+                  : waitingGoldmineNames.length > 0
+                    ? `Warte noch auf die Goldminen-Auswahl von ${waitingGoldmineNames.join(", ")}.`
+                    : "Die Goldminen-Auswahl wird abgeschlossen."}</span>
                 {isGoldmineChooser && <div className="choice-grid resources-choice">{resourceCards.map((resource) => <button key={resource.key} onClick={() => void chooseGoldmineResource(resource.key)} disabled={busy}><ResourceIcon kind={resource.key} />{resource.label}</button>)}</div>}
               </div>}
               {error && !error.startsWith("Bot-RPC Fehler:") && <span className="setup-error" title={error}>{error.length > 180 ? `${error.slice(0, 180)}…` : error}</span>}
