@@ -8,7 +8,7 @@ type ResourceKind = keyof Resources;
 type Player = { user_id: string | null; player_name: string; player_index: number; color: string; resources?: Resources; victory_points?: number; knight_points?: number; last_bank_trade_round?: number; is_bot?: boolean; road_limit_bonus?: number; settlement_limit_bonus?: number };
 type Settlement = { vertex: number; player: number; building?: "settlement" | "city" | "goldmine" };
 type Road = { edge: number; a: number; b: number; player: number };
-type FishTile = { slot: number; number: number };
+type FishTile = { slot: number; number: number; desert?: boolean };
 type BoardTile = { name: string; className: string; symbol: string; number: number; resource: ResourceKind | "none" };
 type TradeOffer = { from: number; to?: number | null; give: ResourceKind; want: ResourceKind; rejected_by?: number[] };
 type DiscardEntry = { player: number; remaining: number };
@@ -72,9 +72,9 @@ const englishUi: Record<string, string> = {
   "Enttäuschter Klaus": "Disappointed Klaus", "Ein Mitspieler verliert 1 Siegpunkt.": "Another player loses 1 victory point.", "Böser Klaus": "Angry Klaus", "Versetzt den Räuber und erhält einen Ritter.": "Moves the robber and gains one knight.",
   "Stolzer Klaus": "Proud Klaus", "Wählt einen Rohstoff und erhält alle Rohstoffe dieser Art von den Mitspielern.": "Choose a resource and receive all resources of that type from the other players.", "Blöder Klaus": "Silly Klaus", "Zerstört sofort eine eigene Straße.": "Immediately destroys one of your own roads.",
   "Sneaky Klaus": "Sneaky Klaus", "Erlaubt eine Siedlung mit nur einer Straße Abstand.": "Allows a settlement only one road away.",
-  "Wüster Klaus": "Desert Klaus", "Verwandelt ein unbebautes Rohstofffeld dauerhaft in eine Wüste.": "Permanently turns an undeveloped resource tile into desert.",
+  "Wüster Klaus": "Desert Klaus", "Verwandelt ein unbebautes Rohstoff- oder Fischfeld dauerhaft in eine Wüste.": "Permanently turns an undeveloped resource or fish tile into desert.",
   "Reicher Klaus": "Rich Klaus", "Erhöht deinen Vorrat dauerhaft um 2 Straßen und 1 Siedlung.": "Permanently increases your supply by 2 roads and 1 settlement.",
-  "Wähle ein Rohstofffeld, an dem noch niemand gebaut hat.": "Choose a resource tile where nobody has built yet.",
+  "Wähle ein Rohstoff- oder Fischfeld, an dem noch niemand gebaut hat.": "Choose a resource or fish tile where nobody has built yet.",
   "Vorrat dauerhaft erweitern": "Permanently expand supply",
   "Musik ausschalten": "Turn music off", "Musik einschalten": "Turn music on", "Ton ausschalten": "Turn sound off", "Ton einschalten": "Turn sound on",
   "New Katan installieren": "Install New Katan", "Tippe in Safari unten auf": "In Safari, tap", "Teilen": "Share", "und danach auf": "and then", "„Zum Home-Bildschirm“": "‘Add to Home Screen’",
@@ -134,7 +134,7 @@ const klausCards: Record<KlausKind, { title: string; face: string; description: 
   proud: { title: "Stolzer Klaus", face: "😌", description: "Wählt einen Rohstoff und erhält alle Rohstoffe dieser Art von den Mitspielern.", tone: "gold" },
   stupid: { title: "Blöder Klaus", face: "🤪", description: "Zerstört sofort eine eigene Straße.", tone: "violet" },
   sneaky: { title: "Sneaky Klaus", face: "🥸", description: "Erlaubt eine Siedlung mit nur einer Straße Abstand.", tone: "green" },
-  desert: { title: "Wüster Klaus", face: "🏜️", description: "Verwandelt ein unbebautes Rohstofffeld dauerhaft in eine Wüste.", tone: "sand" },
+  desert: { title: "Wüster Klaus", face: "🏜️", description: "Verwandelt ein unbebautes Rohstoff- oder Fischfeld dauerhaft in eine Wüste.", tone: "sand" },
   rich: { title: "Reicher Klaus", face: "🤑", description: "Erhöht deinen Vorrat dauerhaft um 2 Straßen und 1 Siedlung.", tone: "emerald" },
 };
 
@@ -696,10 +696,13 @@ const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myInd
   // Das Brett wird pro Spiel neu gemischt. Darum darf die Wüste niemals über
   // eine feste Feldnummer ermittelt werden.
   const desertVertices = new Set(
-    visibleTerrain.flatMap((tile, tileIndex) => {
-      const isDesert = tile.className === "desert" || tile.name?.toLocaleLowerCase("de-DE") === "wüste";
-      return isDesert ? (topology.tileVertices[tileIndex] ?? []) : [];
-    }),
+    [
+      ...visibleTerrain.flatMap((tile, tileIndex) => {
+        const isDesert = tile.className === "desert" || tile.name?.toLocaleLowerCase("de-DE") === "wüste";
+        return isDesert ? (topology.tileVertices[tileIndex] ?? []) : [];
+      }),
+      ...visibleFish.flatMap((fish) => fish.desert ? (topology.tileVertices[terrain.length + fish.slot] ?? []) : []),
+    ],
   );
   const rolledNumber = state?.dice?.length === 2 ? state.dice[0] + state.dice[1] : null;
   const rollCount = Object.values(state?.dice_stats ?? {}).reduce((total, count) => total + count, 0);
@@ -726,13 +729,15 @@ const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myInd
           const { x, y } = fishCenters[fish.slot];
           const points = hexPoints(x, y);
           const tileIndex = terrain.length + fish.slot;
-          const produces = rolledNumber === fish.number && tileProduces(tileIndex);
-          return <g key={`fish-${fish.slot}-roll-${rollCount}`} className={`svg-tile fish ${produces ? "rolled-tile" : ""}`}>
-            <polygon points={points} fill="url(#fish-fill)" />
+          const produces = !fish.desert && rolledNumber === fish.number && tileProduces(tileIndex);
+          const tileClass = fish.desert ? "desert" : "fish";
+          return <g key={`fish-${fish.slot}-roll-${rollCount}`} className={`svg-tile ${tileClass} ${produces ? "rolled-tile" : ""}`}>
+            <polygon points={points} fill={`url(#${tileClass}-fill)`} />
             <polygon className="tile-inset" points={points} />
-            <FishArtwork x={x} y={y} />
-            <text className="svg-name" x={x} y={y + 37}>Fisch</text>
-            <g className="svg-token"><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{fish.number}</text></g>
+            {fish.desert ? <TerrainArtwork type="desert" x={x} y={y} /> : <FishArtwork x={x} y={y} />}
+            <text className="svg-name" x={x} y={y + 37}>{fish.desert ? "Wüste" : "Fisch"}</text>
+            {!fish.desert && <g className="svg-token"><circle cx={x} cy={y} r="18"/><text x={x} y={y + 5}>{fish.number}</text></g>}
+            {room && klausMode === "desert" && !fish.desert && !settlements.some((building) => topology.tileVertices[tileIndex]?.includes(building.vertex)) && <circle className="klaus-tile-target klaus-desert-target" cx={x} cy={y} r="53" onClick={() => onKlausTile?.(tileIndex)} />}
           </g>;
         })}
         {tileCenters.map(({ x, y }, index) => {
@@ -1177,11 +1182,19 @@ export default function Home() {
   const ownRoadVertices = new Set(ownRoads.flatMap((road) => [road.a, road.b]));
   const occupiedVertices = new Set((room?.state?.settlements ?? []).map((building) => building.vertex));
   const sneakyTargets = topology.vertices.filter((vertex) => ownRoadVertices.has(vertex.id) && !occupiedVertices.has(vertex.id));
-  const desertTargets = (room?.board_tiles ?? terrain).flatMap((tile, tileIndex) =>
-    tile.resource !== "none" && !(room?.state?.settlements ?? []).some((building) => topology.tileVertices[tileIndex]?.includes(building.vertex))
-      ? [tileIndex]
-      : []
-  );
+  const desertTargets = [
+    ...(room?.board_tiles ?? terrain).flatMap((tile, tileIndex) =>
+      tile.resource !== "none" && !(room?.state?.settlements ?? []).some((building) => topology.tileVertices[tileIndex]?.includes(building.vertex))
+        ? [tileIndex]
+        : []
+    ),
+    ...(room?.fish_tiles ?? []).flatMap((fish) => {
+      const tileIndex = terrain.length + fish.slot;
+      return !fish.desert && !(room?.state?.settlements ?? []).some((building) => topology.tileVertices[tileIndex]?.includes(building.vertex))
+        ? [tileIndex]
+        : [];
+    }),
+  ];
   const pendingTradeForMe = Boolean(
     tradeOffer && tradeOffer.from !== me?.player_index &&
     (tradeOffer.to == null || tradeOffer.to === me?.player_index) &&
@@ -2619,7 +2632,7 @@ export default function Home() {
                     {activeCard.card_type === "angry" && selectedRobberTile !== null && <><span>{robberVictims.length ? "Von welchem betroffenen Spieler soll ein zufälliger Rohstoff gezogen werden?" : "An diesem Feld ist kein Mitspieler betroffen."}</span><div className="choice-grid">{robberVictims.map((player) => <button key={player.player_index} onClick={() => void playKlausCard({ tile: selectedRobberTile, target_player: player.player_index })}>{player.player_name}</button>)}{robberVictims.length === 0 && <button onClick={() => void playKlausCard({ tile: selectedRobberTile })}>Ritter hier setzen</button>}<button onClick={() => setSelectedRobberTile(null)}>Anderes Feld</button></div></>}
                     {activeCard.card_type === "stupid" && <span>Wähle auf dem Spielfeld eine deiner Straßen zum Zerstören.</span>}
                     {activeCard.card_type === "sneaky" && <span>Wähle einen freien, direkt an dein Straßennetz angeschlossenen Knoten. Die normalen Baukosten werden abgezogen.</span>}
-                    {activeCard.card_type === "desert" && <span>Wähle ein Rohstofffeld, an dem noch niemand gebaut hat.</span>}
+                    {activeCard.card_type === "desert" && <span>Wähle ein Rohstoff- oder Fischfeld, an dem noch niemand gebaut hat.</span>}
                     {activeCard.card_type === "rich" && <button onClick={() => void playKlausCard({})}>Vorrat dauerhaft erweitern</button>}
                     {!activeCard.must_play && <button className="cancel-card" onClick={() => { setSelectedCard(null); setSelectedRobberTile(null); }}>Abbrechen</button>}
                   </div>
