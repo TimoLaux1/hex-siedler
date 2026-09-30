@@ -598,22 +598,29 @@ button, a { font: inherit; }
 .opening-intro-board {
   position: absolute;
   z-index: 16;
-  top: 2vh;
-  right: -1vw;
-  bottom: 2vh;
-  left: 49vw;
+  top: 3vh;
+  right: 2vw;
+  bottom: 3vh;
+  left: 47vw;
   opacity: .94;
   perspective: 1100px;
   perspective-origin: 55% 28%;
-  -webkit-mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
-  mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
   transform: scale(1.08) rotate(1deg);
-  contain: layout paint;
+  contain: layout;
 }
 .opening-intro-board .full-board { pointer-events: none; filter: none; }
 .opening-intro-board .board-svg { filter: none; }
 .opening-intro-board .setup-vertex { pointer-events: none; }
-.opening-intro-board .board-fit { overflow: visible; perspective: 1000px; }
+.opening-intro-board .board-fit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(100%,760px);
+  height: min(100%,680px);
+  overflow: visible;
+  perspective: 1000px;
+  transform: translate(-50%,-50%);
+}
 .opening-intro-board .board-fit-stage {
   transform-style: preserve-3d;
   transform-origin: 52% 48%;
@@ -700,12 +707,12 @@ button, a { font: inherit; }
   opacity: .72;
 }
 @keyframes opening-board-flyover {
-  0% { transform:rotateX(61deg) rotateZ(-21deg) translate3d(235px,135px,-160px) scale(1.5); opacity:.14 }
+  0% { transform:rotateX(50deg) rotateZ(-10deg) translate3d(28px,34px,0) scale(1.02); opacity:.18 }
   14% { opacity:.96 }
-  32% { transform:rotateX(55deg) rotateZ(-11deg) translate3d(100px,20px,40px) scale(1.27); opacity:1 }
-  58% { transform:rotateX(48deg) rotateZ(1deg) translate3d(-25px,-54px,95px) scale(1.12); opacity:1 }
-  82% { transform:rotateX(43deg) rotateZ(9deg) translate3d(-115px,-8px,65px) scale(1.02); opacity:1 }
-  100% { transform:rotateX(42deg) rotateZ(15deg) translate3d(-62px,-42px,45px) scale(.96); opacity:1 }
+  32% { transform:rotateX(45deg) rotateZ(-5deg) translate3d(15px,2px,28px) scale(1.04); opacity:1 }
+  58% { transform:rotateX(40deg) rotateZ(1deg) translate3d(-18px,-15px,42px) scale(1.02); opacity:1 }
+  82% { transform:rotateX(41deg) rotateZ(7deg) translate3d(15px,-4px,25px) scale(.96); opacity:1 }
+  100% { transform:rotateX(38deg) rotateZ(10deg) translate3d(0,0,0) scale(.91); opacity:1 }
 }
 @keyframes intro-crop-sway { to { transform:rotate(5deg) } }
 @keyframes intro-mine-pulse { to { transform:scale(1.3); box-shadow:0 0 11px 7px #fff27a,0 0 34px 18px #ff9e2c } }
@@ -720,8 +727,18 @@ button, a { font: inherit; }
 /* Der Vorspann bewegt nur zusammengesetzte GPU-Ebenen. Teure Filter auf dem
    kompletten Brett oder Hintergrund verursachen besonders auf Mobilgeräten
    sichtbare Ruckler. */
-.opening-intro .sea-wave:nth-child(even) { animation: none; opacity: .34; }
-.opening-intro .water-swimmer { filter: none; }
+.opening-intro .sea-wave { animation: none; opacity: .42; }
+.opening-intro .sea-wave:nth-child(4n + 1) { animation: sea-wave-drift 9s ease-in-out infinite alternate; }
+.opening-intro .sea-wave::after { animation: none; opacity: 0; }
+.opening-intro .water-swimmer { filter: none; animation: none; }
+.opening-intro .water-swimmer:nth-child(1) { animation: ocean-fish-drift-a 54s ease-in-out -11s infinite; }
+.opening-intro .water-swimmer:nth-child(5) { animation: ocean-fish-drift-b 68s ease-in-out -37s infinite; }
+.opening-intro-board .ocean-fish-swimmer,
+.opening-intro-board .intro-crops i,
+.opening-intro-board .building-smoke { animation: none !important; }
+.opening-intro-board .intro-fish-ground:not(.intro-fish-active) .intro-fish-jump,
+.opening-intro-board .intro-fish-ground:not(.intro-fish-active) .intro-fish-splash,
+.opening-intro-board .intro-fish-ground:not(.intro-fish-active) .intro-fish-ripple { animation: none; opacity: 0; }
 
 @media (orientation: landscape) and (max-height: 620px) {
   .opening-intro-title { width: min(560px,calc(53vw - 34px)); margin-left: 28px; padding-block: 24px; }

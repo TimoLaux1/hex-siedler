@@ -645,9 +645,9 @@ function IntroTerrainMiniatures({ visibleTerrain, visibleFish }: { visibleTerrai
       if (tile.className === "clay") return <span className="intro-miniature intro-quarry" style={style} key={`intro-terrain-${index}`}><i/><i/><i/><i/></span>;
       return <span className="intro-miniature intro-meadow" style={style} key={`intro-terrain-${index}`}><i/><i/><i/><b>●</b></span>;
     })}
-    {visibleFish.map((fish) => {
+    {visibleFish.map((fish, index) => {
       const center = fishCenters[fish.slot];
-      return <span className="intro-miniature intro-fish-ground" style={{ left: center.x, top: center.y }} key={`intro-fish-${fish.slot}`}><i className="intro-fish-jump"/><i className="intro-fish-splash"/><i className="intro-fish-ripple"/></span>;
+      return <span className={`intro-miniature intro-fish-ground ${index === 0 ? "intro-fish-active" : ""}`} style={{ left: center.x, top: center.y }} key={`intro-fish-${fish.slot}`}><i className="intro-fish-jump"/><i className="intro-fish-splash"/><i className="intro-fish-ripple"/></span>;
     })}
   </div>;
 }
@@ -922,7 +922,6 @@ function OpeningIntro({ fading }: { fading: boolean }) {
       <div className="opening-intro-water" aria-hidden="true">
         <SeaAtmosphere />
         <SwimmingFishLayer />
-        <JumpingFishLayer />
         <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} cinematic /></BoardFit></div>
         <div className="opening-intro-glow" />
       </div>
