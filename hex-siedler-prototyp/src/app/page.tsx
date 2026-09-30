@@ -996,6 +996,7 @@ export default function Home() {
   const remoteCardRevealTimer = useRef<number | null>(null);
   const botActionPending = useRef(false);
   const automaticDiscardPending = useRef(false);
+  const discardFallbackPending = useRef(false);
   const discardTotal = useRef<Record<string, number>>({});
   const roadDecayChecks = useRef(new Set<string>());
 
@@ -1144,18 +1145,18 @@ export default function Home() {
   const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const activePlayerIndex = room?.state?.active_player;
-  const activeRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
-  const activeSettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
-  const activeRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === activePlayerIndex).length;
-  const activeSettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === activePlayerIndex && (building.building === undefined || building.building === "settlement")
+  const myRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
+  const mySettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
+  const myRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === me?.player_index).length;
+  const mySettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === me?.player_index && (building.building === undefined || building.building === "settlement")
   ).length;
-  const activeCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === activePlayerIndex && building.building === "city"
+  const myCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === me?.player_index && building.building === "city"
   ).length;
-  const activeRoadsRemaining = Math.max(0, activeRoadLimit + (activePlayer?.road_limit_bonus ?? 0) - activeRoadsBuilt);
-  const activeSettlementsRemaining = Math.max(0, activeSettlementLimit + (activePlayer?.settlement_limit_bonus ?? 0) - activeSettlementsBuilt);
-  const activeCitiesRemaining = Math.max(0, 4 - activeCitiesBuilt);
+  const myRoadsRemaining = Math.max(0, myRoadLimit + (me?.road_limit_bonus ?? 0) - myRoadsBuilt);
+  const mySettlementsRemaining = Math.max(0, mySettlementLimit + (me?.settlement_limit_bonus ?? 0) - mySettlementsBuilt);
+  const myCitiesRemaining = Math.max(0, 4 - myCitiesBuilt);
   const playerTimersReady = Boolean(room?.state?.player_time_remaining);
   const activePlayerIsBot = Boolean(activePlayer?.is_bot);
   const playerClockPaused = Boolean(activePlayerIsBot || room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
@@ -1173,6 +1174,7 @@ export default function Home() {
     ? new Date(room.state.discard_deadline).getTime()
     : localDiscardDeadline;
   const discardSeconds = discardDeadline ? Math.max(0, Math.ceil((discardDeadline - clockNow) / 1000)) : 10;
+  const discardFallbackReady = discardDeadline !== null && clockNow >= discardDeadline + 1_500;
   const hasHarbor = (room?.state?.settlements ?? []).some((building) => building.player === me?.player_index && harbors.some((harbor) => harbor.vertices.includes(building.vertex)));
   const bankTradeRate = hasHarbor ? 3 : 4;
   const robberVictimsForTile = (tile: number) => players.filter((player) =>
@@ -1835,6 +1837,7 @@ export default function Home() {
     if (room?.state?.phase !== "discard") {
       setLocalDiscardDeadline(null);
       automaticDiscardPending.current = false;
+      discardFallbackPending.current = false;
       return;
     }
     if (!room.state.discard_deadline && localDiscardDeadline === null) {
@@ -1864,6 +1867,25 @@ export default function Home() {
       }
     })();
   }, [discardSeconds, myDiscard?.remaining, room?.id, room?.state?.phase]);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !room?.id || room.state?.phase !== "discard" || !discardFallbackReady || discardFallbackPending.current) return;
+    discardFallbackPending.current = true;
+    void (async () => {
+      try {
+        const { data, error: fallbackError } = await client.rpc("complete_expired_seven_discard", { p_game_id: room.id });
+        if (fallbackError) {
+          setError(`Fortsetzung nach der 7 fehlgeschlagen: ${fallbackError.message}`);
+          return;
+        }
+        if (data) setRoom(normalizedRoom(data));
+        await loadPlayerData(room.id);
+      } finally {
+        discardFallbackPending.current = false;
+      }
+    })();
+  }, [clockNow, discardFallbackReady, room?.id, room?.state?.phase]);
 
   useEffect(() => {
     const client = supabase;
@@ -2719,13 +2741,14 @@ export default function Home() {
             })}
           </div>
         </div>}
-        {room.status !== "waiting" && activePlayer && <div className="active-piece-reserve">
-          <div><strong>Vorrat · {activePlayer.player_name}</strong><span>aktiver Spieler</span></div>
+        {room.status !== "waiting" && me && <div className="active-piece-reserve">
+          <div><strong>Vorrat · {me.player_name}</strong><span>dein Vorrat</span></div>
           <ul>
-            <li><span>🛣</span><b>{activeRoadsRemaining}</b><small>Straßen</small></li>
-            <li><span>🏠</span><b>{activeSettlementsRemaining}</b><small>Siedlungen</small></li>
-            <li><span>🏰</span><b>{activeCitiesRemaining}</b><small>Städte</small></li>
+            <li><span>🛣</span><b>{myRoadsRemaining}</b><small>Straßen</small></li>
+            <li><span>🏠</span><b>{mySettlementsRemaining}</b><small>Siedlungen</small></li>
+            <li><span>🏰</span><b>{myCitiesRemaining}</b><small>Städte</small></li>
           </ul>
+          <div className="reserve-room-code"><span>Raumcode</span><strong>{room.join_code}</strong></div>
         </div>}
         </div>
         <section className="online-board-area">
