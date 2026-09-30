@@ -761,7 +761,7 @@ begin
         order by public.bot_vertex_score(p_game_id,bot_index,candidate.vertex_id) desc limit 1;
         select count(*) into own_settlement_count from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b
         where (b->>'player')::integer=bot_index and coalesce(b->>'building','settlement')='settlement';
-        settlement_limit:=case when coalesce(g.victory_target,10)>=13 then 6 else 5 end+coalesce(bot.settlement_limit_bonus,0);
+        settlement_limit:=case when coalesce(g.victory_target,10) between 7 and 9 then 5 when coalesce(g.victory_target,10)>=13 then 6+coalesce(bot.settlement_limit_bonus,0) else 5+coalesce(bot.settlement_limit_bonus,0) end;
         if chosen_vertex is not null and own_settlement_count<settlement_limit
            and coalesce((bot.resources->>'wood')::integer,0)>=1 and coalesce((bot.resources->>'brick')::integer,0)>=1
            and coalesce((bot.resources->>'wool')::integer,0)>=1 and coalesce((bot.resources->>'grain')::integer,0)>=1 then
@@ -819,7 +819,8 @@ begin
     end if;
 
     select count(*) into own_city_count from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'player')::integer=bot_index and b->>'building'='city';
-    if coalesce((bot.resources->>'ore')::integer,0)>=3 and coalesce((bot.resources->>'grain')::integer,0)>=2 and own_city_count<4 then
+    if coalesce((bot.resources->>'ore')::integer,0)>=3 and coalesce((bot.resources->>'grain')::integer,0)>=2
+       and own_city_count<case when coalesce(g.victory_target,10) between 7 and 9 then 3 else 4 end then
       select (b->>'vertex')::integer into chosen_vertex from jsonb_array_elements(g.state->'settlements') b where (b->>'player')::integer=bot_index and coalesce(b->>'building','settlement')='settlement' order by public.bot_vertex_score(p_game_id,bot_index,(b->>'vertex')::integer) desc limit 1;
       if chosen_vertex is not null then
         update public.game_players set resources=resources||jsonb_build_object('ore',(resources->>'ore')::integer-3,'grain',(resources->>'grain')::integer-2),victory_points=victory_points+1 where game_id=p_game_id and player_index=bot_index;
@@ -832,7 +833,7 @@ begin
       end if;
     end if;
     select count(*) into own_settlement_count from jsonb_array_elements(coalesce(g.state->'settlements','[]'::jsonb)) b where (b->>'player')::integer=bot_index and coalesce(b->>'building','settlement')='settlement';
-    settlement_limit:=case when coalesce(g.victory_target,10)>=13 then 6 else 5 end+coalesce(bot.settlement_limit_bonus,0);
+    settlement_limit:=case when coalesce(g.victory_target,10) between 7 and 9 then 5 when coalesce(g.victory_target,10)>=13 then 6+coalesce(bot.settlement_limit_bonus,0) else 5+coalesce(bot.settlement_limit_bonus,0) end;
     if (bot.resources->>'wood')::integer>=1 and (bot.resources->>'brick')::integer>=1 and (bot.resources->>'wool')::integer>=1 and (bot.resources->>'grain')::integer>=1 and own_settlement_count<settlement_limit then
       select candidate.vertex_id into chosen_vertex from public.board_vertex_neighbors candidate
       where exists(select 1 from jsonb_array_elements(g.state->'roads') r where (r->>'player')::integer=bot_index and ((r->>'a')::integer=candidate.vertex_id or (r->>'b')::integer=candidate.vertex_id))
@@ -849,7 +850,7 @@ begin
       end if;
     end if;
     select count(*) into own_road_count from jsonb_array_elements(coalesce(g.state->'roads','[]'::jsonb)) r where (r->>'player')::integer=bot_index;
-    road_limit:=case when coalesce(g.victory_target,10)>=13 then 17 else 15 end+coalesce(bot.road_limit_bonus,0);
+    road_limit:=case when coalesce(g.victory_target,10) between 7 and 9 then 10 when coalesce(g.victory_target,10)>=13 then 17+coalesce(bot.road_limit_bonus,0) else 15+coalesce(bot.road_limit_bonus,0) end;
     if (bot.resources->>'wood')::integer>=1 and (bot.resources->>'brick')::integer>=1 and own_road_count<road_limit then
       chosen_edge:=public.bot_best_settlement_road_edge(p_game_id,bot_index);
       if chosen_edge is not null then

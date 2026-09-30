@@ -42,7 +42,11 @@ begin
   select count(*) into own_road_count
   from jsonb_array_elements(game_row.state->'roads') road
   where (road->>'player')::integer=my_index;
-  road_limit := case when coalesce(game_row.victory_target,10)>=13 then 17 else 15 end + coalesce(my_bonus,0);
+  road_limit := case
+    when coalesce(game_row.victory_target,10) between 7 and 9 then 10
+    when coalesce(game_row.victory_target,10)>=13 then 17+coalesce(my_bonus,0)
+    else 15+coalesce(my_bonus,0)
+  end;
   if own_road_count>=road_limit then raise exception 'Du hast keine Straße mehr übrig'; end if;
 
   select exists(
@@ -132,7 +136,11 @@ begin
   from jsonb_array_elements(game_row.state->'settlements') building
   where (building->>'player')::integer=my_index
     and coalesce(building->>'building','settlement')='settlement';
-  settlement_limit := case when coalesce(game_row.victory_target,10)>=13 then 6 else 5 end + coalesce(my_bonus,0);
+  settlement_limit := case
+    when coalesce(game_row.victory_target,10) between 7 and 9 then 5
+    when coalesce(game_row.victory_target,10)>=13 then 6+coalesce(my_bonus,0)
+    else 5+coalesce(my_bonus,0)
+  end;
   if own_settlement_count>=settlement_limit then raise exception 'Du hast keine Siedlung mehr übrig'; end if;
 
   if coalesce((my_resources->>'wood')::integer,0)<1
