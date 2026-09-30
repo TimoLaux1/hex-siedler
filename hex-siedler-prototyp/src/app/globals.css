@@ -774,7 +774,7 @@ button, a { font: inherit; }
     align-self: end;
     justify-self: center;
     width: calc(100vw - 34px);
-    margin: 0 0 max(8vh,calc(env(safe-area-inset-bottom) + 30px));
+    margin: 0 0 max(10vh,calc(env(safe-area-inset-bottom) + 42px));
     padding: 30px 18px;
   }
   .opening-intro-title p { white-space: normal; }

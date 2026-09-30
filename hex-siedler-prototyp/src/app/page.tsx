@@ -1130,9 +1130,28 @@ export default function Home() {
   useEffect(() => () => {
     Object.values(resourceGainTimers.current).forEach((timer) => timer && clearTimeout(timer));
   }, []);
-  const canBuildRoad = myResources.wood >= 1 && myResources.brick >= 1;
-  const canBuildSettlement = myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
-  const canBuildCity = myResources.ore >= 3 && myResources.grain >= 2;
+  const victoryTargetForPieces = room?.victory_target ?? 10;
+  const isShortGame = victoryTargetForPieces >= 7 && victoryTargetForPieces <= 9;
+  const myRoadLimit = isShortGame ? 10 : victoryTargetForPieces >= 13 ? 17 : 15;
+  const mySettlementLimit = victoryTargetForPieces >= 13 ? 6 : 5;
+  const myCityLimit = isShortGame ? 3 : 4;
+  // In den kurzen Partien ist der Vorrat bewusst fest begrenzt. Boni durch
+  // den Reichen Klaus erweitern ihn erst wieder ab dem normalen 10-SP-Spiel.
+  const myRoadBonus = isShortGame ? 0 : (me?.road_limit_bonus ?? 0);
+  const mySettlementBonus = isShortGame ? 0 : (me?.settlement_limit_bonus ?? 0);
+  const myRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === me?.player_index).length;
+  const mySettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === me?.player_index && (building.building === undefined || building.building === "settlement")
+  ).length;
+  const myCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
+    building.player === me?.player_index && building.building === "city"
+  ).length;
+  const myRoadsRemaining = Math.max(0, myRoadLimit + myRoadBonus - myRoadsBuilt);
+  const mySettlementsRemaining = Math.max(0, mySettlementLimit + mySettlementBonus - mySettlementsBuilt);
+  const myCitiesRemaining = Math.max(0, myCityLimit - myCitiesBuilt);
+  const canBuildRoad = myRoadsRemaining > 0 && myResources.wood >= 1 && myResources.brick >= 1;
+  const canBuildSettlement = mySettlementsRemaining > 0 && myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
+  const canBuildCity = myCitiesRemaining > 0 && myResources.ore >= 3 && myResources.grain >= 2;
   const goldmineUnlocked = Boolean(room?.state?.goldmine_unlocked) || players.some((player) => (player.victory_points ?? 0) >= 8);
   const canBuildGoldmine = goldmineUnlocked && myResources.wood >= 2 && myResources.brick >= 2;
   const canCallKlaus = myResources.ore >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
@@ -1166,18 +1185,6 @@ export default function Home() {
   const totalRolls = diceSums.reduce((total, sum) => total + (diceStats[String(sum)] ?? 0), 0);
   const highestDiceCount = Math.max(1, ...diceSums.map((sum) => diceStats[String(sum)] ?? 0));
   const activePlayerIndex = room?.state?.active_player;
-  const myRoadLimit = (room?.victory_target ?? 10) >= 13 ? 17 : 15;
-  const mySettlementLimit = (room?.victory_target ?? 10) >= 13 ? 6 : 5;
-  const myRoadsBuilt = (room?.state?.roads ?? []).filter((road) => road.player === me?.player_index).length;
-  const mySettlementsBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === me?.player_index && (building.building === undefined || building.building === "settlement")
-  ).length;
-  const myCitiesBuilt = (room?.state?.settlements ?? []).filter((building) =>
-    building.player === me?.player_index && building.building === "city"
-  ).length;
-  const myRoadsRemaining = Math.max(0, myRoadLimit + (me?.road_limit_bonus ?? 0) - myRoadsBuilt);
-  const mySettlementsRemaining = Math.max(0, mySettlementLimit + (me?.settlement_limit_bonus ?? 0) - mySettlementsBuilt);
-  const myCitiesRemaining = Math.max(0, 4 - myCitiesBuilt);
   const playerTimersReady = Boolean(room?.state?.player_time_remaining);
   const activePlayerIsBot = Boolean(activePlayer?.is_bot);
   const playerClockPaused = Boolean(activePlayerIsBot || room?.state?.timer_paused_at || room?.state?.card_event || room?.state?.phase === "discard" || room?.state?.phase === "goldmine" || room?.state?.phase?.startsWith("setup_"));
@@ -1581,7 +1588,7 @@ export default function Home() {
   }
 
   function cycleVictoryTarget() {
-    setVictoryTarget((current) => current >= 15 ? 10 : current + 1);
+    setVictoryTarget((current) => current >= 15 ? 7 : current + 1);
   }
 
   useEffect(() => {
@@ -2132,6 +2139,16 @@ export default function Home() {
 
   async function placeSettlement(vertex: Vertex) {
     if (!supabase || !room) return;
+    if (room.state?.phase !== "setup_settlement") {
+      if (buildMode === "city" && myCitiesRemaining <= 0) {
+        setError("Du hast keine Stadt mehr übrig.");
+        return;
+      }
+      if (buildMode !== "city" && buildMode !== "goldmine" && mySettlementsRemaining <= 0) {
+        setError("Du hast keine Siedlung mehr übrig.");
+        return;
+      }
+    }
     setBusy(true); setError("");
     const rpcName = room.state?.phase === "setup_settlement"
       ? "place_setup_settlement"
@@ -2168,6 +2185,10 @@ export default function Home() {
 
   async function placeRoad(edge: Edge) {
     if (!supabase || !room) return;
+    if (room.state?.phase !== "setup_road" && myRoadsRemaining <= 0) {
+      setError("Du hast keine Straße mehr übrig.");
+      return;
+    }
     setBusy(true); setError("");
     const rpcName = room.state?.phase === "setup_road" ? "place_setup_road" : "build_game_road";
     const { data, error: placementError } = await supabase.rpc(rpcName, { p_game_id: room.id, p_edge: edge.id, p_vertex_a: edge.a, p_vertex_b: edge.b });
