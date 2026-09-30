@@ -548,9 +548,9 @@ button, a { font: inherit; }
   overflow: hidden;
   background: #79bcc8;
   opacity: 1;
-  transition: opacity 1s ease, filter 1s ease;
+  transition: opacity .8s ease;
 }
-.opening-intro.is-fading { opacity: 0; filter: blur(5px); pointer-events: none; }
+.opening-intro.is-fading { opacity: 0; pointer-events: none; }
 .opening-intro-water {
   position: absolute;
   inset: 0;
@@ -560,7 +560,8 @@ button, a { font: inherit; }
     radial-gradient(circle at 16% 30%,rgba(255,255,255,.24),transparent 28%),
     radial-gradient(circle at 84% 76%,rgba(38,137,174,.23),transparent 34%),
     linear-gradient(180deg,#63c9c5 0 9%,#a4d4dc 9.5%,#80c1d3 52%,#5da9c2 100%);
-  animation: opening-water-camera 10s ease-out both;
+  contain: paint;
+  transform: translateZ(0);
 }
 .opening-intro-water::before,
 .opening-intro-water::after {
@@ -587,9 +588,9 @@ button, a { font: inherit; }
   height: 88%;
   clip-path: polygon(43% 0,57% 0,68% 16%,60% 29%,76% 43%,62% 58%,82% 72%,58% 100%,42% 100%,18% 72%,38% 58%,24% 43%,40% 29%,32% 16%);
   background: repeating-linear-gradient(to bottom,rgba(255,246,164,.76) 0 7px,rgba(255,220,99,.22) 8px 15px,transparent 16px 22px);
-  filter: blur(.35px) drop-shadow(0 0 10px rgba(255,218,94,.36));
   opacity:.82;
   animation: opening-reflection-shimmer 4s ease-in-out infinite alternate;
+  will-change: transform,opacity;
 }
 .opening-intro-water > .sea-atmosphere { z-index:6; inset:10% 0 0; }
 .opening-intro-water > .swimming-fish-layer { z-index:5; inset:10% 0 0; }
@@ -604,28 +605,30 @@ button, a { font: inherit; }
   opacity: .94;
   perspective: 1100px;
   perspective-origin: 55% 28%;
-  filter: saturate(1.13) contrast(1.06) drop-shadow(0 28px 32px #123b4080);
   -webkit-mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
   mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
   transform: scale(1.08) rotate(1deg);
+  contain: layout paint;
 }
-.opening-intro-board .full-board { pointer-events: none; }
-.opening-intro-board .board-svg { filter: drop-shadow(0 8px 12px #173c4052); }
+.opening-intro-board .full-board { pointer-events: none; filter: none; }
+.opening-intro-board .board-svg { filter: none; }
 .opening-intro-board .setup-vertex { pointer-events: none; }
 .opening-intro-board .board-fit { overflow: visible; perspective: 1000px; }
 .opening-intro-board .board-fit-stage {
   transform-style: preserve-3d;
   transform-origin: 52% 48%;
   animation: opening-board-flyover 10s cubic-bezier(.28,.66,.3,1) both;
+  backface-visibility: hidden;
+  will-change: transform,opacity;
 }
 .opening-intro-board .board-fit-stage > .full-board { overflow: visible; }
 
 .intro-miniature-layer { position: absolute; z-index: 4; inset: 0; overflow: visible; pointer-events: none; transform-style: preserve-3d; }
-.intro-miniature { position: absolute; width: 86px; height: 72px; transform: translate(-50%,-58%) translateZ(24px); transform-style: preserve-3d; filter: drop-shadow(0 9px 5px rgba(20,39,32,.38)); }
+.intro-miniature { position: absolute; width: 86px; height: 72px; transform: translate(-50%,-58%) translateZ(24px); transform-style: preserve-3d; }
 .intro-forest i { position: absolute; bottom: 6px; width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 39px solid #164f37; transform-origin: 50% 100%; }
 .intro-forest i::after { content:""; position:absolute; left:-8px; top:17px; width:16px; height:31px; border-radius:50% 50% 18% 18%; background:linear-gradient(90deg,#285f40,#78a461 48%,#164730); clip-path:polygon(50% 0,100% 78%,68% 72%,92% 100%,8% 100%,34% 72%,0 78%); }
 .intro-forest i:nth-child(1){left:8px;transform:scale(.88)}.intro-forest i:nth-child(2){left:27px;bottom:10px;transform:scale(1.18)}.intro-forest i:nth-child(3){left:52px;transform:scale(.96)}.intro-forest i:nth-child(4){left:17px;bottom:26px;transform:scale(.76)}.intro-forest i:nth-child(5){left:43px;bottom:27px;transform:scale(.84)}.intro-forest i:nth-child(6){left:63px;bottom:20px;transform:scale(.68)}.intro-forest i:nth-child(7){left:36px;bottom:1px;transform:scale(1.03)}
-.intro-mountains i { position:absolute; bottom:5px; width:0; height:0; border-left:27px solid transparent; border-right:27px solid transparent; border-bottom:61px solid #596b69; filter:drop-shadow(0 5px 3px #24373566); }
+.intro-mountains i { position:absolute; bottom:5px; width:0; height:0; border-left:27px solid transparent; border-right:27px solid transparent; border-bottom:61px solid #596b69; }
 .intro-mountains i::after { content:""; position:absolute; left:-13px; top:13px; width:26px; height:23px; background:#eef1e7; clip-path:polygon(50% 0,100% 100%,70% 74%,53% 90%,35% 68%,0 100%); }
 .intro-mountains i:nth-child(1){left:1px;transform:scale(.78)}.intro-mountains i:nth-child(2){left:25px;bottom:7px;transform:scale(1.1);border-bottom-color:#465b59}.intro-mountains i:nth-child(3){left:48px;transform:scale(.72)}
 .intro-crops { display:flex; align-items:flex-end; justify-content:center; gap:5px; padding-bottom:8px; }
@@ -694,15 +697,15 @@ button, a { font: inherit; }
   inset: -20%;
   pointer-events: none;
   background: radial-gradient(ellipse at 20% 60%,rgba(255,255,255,.19),transparent 22%),radial-gradient(ellipse at 80% 35%,rgba(255,255,255,.14),transparent 24%);
-  animation: opening-mist 10s linear both;
+  opacity: .72;
 }
 @keyframes opening-board-flyover {
-  0% { transform:rotateX(61deg) rotateZ(-21deg) translate3d(235px,135px,-160px) scale(1.5); opacity:.14; filter:blur(6px) }
-  14% { opacity:.96; filter:blur(0) }
+  0% { transform:rotateX(61deg) rotateZ(-21deg) translate3d(235px,135px,-160px) scale(1.5); opacity:.14 }
+  14% { opacity:.96 }
   32% { transform:rotateX(55deg) rotateZ(-11deg) translate3d(100px,20px,40px) scale(1.27); opacity:1 }
   58% { transform:rotateX(48deg) rotateZ(1deg) translate3d(-25px,-54px,95px) scale(1.12); opacity:1 }
   82% { transform:rotateX(43deg) rotateZ(9deg) translate3d(-115px,-8px,65px) scale(1.02); opacity:1 }
-  100% { transform:rotateX(42deg) rotateZ(15deg) translate3d(-62px,-42px,45px) scale(.96); opacity:1; filter:blur(0) }
+  100% { transform:rotateX(42deg) rotateZ(15deg) translate3d(-62px,-42px,45px) scale(.96); opacity:1 }
 }
 @keyframes intro-crop-sway { to { transform:rotate(5deg) } }
 @keyframes intro-mine-pulse { to { transform:scale(1.3); box-shadow:0 0 11px 7px #fff27a,0 0 34px 18px #ff9e2c } }
@@ -710,11 +713,15 @@ button, a { font: inherit; }
 @keyframes intro-fish-leap { 0%,18%,100%{opacity:0;transform:translateY(12px) rotate(-12deg) scale(.7)} 30%{opacity:1} 52%{opacity:1;transform:translateY(-38px) rotate(12deg) scale(1.12)} 76%{opacity:1;transform:translateY(8px) rotate(34deg) scale(.82)} 82%{opacity:0} }
 @keyframes intro-fish-splash { 0%,72%,100%{opacity:0;transform:scale(.4)} 78%{opacity:1;transform:scale(1.15)} 92%{opacity:0;transform:scale(1.6)} }
 @keyframes intro-ripple { 0%,68%,100%{opacity:0;transform:scale(.45)} 78%{opacity:.9} 96%{opacity:0;transform:scale(1.65)} }
-@keyframes opening-water-camera { from { filter:saturate(.9) brightness(.9) } to { filter:saturate(1.08) brightness(1.03) } }
 @keyframes opening-reflection-shimmer { to { opacity:.96; transform:translateX(7px) scaleX(1.08) } }
 @keyframes opening-title-arrive { to { opacity: 1; transform: translateY(0) rotate(-.7deg) scale(1); } }
 @keyframes opening-title-breathe { 50% { transform: translateY(-4px) rotate(.45deg) scale(1.012); } }
-@keyframes opening-mist { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+
+/* Der Vorspann bewegt nur zusammengesetzte GPU-Ebenen. Teure Filter auf dem
+   kompletten Brett oder Hintergrund verursachen besonders auf Mobilgeräten
+   sichtbare Ruckler. */
+.opening-intro .sea-wave:nth-child(even) { animation: none; opacity: .34; }
+.opening-intro .water-swimmer { filter: none; }
 
 @media (orientation: landscape) and (max-height: 620px) {
   .opening-intro-title { width: min(560px,calc(53vw - 34px)); margin-left: 28px; padding-block: 24px; }
