@@ -757,9 +757,35 @@ button, a { font: inherit; }
     min-height: 100lvh;
   }
   .opening-intro-water { min-height: 100lvh; background-position: center,center,61% center; background-size: auto,auto,auto 100%; }
-  .opening-intro-landscape { object-position: 61% center; }
-  .opening-intro-board { top: 16vh; right: -19vw; bottom: 4vh; left: 14vw; opacity: .72; }
-  .opening-intro-title { justify-self: center; width: calc(100vw - 34px); margin-left: 0; padding: 38px 20px; }
+  .opening-intro-water::after {
+    top: 10%;
+    height: 29%;
+  }
+  .opening-intro-board {
+    top: 8vh;
+    right: -13vw;
+    bottom: 34vh;
+    left: -13vw;
+    opacity: .78;
+  }
+  .opening-intro-board .board-fit-stage {
+    animation-name: opening-board-flyover-mobile;
+  }
+  .opening-intro-title {
+    align-self: end;
+    justify-self: center;
+    width: calc(100vw - 34px);
+    margin: 0 0 max(5vh,calc(env(safe-area-inset-bottom) + 18px));
+    padding: 30px 18px;
+  }
+  .opening-intro-title p { white-space: normal; }
+}
+@keyframes opening-board-flyover-mobile {
+  0% { transform:rotateX(48deg) rotateZ(-7deg) translate3d(10px,18px,0) scale(.92); opacity:.2 }
+  18% { opacity:.96 }
+  42% { transform:rotateX(43deg) rotateZ(-2deg) translate3d(-8px,-7px,20px) scale(.96); opacity:1 }
+  72% { transform:rotateX(40deg) rotateZ(4deg) translate3d(8px,-3px,16px) scale(.93); opacity:1 }
+  100% { transform:rotateX(38deg) rotateZ(7deg) translate3d(0,0,0) scale(.88); opacity:1 }
 }
 @media (prefers-reduced-motion: reduce) {
   .opening-intro-board,
