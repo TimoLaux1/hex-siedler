@@ -556,37 +556,44 @@ button, a { font: inherit; }
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 48%,rgba(255,238,184,.11),transparent 42%),
-    linear-gradient(90deg,rgba(14,48,48,.08),transparent 28% 72%,rgba(14,48,48,.12)),
-    url("/new-katan-intro-3d.webp") center center / cover no-repeat,
-    #79bcc8;
-  animation: opening-landscape-camera 10s ease-out both;
-}
-.opening-intro-landscape {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  pointer-events: none;
+    radial-gradient(ellipse at 50% 56%,rgba(92,204,204,.72) 0 25%,rgba(89,188,199,.56) 41%,transparent 67%),
+    radial-gradient(circle at 16% 30%,rgba(255,255,255,.24),transparent 28%),
+    radial-gradient(circle at 84% 76%,rgba(38,137,174,.23),transparent 34%),
+    linear-gradient(180deg,#63c9c5 0 9%,#a4d4dc 9.5%,#80c1d3 52%,#5da9c2 100%);
+  animation: opening-water-camera 10s ease-out both;
 }
 .opening-intro-water::before,
 .opening-intro-water::after {
   content: "";
   position: absolute;
-  z-index: 4;
-  width: 38vw;
-  height: 38vw;
-  border-radius: 48% 52% 56% 44%;
-  background: radial-gradient(ellipse,#7fa84e 0 15%,#3f7750 16% 26%,transparent 27%);
-  opacity: .28;
-  filter: blur(1px) drop-shadow(0 12px 12px #244e4938);
-  animation: opening-island-drift 10s ease-in-out infinite alternate;
+  pointer-events: none;
 }
-.opening-intro-water::before { left: -24vw; bottom: -23vw; transform: rotate(22deg); }
-.opening-intro-water::after { right: -25vw; top: -25vw; transform: rotate(-18deg); animation-delay: -2s; }
+.opening-intro-water::before {
+  z-index: 3;
+  inset: 0 0 auto 0;
+  height: 10%;
+  background:
+    radial-gradient(circle at 15% 100%,#fffbd5 0 3.2vh,#ffe67c 3.3vh 4.7vh,#ffc04f 4.8vh 6vh,#ed743a 6.1vh 7vh,transparent 7.1vh),
+    radial-gradient(ellipse 22vw 11vh at 15% 100%,rgba(224,76,44,.68),rgba(245,132,59,.31) 43%,transparent 76%),
+    linear-gradient(to bottom,#38b9b9,#63ccc6 55%,#8bd7cf);
+  border-bottom:2px solid rgba(102,84,76,.42);
+  box-shadow:0 3px 8px rgba(241,145,63,.22);
+}
+.opening-intro-water::after {
+  z-index: 3;
+  top: 10%;
+  left: calc(15% - 12vw);
+  width: 24vw;
+  height: 88%;
+  clip-path: polygon(43% 0,57% 0,68% 16%,60% 29%,76% 43%,62% 58%,82% 72%,58% 100%,42% 100%,18% 72%,38% 58%,24% 43%,40% 29%,32% 16%);
+  background: repeating-linear-gradient(to bottom,rgba(255,246,164,.76) 0 7px,rgba(255,220,99,.22) 8px 15px,transparent 16px 22px);
+  filter: blur(.35px) drop-shadow(0 0 10px rgba(255,218,94,.36));
+  opacity:.82;
+  animation: opening-reflection-shimmer 4s ease-in-out infinite alternate;
+}
+.opening-intro-water > .sea-atmosphere { z-index:6; inset:10% 0 0; }
+.opening-intro-water > .swimming-fish-layer { z-index:5; inset:10% 0 0; }
+.opening-intro-water > .jumping-fish-layer { z-index:7; inset:10% 0 0; }
 .opening-intro-board {
   position: absolute;
   z-index: 16;
@@ -690,10 +697,12 @@ button, a { font: inherit; }
   animation: opening-mist 10s linear both;
 }
 @keyframes opening-board-flyover {
-  0% { transform:rotateX(58deg) rotateZ(-17deg) translate3d(180px,95px,-120px) scale(1.34); opacity:.18; filter:blur(5px) }
-  18% { opacity:.96; filter:blur(0) }
-  48% { transform:rotateX(52deg) rotateZ(-5deg) translate3d(70px,-12px,20px) scale(1.12); opacity:1 }
-  100% { transform:rotateX(44deg) rotateZ(7deg) translate3d(-65px,-48px,60px) scale(.94); opacity:1; filter:blur(0) }
+  0% { transform:rotateX(61deg) rotateZ(-21deg) translate3d(235px,135px,-160px) scale(1.5); opacity:.14; filter:blur(6px) }
+  14% { opacity:.96; filter:blur(0) }
+  32% { transform:rotateX(55deg) rotateZ(-11deg) translate3d(100px,20px,40px) scale(1.27); opacity:1 }
+  58% { transform:rotateX(48deg) rotateZ(1deg) translate3d(-25px,-54px,95px) scale(1.12); opacity:1 }
+  82% { transform:rotateX(43deg) rotateZ(9deg) translate3d(-115px,-8px,65px) scale(1.02); opacity:1 }
+  100% { transform:rotateX(42deg) rotateZ(15deg) translate3d(-62px,-42px,45px) scale(.96); opacity:1; filter:blur(0) }
 }
 @keyframes intro-crop-sway { to { transform:rotate(5deg) } }
 @keyframes intro-mine-pulse { to { transform:scale(1.3); box-shadow:0 0 11px 7px #fff27a,0 0 34px 18px #ff9e2c } }
@@ -701,13 +710,10 @@ button, a { font: inherit; }
 @keyframes intro-fish-leap { 0%,18%,100%{opacity:0;transform:translateY(12px) rotate(-12deg) scale(.7)} 30%{opacity:1} 52%{opacity:1;transform:translateY(-38px) rotate(12deg) scale(1.12)} 76%{opacity:1;transform:translateY(8px) rotate(34deg) scale(.82)} 82%{opacity:0} }
 @keyframes intro-fish-splash { 0%,72%,100%{opacity:0;transform:scale(.4)} 78%{opacity:1;transform:scale(1.15)} 92%{opacity:0;transform:scale(1.6)} }
 @keyframes intro-ripple { 0%,68%,100%{opacity:0;transform:scale(.45)} 78%{opacity:.9} 96%{opacity:0;transform:scale(1.65)} }
-@keyframes opening-landscape-camera {
-  0% { background-position: center center,center center,center 52%; filter: saturate(.88) brightness(.88); }
-  100% { background-position: center center,center center,center 48%; filter: saturate(1.06) brightness(1); }
-}
+@keyframes opening-water-camera { from { filter:saturate(.9) brightness(.9) } to { filter:saturate(1.08) brightness(1.03) } }
+@keyframes opening-reflection-shimmer { to { opacity:.96; transform:translateX(7px) scaleX(1.08) } }
 @keyframes opening-title-arrive { to { opacity: 1; transform: translateY(0) rotate(-.7deg) scale(1); } }
 @keyframes opening-title-breathe { 50% { transform: translateY(-4px) rotate(.45deg) scale(1.012); } }
-@keyframes opening-island-drift { to { translate: 15px -10px; rotate: 3deg; } }
 @keyframes opening-mist { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
 
 @media (orientation: landscape) and (max-height: 620px) {

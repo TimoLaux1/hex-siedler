@@ -920,8 +920,9 @@ function OpeningIntro({ fading }: { fading: boolean }) {
   return (
     <main className={`opening-intro ${fading ? "is-fading" : ""}`} aria-label="New Katan Intro">
       <div className="opening-intro-water" aria-hidden="true">
-        <img className="opening-intro-landscape" src="/new-katan-intro-3d.webp?v=4" alt="" />
+        <SeaAtmosphere />
         <SwimmingFishLayer />
+        <JumpingFishLayer />
         <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} cinematic /></BoardFit></div>
         <div className="opening-intro-glow" />
       </div>
