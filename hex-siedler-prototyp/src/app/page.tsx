@@ -2663,7 +2663,7 @@ export default function Home() {
                     {!activeCard.must_play && <button className="cancel-card" onClick={() => { setSelectedCard(null); setSelectedRobberTile(null); }}>Abbrechen</button>}
                   </div>
                 ) : <>
-                  <span className="turn-note">{buildMode ? `Wähle jetzt ${buildMode === "road" ? "eine angeschlossene Kante" : buildMode === "settlement" ? "einen erlaubten Bauplatz" : buildMode === "goldmine" ? "eine eigene Siedlung direkt an der Wüste" : "eine eigene Siedlung"} auf dem Spielfeld.` : "Rohstoffe wurden verteilt. Du kannst mehrere Aktionen ausführen."}</span>
+                  {buildMode && <span className="turn-note">{`Wähle jetzt ${buildMode === "road" ? "eine angeschlossene Kante" : buildMode === "settlement" ? "einen erlaubten Bauplatz" : buildMode === "goldmine" ? "eine eigene Siedlung direkt an der Wüste" : "eine eigene Siedlung"} auf dem Spielfeld.`}</span>}
                   <div className="build-actions">
                     <button className={buildMode === "road" ? "active" : ""} onClick={() => setBuildMode(buildMode === "road" ? null : "road")} disabled={!isMyTurn || busy || !canBuildRoad || Boolean(forcedCard)}><strong>Straße</strong><small>1 Holz · 1 Lehm</small></button>
                     <button className={buildMode === "settlement" ? "active" : ""} onClick={() => setBuildMode(buildMode === "settlement" ? null : "settlement")} disabled={!isMyTurn || busy || !canBuildSettlement || Boolean(forcedCard)}><strong>Siedlung</strong><small>Holz · Lehm · Wolle · Getreide</small></button>
@@ -2768,8 +2768,10 @@ export default function Home() {
             onKlausEdge={(edge) => void playKlausCard({ edge: edge.id })}
             onKlausTile={selectRobberTile}
           /></BoardFit>
-          {showLongestRoadAward && longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
-          {showLargestArmyAward && largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
+          <div className="board-awards" aria-live="polite">
+            {showLongestRoadAward && longestRoadHolder && <div className="longest-road-badge">🛣 Längste Handelsstraße: <strong>{longestRoadHolder.player_name}</strong> · {room.state?.longest_road_length ?? 5} Straßen · +2 SP</div>}
+            {showLargestArmyAward && largestArmyHolder && <div className="largest-army-badge">♞ Größte Rittermacht: <strong>{largestArmyHolder.player_name}</strong> · {room.state?.largest_army_size ?? largestArmyHolder.knight_points ?? 3} Ritter · +2 SP</div>}
+          </div>
         </section>
       </section>
       {room.state?.card_event && <div className="klaus-reveal-overlay"><div className="klaus-reveal"><span>{players.find((player) => player.player_index === room.state?.card_event?.player)?.player_name ?? "Ein Spieler"} spielt</span><KlausCardView kind={room.state.card_event.card_type} /></div></div>}

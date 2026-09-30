@@ -2530,3 +2530,48 @@ body:has(.online-shell) {
   -webkit-mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
   mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
 }
+
+
+/* Auszeichnungen liegen in einem eigenen Vordergrund-Layer und bleiben auch
+   auf kleinen Querformaten vollstaendig vor dem Spielbrett sichtbar. */
+.online-board-area > .board-awards {
+  position: absolute;
+  z-index: 70;
+  left: 50%;
+  bottom: max(14px,env(safe-area-inset-bottom));
+  width: min(620px,calc(100% - 112px));
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.online-board-area > .board-awards > .longest-road-badge,
+.online-board-area > .board-awards > .largest-army-badge {
+  position: static;
+  z-index: auto;
+  left: auto;
+  bottom: auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 9px 16px;
+  transform: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(42,39,30,.28);
+}
+@media (orientation: landscape) and (max-height: 850px) {
+  .online-board-area > .board-awards {
+    bottom: max(12px,env(safe-area-inset-bottom));
+    width: min(560px,calc(100% - 96px));
+    gap: 5px;
+  }
+  .online-board-area > .board-awards > .longest-road-badge,
+  .online-board-area > .board-awards > .largest-army-badge {
+    padding: 7px 12px;
+    font-size: 9px;
+  }
+}
