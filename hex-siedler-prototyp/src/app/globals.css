@@ -594,16 +594,50 @@ button, a { font: inherit; }
   right: -1vw;
   bottom: 2vh;
   left: 49vw;
-  opacity: .78;
-  filter: blur(.3px) saturate(1.08) contrast(1.04) drop-shadow(0 20px 28px #123b4073);
+  opacity: .94;
+  perspective: 1100px;
+  perspective-origin: 55% 28%;
+  filter: saturate(1.13) contrast(1.06) drop-shadow(0 28px 32px #123b4080);
   -webkit-mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
   mask-image: radial-gradient(ellipse at 60% 50%,#000 0 57%,rgba(0,0,0,.94) 70%,transparent 96%);
   transform: scale(1.08) rotate(1deg);
-  animation: opening-board-float 10s ease-in-out both;
 }
 .opening-intro-board .full-board { pointer-events: none; }
 .opening-intro-board .board-svg { filter: drop-shadow(0 8px 12px #173c4052); }
 .opening-intro-board .setup-vertex { pointer-events: none; }
+.opening-intro-board .board-fit { overflow: visible; perspective: 1000px; }
+.opening-intro-board .board-fit-stage {
+  transform-style: preserve-3d;
+  transform-origin: 52% 48%;
+  animation: opening-board-flyover 10s cubic-bezier(.28,.66,.3,1) both;
+}
+.opening-intro-board .board-fit-stage > .full-board { overflow: visible; }
+
+.intro-miniature-layer { position: absolute; z-index: 4; inset: 0; overflow: visible; pointer-events: none; transform-style: preserve-3d; }
+.intro-miniature { position: absolute; width: 86px; height: 72px; transform: translate(-50%,-58%) translateZ(24px); transform-style: preserve-3d; filter: drop-shadow(0 9px 5px rgba(20,39,32,.38)); }
+.intro-forest i { position: absolute; bottom: 6px; width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 39px solid #164f37; transform-origin: 50% 100%; }
+.intro-forest i::after { content:""; position:absolute; left:-8px; top:17px; width:16px; height:31px; border-radius:50% 50% 18% 18%; background:linear-gradient(90deg,#285f40,#78a461 48%,#164730); clip-path:polygon(50% 0,100% 78%,68% 72%,92% 100%,8% 100%,34% 72%,0 78%); }
+.intro-forest i:nth-child(1){left:8px;transform:scale(.88)}.intro-forest i:nth-child(2){left:27px;bottom:10px;transform:scale(1.18)}.intro-forest i:nth-child(3){left:52px;transform:scale(.96)}.intro-forest i:nth-child(4){left:17px;bottom:26px;transform:scale(.76)}.intro-forest i:nth-child(5){left:43px;bottom:27px;transform:scale(.84)}.intro-forest i:nth-child(6){left:63px;bottom:20px;transform:scale(.68)}.intro-forest i:nth-child(7){left:36px;bottom:1px;transform:scale(1.03)}
+.intro-mountains i { position:absolute; bottom:5px; width:0; height:0; border-left:27px solid transparent; border-right:27px solid transparent; border-bottom:61px solid #596b69; filter:drop-shadow(0 5px 3px #24373566); }
+.intro-mountains i::after { content:""; position:absolute; left:-13px; top:13px; width:26px; height:23px; background:#eef1e7; clip-path:polygon(50% 0,100% 100%,70% 74%,53% 90%,35% 68%,0 100%); }
+.intro-mountains i:nth-child(1){left:1px;transform:scale(.78)}.intro-mountains i:nth-child(2){left:25px;bottom:7px;transform:scale(1.1);border-bottom-color:#465b59}.intro-mountains i:nth-child(3){left:48px;transform:scale(.72)}
+.intro-crops { display:flex; align-items:flex-end; justify-content:center; gap:5px; padding-bottom:8px; }
+.intro-crops i { position:relative; width:5px; height:47px; border-radius:50% 50% 2px 2px; background:linear-gradient(#fff0a1,#d49a22); transform-origin:bottom; animation:intro-crop-sway 2.7s ease-in-out infinite alternate; }
+.intro-crops i:nth-child(even){height:39px;animation-delay:-1.1s}.intro-crops i::before,.intro-crops i::after{content:"";position:absolute;width:8px;height:14px;border-radius:80% 10%;background:#efc44e}.intro-crops i::before{translate:-7px 10px;rotate:-35deg}.intro-crops i::after{translate:4px 18px;rotate:35deg}
+.intro-quarry i { position:absolute; width:31px; height:17px; border-radius:4px 4px 2px 2px; background:linear-gradient(145deg,#d98a60,#9b4d35); box-shadow:inset 0 -4px #713827,0 2px 0 #f2aa7f; }
+.intro-quarry i:nth-child(1){left:8px;top:22px}.intro-quarry i:nth-child(2){left:40px;top:22px}.intro-quarry i:nth-child(3){left:23px;top:4px}.intro-quarry i:nth-child(4){left:25px;top:40px}
+.intro-meadow i { position:absolute; bottom:8px; width:28px; height:17px; border-radius:50% 50% 42% 42%; background:radial-gradient(circle at 20% 30%,#fff 0 18%,transparent 20%),radial-gradient(circle at 48% 20%,#f8f3dc 0 25%,transparent 27%),radial-gradient(circle at 78% 35%,#fff 0 22%,transparent 24%),#e9e4cb; }
+.intro-meadow i::after{content:"";position:absolute;right:-7px;top:5px;width:10px;height:9px;border-radius:50%;background:#564f42}.intro-meadow i:nth-child(1){left:8px;bottom:11px}.intro-meadow i:nth-child(2){left:42px;bottom:26px;transform:scale(.8)}.intro-meadow i:nth-child(3){left:48px;bottom:3px;transform:scale(.9)}.intro-meadow b{position:absolute;left:37px;top:1px;color:#f8edae;text-shadow:0 0 15px #fff3a3;font-size:18px}
+.intro-goldmine .intro-mine-hill { position:absolute; left:6px; bottom:2px; width:74px; height:57px; border-radius:55% 55% 12px 12px; background:linear-gradient(145deg,#c7aa61,#82652e); clip-path:polygon(50% 0,100% 72%,91% 100%,7% 100%,0 70%); }
+.intro-goldmine .intro-mine-door { position:absolute; z-index:2; left:29px; bottom:3px; width:29px; height:32px; border:4px solid #4d351e; border-bottom:0; border-radius:16px 16px 0 0; background:#171913; box-shadow:inset 0 0 10px #ffbd38; }
+.intro-goldmine .intro-mine-glow { position:absolute; z-index:3; left:37px; bottom:11px; width:14px; height:14px; border-radius:50%; background:#fff6a4; box-shadow:0 0 8px 4px #ffd348,0 0 25px 13px #ff9e2c; animation:intro-mine-pulse 1.5s ease-in-out infinite alternate; }
+.intro-goldmine .intro-mine-track { position:absolute; z-index:4; left:37px; bottom:-17px; width:12px; height:37px; border-left:3px solid #65431e; border-right:3px solid #65431e; transform:perspective(50px) rotateX(42deg); }
+.intro-goldmine .intro-mine-cart { position:absolute; z-index:5; left:34px; bottom:-2px; width:20px; height:14px; border-radius:3px 3px 6px 6px; background:#5b4934;color:#ffd54b;font-size:9px;text-align:center;animation:intro-mine-cart 3s ease-in-out infinite; }
+.intro-fish-ground { transform:translate(-50%,-55%) translateZ(32px); }
+.intro-fish-jump { position:absolute; left:31px; bottom:17px; width:31px; height:16px; border-radius:60% 75% 55% 70%; background:linear-gradient(145deg,#aeeedb,#2f91aa 55%,#166f8e); transform-origin:50% 120%; animation:intro-fish-leap 2.8s cubic-bezier(.32,.05,.55,1) infinite; }
+.intro-fish-jump::before{content:"";position:absolute;left:-8px;top:3px;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:11px solid #459eb0}.intro-fish-jump::after{content:"";position:absolute;right:6px;top:4px;width:3px;height:3px;border-radius:50%;background:#102e34}
+.intro-fish-splash { position:absolute; left:27px; bottom:4px; width:39px; height:13px; border:3px solid rgba(232,255,249,.9); border-top:0; border-radius:50%; animation:intro-fish-splash 2.8s ease-out infinite; }
+.intro-fish-ripple { position:absolute; left:17px; bottom:0; width:58px; height:18px; border:2px solid rgba(220,252,247,.72); border-radius:50%; animation:intro-ripple 2.8s ease-out infinite; }
 .opening-intro-glow {
   position: absolute;
   z-index: 10;
@@ -655,12 +689,18 @@ button, a { font: inherit; }
   background: radial-gradient(ellipse at 20% 60%,rgba(255,255,255,.19),transparent 22%),radial-gradient(ellipse at 80% 35%,rgba(255,255,255,.14),transparent 24%);
   animation: opening-mist 10s linear both;
 }
-@keyframes opening-board-float {
-  0% { transform: scale(1.14) rotate(4deg) translate(55px,35px); opacity: 0; filter: blur(7px) saturate(.72); }
-  10% { opacity: .22; }
-  28% { opacity: .7; }
-  100% { transform: scale(1.03) rotate(.35deg) translate(0,0); opacity: .82; filter: blur(.3px) saturate(1.08) contrast(1.04); }
+@keyframes opening-board-flyover {
+  0% { transform:rotateX(58deg) rotateZ(-17deg) translate3d(180px,95px,-120px) scale(1.34); opacity:.18; filter:blur(5px) }
+  18% { opacity:.96; filter:blur(0) }
+  48% { transform:rotateX(52deg) rotateZ(-5deg) translate3d(70px,-12px,20px) scale(1.12); opacity:1 }
+  100% { transform:rotateX(44deg) rotateZ(7deg) translate3d(-65px,-48px,60px) scale(.94); opacity:1; filter:blur(0) }
 }
+@keyframes intro-crop-sway { to { transform:rotate(5deg) } }
+@keyframes intro-mine-pulse { to { transform:scale(1.3); box-shadow:0 0 11px 7px #fff27a,0 0 34px 18px #ff9e2c } }
+@keyframes intro-mine-cart { 0%,18%,100%{transform:translateY(13px)} 45%,70%{transform:translateY(-3px)} }
+@keyframes intro-fish-leap { 0%,18%,100%{opacity:0;transform:translateY(12px) rotate(-12deg) scale(.7)} 30%{opacity:1} 52%{opacity:1;transform:translateY(-38px) rotate(12deg) scale(1.12)} 76%{opacity:1;transform:translateY(8px) rotate(34deg) scale(.82)} 82%{opacity:0} }
+@keyframes intro-fish-splash { 0%,72%,100%{opacity:0;transform:scale(.4)} 78%{opacity:1;transform:scale(1.15)} 92%{opacity:0;transform:scale(1.6)} }
+@keyframes intro-ripple { 0%,68%,100%{opacity:0;transform:scale(.45)} 78%{opacity:.9} 96%{opacity:0;transform:scale(1.65)} }
 @keyframes opening-landscape-camera {
   0% { background-position: center center,center center,center 52%; filter: saturate(.88) brightness(.88); }
   100% { background-position: center center,center center,center 48%; filter: saturate(1.06) brightness(1); }
@@ -1322,6 +1362,54 @@ button, a { font: inherit; }
     linear-gradient(-50deg,transparent 48%,#536f3c 49% 52%,transparent 53%);
   filter: drop-shadow(0 4px 3px rgba(32,70,48,.2));
   transform: rotate(11deg);
+}
+
+/* Auszeichnungen muessen stets ueber dem Spielbrett liegen. Der gemeinsame
+   Container verhindert, dass BoardFit die Hinweise auf kleinen Querformaten
+   ueberdeckt, und stapelt beide Meldungen sauber. */
+.online-board-area > .board-awards {
+  position: absolute;
+  z-index: 70;
+  left: 50%;
+  bottom: max(14px,env(safe-area-inset-bottom));
+  width: min(620px,calc(100% - 112px));
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.online-board-area > .board-awards > .longest-road-badge,
+.online-board-area > .board-awards > .largest-army-badge {
+  position: static;
+  z-index: auto;
+  left: auto;
+  bottom: auto;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 9px 16px;
+  transform: none;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(42,39,30,.28);
+}
+
+@media (orientation: landscape) and (max-height: 850px) {
+  .online-board-area > .board-awards {
+    bottom: max(12px,env(safe-area-inset-bottom));
+    width: min(560px,calc(100% - 96px));
+    gap: 5px;
+  }
+
+  .online-board-area > .board-awards > .longest-road-badge,
+  .online-board-area > .board-awards > .largest-army-badge {
+    padding: 7px 12px;
+    font-size: 9px;
+  }
 }
 
 .online-board-area,
@@ -2529,49 +2617,4 @@ body:has(.online-shell) {
   transform-origin: 50% 0;
   -webkit-mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
   mask-image: linear-gradient(to bottom,#000 0 24%,rgba(0,0,0,.86) 42%,rgba(0,0,0,.48) 67%,transparent 100%);
-}
-
-
-/* Auszeichnungen liegen in einem eigenen Vordergrund-Layer und bleiben auch
-   auf kleinen Querformaten vollstaendig vor dem Spielbrett sichtbar. */
-.online-board-area > .board-awards {
-  position: absolute;
-  z-index: 70;
-  left: 50%;
-  bottom: max(14px,env(safe-area-inset-bottom));
-  width: min(620px,calc(100% - 112px));
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-.online-board-area > .board-awards > .longest-road-badge,
-.online-board-area > .board-awards > .largest-army-badge {
-  position: static;
-  z-index: auto;
-  left: auto;
-  bottom: auto;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0;
-  padding: 9px 16px;
-  transform: none;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.25;
-  text-align: center;
-  box-shadow: 0 6px 18px rgba(42,39,30,.28);
-}
-@media (orientation: landscape) and (max-height: 850px) {
-  .online-board-area > .board-awards {
-    bottom: max(12px,env(safe-area-inset-bottom));
-    width: min(560px,calc(100% - 96px));
-    gap: 5px;
-  }
-  .online-board-area > .board-awards > .longest-road-badge,
-  .online-board-area > .board-awards > .largest-army-badge {
-    padding: 7px 12px;
-    font-size: 9px;
-  }
 }

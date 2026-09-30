@@ -633,9 +633,28 @@ function RoadCarriage({ route }: { route: CarriageRoute }) {
   </svg>;
 }
 
-type FullBoardProps = { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void };
+function IntroTerrainMiniatures({ visibleTerrain, visibleFish }: { visibleTerrain: BoardTile[]; visibleFish: FishTile[] }) {
+  return <div className="intro-miniature-layer" aria-hidden="true">
+    {visibleTerrain.map((tile, index) => {
+      const center = tileCenters[index];
+      const style = { left: center.x, top: center.y };
+      if (tile.className === "forest") return <span className="intro-miniature intro-forest" style={style} key={`intro-terrain-${index}`}>{Array.from({ length: 7 }, (_, tree) => <i key={tree} />)}</span>;
+      if (tile.className === "mountain") return <span className="intro-miniature intro-mountains" style={style} key={`intro-terrain-${index}`}><i/><i/><i/></span>;
+      if (tile.className === "desert") return <span className="intro-miniature intro-goldmine" style={style} key={`intro-terrain-${index}`}><i className="intro-mine-hill"/><i className="intro-mine-door"/><i className="intro-mine-glow"/><i className="intro-mine-track"/><i className="intro-mine-cart">◆</i></span>;
+      if (tile.className === "field") return <span className="intro-miniature intro-crops" style={style} key={`intro-terrain-${index}`}>{Array.from({ length: 6 }, (_, crop) => <i key={crop} />)}</span>;
+      if (tile.className === "clay") return <span className="intro-miniature intro-quarry" style={style} key={`intro-terrain-${index}`}><i/><i/><i/><i/></span>;
+      return <span className="intro-miniature intro-meadow" style={style} key={`intro-terrain-${index}`}><i/><i/><i/><b>●</b></span>;
+    })}
+    {visibleFish.map((fish) => {
+      const center = fishCenters[fish.slot];
+      return <span className="intro-miniature intro-fish-ground" style={{ left: center.x, top: center.y }} key={`intro-fish-${fish.slot}`}><i className="intro-fish-jump"/><i className="intro-fish-splash"/><i className="intro-fish-ripple"/></span>;
+    })}
+  </div>;
+}
 
-const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: FullBoardProps) {
+type FullBoardProps = { room?: Room | null; fishTiles?: FishTile[]; previewTiles?: BoardTile[]; cinematic?: boolean; myIndex?: number; buildMode?: BuildMode; klausMode?: KlausMapMode; robberPreviewTile?: number | null; isActiveTurn?: boolean; onVertex?: (vertex: Vertex) => void; onEdge?: (edge: Edge) => void; onKlausVertex?: (vertex: Vertex) => void; onKlausEdge?: (edge: Edge) => void; onKlausTile?: (tile: number) => void };
+
+const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, cinematic = false, myIndex, buildMode, klausMode, robberPreviewTile, isActiveTurn, onVertex, onEdge, onKlausVertex, onKlausEdge, onKlausTile }: FullBoardProps) {
   const state = room?.state;
   const visibleFish = fishTiles ?? room?.fish_tiles ?? [];
   const visibleTerrain = room?.board_tiles ?? previewTiles ?? terrain;
@@ -771,6 +790,7 @@ const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myInd
           <text className="harbor-rate" y="12">3:1</text>
         </g>)}
       </svg>
+      {cinematic && <IntroTerrainMiniatures visibleTerrain={visibleTerrain} visibleFish={visibleFish} />}
       {carriageRoute && <RoadCarriage route={carriageRoute} />}
       {room && topology.edges.filter((edge) => visibleVertices.has(edge.a) && visibleVertices.has(edge.b)).map((edge) => {
         const built = roads.find((road) => road.edge === edge.id);
@@ -803,6 +823,7 @@ const FullBoard = memo(function FullBoard({ room, fishTiles, previewTiles, myInd
   previous.room?.status === next.room?.status &&
   previous.fishTiles === next.fishTiles &&
   previous.previewTiles === next.previewTiles &&
+  previous.cinematic === next.cinematic &&
   previous.myIndex === next.myIndex &&
   previous.buildMode === next.buildMode &&
   previous.klausMode === next.klausMode &&
@@ -901,7 +922,7 @@ function OpeningIntro({ fading }: { fading: boolean }) {
       <div className="opening-intro-water" aria-hidden="true">
         <img className="opening-intro-landscape" src="/new-katan-intro-3d.webp?v=4" alt="" />
         <SwimmingFishLayer />
-        <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} /></BoardFit></div>
+        <div className="opening-intro-board"><BoardFit><FullBoard room={introRoom} fishTiles={introFishTiles} cinematic /></BoardFit></div>
         <div className="opening-intro-glow" />
       </div>
       <section className="opening-intro-title">
