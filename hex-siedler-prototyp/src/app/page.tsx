@@ -1152,7 +1152,8 @@ export default function Home() {
   const canBuildRoad = myRoadsRemaining > 0 && myResources.wood >= 1 && myResources.brick >= 1;
   const canBuildSettlement = mySettlementsRemaining > 0 && myResources.wood >= 1 && myResources.brick >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const canBuildCity = myCitiesRemaining > 0 && myResources.ore >= 3 && myResources.grain >= 2;
-  const goldmineUnlocked = Boolean(room?.state?.goldmine_unlocked) || players.some((player) => (player.victory_points ?? 0) >= 8);
+  const goldmineUnlockThreshold = (room?.victory_target ?? 10) <= 10 ? 5 : 8;
+  const goldmineUnlocked = Boolean(room?.state?.goldmine_unlocked) || players.some((player) => (player.victory_points ?? 0) >= goldmineUnlockThreshold);
   const canBuildGoldmine = goldmineUnlocked && myResources.wood >= 2 && myResources.brick >= 2;
   const canCallKlaus = myResources.ore >= 1 && myResources.wool >= 1 && myResources.grain >= 1;
   const forcedCard = myCards.find((card) => card.must_play);
