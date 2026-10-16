@@ -2490,13 +2490,12 @@ export default function Home() {
   if (showOpeningIntro) return <OpeningIntro fading={openingIntroFading} />;
 
   if (!authReady) {
-    return <main className="auth-shell"><OrientationPrompt /><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
+    return <main className="auth-shell"><LanguageSwitcher language={language} onChange={changeLanguage} /><div className="auth-card auth-loading"><span>⬡</span><strong>New Katan wird geladen …</strong></div></main>;
   }
 
   if (!userId) {
     return (
       <main className="auth-shell">
-        <OrientationPrompt />
         <LanguageSwitcher language={language} onChange={changeLanguage} />
         <section className="auth-card">
           <div className="auth-brand"><span>⬡</span> NEW KATAN</div>
