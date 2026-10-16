@@ -2578,6 +2578,35 @@ body:has(.online-shell) {
   .online-shell > .online-topbar {
     height: 100% !important;
   }
+
+  /* Mobile Browser koennen die Sidebar-Scrollbar als breite Systemleiste
+     zeichnen. Der Inhalt bleibt per Wischgeste scrollbar, nur die native
+     Darstellung wird im mobilen Querformat ausgeblendet. */
+  .online-shell .online-sidebar,
+  .online-shell .room-panel,
+  .online-shell .online-control-area {
+    scrollbar-width: none !important;
+    scrollbar-gutter: auto !important;
+  }
+
+  .online-shell .online-sidebar::-webkit-scrollbar,
+  .online-shell .room-panel::-webkit-scrollbar,
+  .online-shell .online-control-area::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
+
+/* Anmeldung und Code-Eingabe bleiben im mobilen Hochformat voll bedienbar.
+   Der Dreh-Hinweis wird erst in Lobby und Spiel gerendert. */
+@media (max-width: 900px) and (orientation: portrait) {
+  .auth-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Nur Logo, Status und primäre Zugaktion bleiben sichtbar. Alle darunter
