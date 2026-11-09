@@ -1603,6 +1603,13 @@ export default function Home() {
       const timer = window.setTimeout(() => setAuthReady(true), 0);
       return () => window.clearTimeout(timer);
     }
+
+    let active = true;
+    const finishAuthLoading = () => {
+      if (active) setAuthReady(true);
+    };
+    const fallbackTimer = window.setTimeout(finishAuthLoading, 4000);
+
     const applySession = async (session: Awaited<ReturnType<typeof client.auth.getSession>>["data"]["session"]) => {
       const sessionEmail = session?.user.email;
       if (session?.user.id && sessionEmail) {
@@ -1612,13 +1619,22 @@ export default function Home() {
       } else {
         setUserId("");
         setName("");
-        if (session?.user.is_anonymous) await client.auth.signOut();
+        if (session?.user.is_anonymous) void client.auth.signOut();
       }
-      setAuthReady(true);
+      window.clearTimeout(fallbackTimer);
+      finishAuthLoading();
     };
-    void client.auth.getSession().then(({ data }) => applySession(data.session));
+
+    void client.auth.getSession()
+      .then(({ data }) => applySession(data.session))
+      .catch(finishAuthLoading);
+
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => void applySession(session));
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      active = false;
+      window.clearTimeout(fallbackTimer);
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
